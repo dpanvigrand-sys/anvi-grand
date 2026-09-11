@@ -1,34 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { StockMove } from "@/lib/types";
+import { useOps } from "@/components/ops/use-ops";
 
 export default function OutwardPage() {
-  const [moves, setMoves] = useState<StockMove[]>([]);
+  const { ops, error, loading, refresh } = useOps();
   const [item, setItem] = useState("");
   const [quantity, setQuantity] = useState(1);
   const [unit, setUnit] = useState("kg");
-  const [vendorOrDept, setVendorOrDept] = useState("Kitchen");
+  const [vendorOrDept, setVendorOrDept] = useState("CHIGURU kitchen");
   const [notes, setNotes] = useState("");
   const [msg, setMsg] = useState("");
-  const [loading, setLoading] = useState(true);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const ops = await (await fetch("/api/ops")).json();
-      setMoves(ops.outward || []);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,7 +27,7 @@ export default function OutwardPage() {
         quantity,
         unit,
         vendorOrDept,
-        notes,
+        notes: notes || undefined,
       }),
     });
     const data = await res.json();
@@ -50,96 +35,73 @@ export default function OutwardPage() {
       setMsg(data.error || "Failed");
       return;
     }
+    setMsg(`Logged ${data.move.id}`);
     setItem("");
-    setQuantity(1);
     setNotes("");
-    setMsg("Recorded.");
-    await load();
+    await refresh();
   }
+
+  if (loading) return <p className="text-[var(--ag-muted)]">Loading outward…</p>;
+  if (error || !ops) return <p className="text-[var(--ag-red)]">{error || "No data"}</p>;
 
   return (
     <div>
-      <h1 className="font-display text-3xl text-[var(--ag-chocolate)]">Outward</h1>
-      <p className="mt-1 text-sm text-[var(--ag-muted)]">Stock issued to kitchen & stores</p>
+      <p className="text-xs uppercase tracking-[0.2em] text-[var(--ag-red)]">Stores</p>
+      <h1 className="mt-2 font-display text-4xl text-[var(--ag-ink)]">Outward stock</h1>
 
-      <form
-        onSubmit={onSubmit}
-        className="mt-8 max-w-md space-y-3 border border-[var(--ag-line)] bg-white p-5"
-      >
-        <div className="space-y-2">
+      <form onSubmit={onSubmit} className="mt-8 max-w-md space-y-3 border border-[var(--ag-line)] bg-white p-5">
+        <div className="space-y-1">
           <Label>Item</Label>
-          <Input
-            required
-            value={item}
-            onChange={(e) => setItem(e.target.value)}
-            className="rounded-none"
-          />
+          <Input className="rounded-none" required value={item} onChange={(e) => setItem(e.target.value)} />
         </div>
-        <div className="grid grid-cols-2 gap-3">
-          <div className="space-y-2">
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1">
             <Label>Qty</Label>
             <Input
               type="number"
-              min={1}
+              min={0.01}
+              step="any"
+              className="rounded-none"
               required
               value={quantity}
               onChange={(e) => setQuantity(Number(e.target.value))}
-              className="rounded-none"
             />
           </div>
-          <div className="space-y-2">
+          <div className="space-y-1">
             <Label>Unit</Label>
-            <Input
-              value={unit}
-              onChange={(e) => setUnit(e.target.value)}
-              className="rounded-none"
-            />
+            <Input className="rounded-none" required value={unit} onChange={(e) => setUnit(e.target.value)} />
           </div>
         </div>
-        <div className="space-y-2">
+        <div className="space-y-1">
           <Label>Department</Label>
           <Input
+            className="rounded-none"
             required
             value={vendorOrDept}
             onChange={(e) => setVendorOrDept(e.target.value)}
-            className="rounded-none"
           />
         </div>
-        <div className="space-y-2">
+        <div className="space-y-1">
           <Label>Notes</Label>
-          <Input
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            className="rounded-none"
-          />
+          <Input className="rounded-none" value={notes} onChange={(e) => setNotes(e.target.value)} />
         </div>
         {msg && <p className="text-sm text-[var(--ag-maroon)]">{msg}</p>}
-        <Button
-          type="submit"
-          className="h-10 w-full rounded-none bg-[var(--ag-red)] text-white hover:bg-[var(--ag-maroon)]"
-        >
+        <Button type="submit" className="h-10 w-full rounded-none bg-[var(--ag-red)] text-white">
           Record outward
         </Button>
       </form>
 
-      {loading ? (
-        <p className="mt-8 text-[var(--ag-muted)]">Loading…</p>
-      ) : (
-        <ul className="mt-8 space-y-2">
-          {moves.length === 0 && (
-            <li className="text-[var(--ag-muted)]">No outward records yet.</li>
-          )}
-          {moves.map((m) => (
-            <li
-              key={m.id}
-              className="border border-[var(--ag-line)] bg-white px-4 py-3 text-sm"
-            >
-              {m.quantity} {m.unit} {m.item} · {m.vendorOrDept}
-              {m.notes ? ` · ${m.notes}` : ""}
+      <ul className="mt-8 space-y-2 text-sm">
+        {ops.outward.length === 0 ? (
+          <li className="text-[var(--ag-muted)]">No outward moves yet.</li>
+        ) : (
+          ops.outward.map((m) => (
+            <li key={m.id} className="border border-[var(--ag-line)] bg-white px-4 py-3">
+              {m.item} · {m.quantity} {m.unit} · {m.vendorOrDept} · {m.id}
             </li>
-          ))}
-        </ul>
-      )}
+          ))
+        )}
+      </ul>
     </div>
   );
 }
