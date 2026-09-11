@@ -5,7 +5,10 @@
     "address": "Anvi Grand, near Benz Circle, Eluru Road, Vijayawada",
     "phone": "7569494949",
     "email": "stay@anvigrand.in",
-    "foodBrand": "CHIGURU"
+    "foodBrand": "CHIGURU",
+    "heroImage": "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=2000&q=80",
+    "logo": "/logos/anvi-grand.svg",
+    "foodLogo": "/logos/chiguru.svg"
   },
   "rooms": [
     {
@@ -13,7 +16,7 @@
       "name": "Deluxe King",
       "tagline": "Spacious king bed with city light",
       "description": "A calm deluxe room with a king bed, work desk, and monsoon-ready AC. Ideal for business travellers and couples visiting Vijayawada.",
-      "pricePerNight": 3200,
+      "pricePerNight": 3499,
       "capacity": 2,
       "amenities": [
         "King bed",
@@ -22,7 +25,7 @@
         "TV",
         "Mini fridge"
       ],
-      "image": "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1600&q=80",
+      "image": "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=1600&q=80",
       "available": true
     },
     {
@@ -30,7 +33,7 @@
       "name": "Executive Suite",
       "tagline": "Sitting lounge and premium comfort",
       "description": "Separate sitting area, premium linen, and an expansive bathroom. Our most requested suite for longer stays and VIP guests.",
-      "pricePerNight": 5200,
+      "pricePerNight": 5499,
       "capacity": 3,
       "amenities": [
         "Suite lounge",
@@ -39,7 +42,7 @@
         "Work desk",
         "Complimentary breakfast"
       ],
-      "image": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1600&q=80",
+      "image": "https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=1600&q=80",
       "available": true
     },
     {
@@ -47,7 +50,7 @@
       "name": "Family Twin",
       "tagline": "Two beds for family travel",
       "description": "Twin beds with extra rollaway option, perfect for families exploring Kanaka Durga Temple and the Krishna riverfront.",
-      "pricePerNight": 4100,
+      "pricePerNight": 4499,
       "capacity": 4,
       "amenities": [
         "Twin beds",
@@ -56,15 +59,15 @@
         "Wi-Fi",
         "Tea/coffee"
       ],
-      "image": "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1600&q=80",
+      "image": "https://images.unsplash.com/photo-1595576508898-0ad5c879a061?auto=format&fit=crop&w=1600&q=80",
       "available": true
     },
     {
       "id": "grand-presidential",
       "name": "Grand Presidential",
       "tagline": "Top-floor grandeur for celebrations",
-      "description": "Our signature presidential floor\u2014private dining nook, butler desk, and panoramic Eluru Road views for weddings and corporate hosts.",
-      "pricePerNight": 9800,
+      "description": "Our signature presidential floor—private dining nook, butler desk, and panoramic Eluru Road views for weddings and corporate hosts.",
+      "pricePerNight": 9999,
       "capacity": 4,
       "amenities": [
         "Private dining",
@@ -73,7 +76,7 @@
         "Lounge",
         "Airport pickup"
       ],
-      "image": "https://images.unsplash.com/photo-1578683010236-d716f9a3f461?auto=format&fit=crop&w=1600&q=80",
+      "image": "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=1600&q=80",
       "available": true
     }
   ],
@@ -85,8 +88,8 @@
       "tagline": "Weddings and grand receptions",
       "description": "Column-free banquet with stage, LED wall option, and in-house CHIGURU catering. Holds up to 450 guests for seated dinners.",
       "capacity": 450,
-      "priceFrom": 85000,
-      "image": "https://images.unsplash.com/photo-1519167758481-83f29c8c3628?auto=format&fit=crop&w=1600&q=80",
+      "priceFrom": 95000,
+      "image": "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=1600&q=80",
       "amenities": [
         "Stage",
         "AC",
@@ -100,10 +103,10 @@
       "type": "party-hall",
       "name": "CHIGURU Party Hall",
       "tagline": "Birthdays, office parties, intimate nights",
-      "description": "Flexible party hall with DJ-ready sound, soft lighting, and buffet counters\u2014ideal for 80\u2013180 guests.",
+      "description": "Flexible party hall with DJ-ready sound, soft lighting, and buffet counters—ideal for 80–180 guests.",
       "capacity": 180,
-      "priceFrom": 28000,
-      "image": "https://images.unsplash.com/photo-1464366400600-7168b8af9bc3?auto=format&fit=crop&w=1600&q=80",
+      "priceFrom": 32000,
+      "image": "https://images.unsplash.com/photo-1478146896981-b80fe463b330?auto=format&fit=crop&w=1600&q=80",
       "amenities": [
         "DJ booth",
         "Buffet counters",
@@ -118,35 +121,35 @@
       "id": "gongura-mutton",
       "name": "Gongura Mutton",
       "category": "non-veg",
-      "description": "Andhra classic\u2014tangy gongura with slow-cooked mutton.",
-      "price": 420,
+      "description": "Andhra classic—tangy gongura with slow-cooked mutton.",
+      "price": 449,
       "veg": false,
-      "image": "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?auto=format&fit=crop&w=800&q=80"
+      "image": "https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=800&q=80"
     },
     {
       "id": "pesarattu",
       "name": "Pesarattu & Upma",
       "category": "breakfast",
       "description": "Crisp green gram dosa with soft upma and ginger chutney.",
-      "price": 180,
+      "price": 149,
       "veg": true,
-      "image": "https://images.unsplash.com/photo-1589301760014-d929f3979dbc?auto=format&fit=crop&w=800&q=80"
+      "image": "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=800&q=80"
     },
     {
       "id": "panasa-pottu",
       "name": "Panasa Pottu Biryani",
       "category": "veg",
-      "description": "Jackfruit biryani from coastal Andhra kitchens\u2014aromatic and filling.",
-      "price": 260,
+      "description": "Jackfruit biryani from coastal Andhra kitchens—aromatic and filling.",
+      "price": 279,
       "veg": true,
-      "image": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=800&q=80"
+      "image": "https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=800&q=80"
     },
     {
       "id": "natu-kodi",
       "name": "Natu Kodi Pulusu",
       "category": "non-veg",
       "description": "Country chicken curry simmered with garam masala and red chilli.",
-      "price": 380,
+      "price": 399,
       "veg": false,
       "image": "https://images.unsplash.com/photo-1603894584373-5ac82b2ae958?auto=format&fit=crop&w=800&q=80"
     },
@@ -154,8 +157,8 @@
       "id": "bobbatlu",
       "name": "Bobbattu",
       "category": "dessert",
-      "description": "Sweet lentil-stuffed flatbread\u2014festival favourite.",
-      "price": 90,
+      "description": "Sweet lentil-stuffed flatbread—festival favourite.",
+      "price": 79,
       "veg": true,
       "image": "https://images.unsplash.com/photo-1571115177098-24ec42ed204d?auto=format&fit=crop&w=800&q=80"
     },
@@ -164,34 +167,34 @@
       "name": "Filter Coffee",
       "category": "beverage",
       "description": "Strong South Indian filter coffee in steel tumbler service.",
-      "price": 60,
+      "price": 49,
       "veg": true,
-      "image": "https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?auto=format&fit=crop&w=800&q=80"
+      "image": "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&q=80"
     }
   ],
   "buffets": [
     {
       "id": "weekend-andhra",
       "name": "Weekend Andhra Buffet",
-      "description": "Saturday\u2013Sunday lunch buffet featuring gongura, pulusu, rice stations, and sweets.",
-      "pricePerPerson": 799,
+      "description": "Saturday–Sunday lunch buffet featuring gongura, pulusu, rice stations, and sweets.",
+      "pricePerPerson": 899,
       "meal": "lunch",
-      "image": "https://images.unsplash.com/photo-1555939596-1926a1f1e5d8?auto=format&fit=crop&w=1200&q=80"
+      "image": "https://images.unsplash.com/photo-1555939596-1926a1f1e5d8?auto=format&fit=crop&w=1400&q=80"
     },
     {
       "id": "executive-dinner",
       "name": "Executive Dinner Buffet",
-      "description": "Weeknight dinner buffet for walk-ins and in-house guests\u2014veg and non-veg live counters.",
-      "pricePerPerson": 949,
+      "description": "Weeknight dinner buffet for walk-ins and in-house guests—veg and non-veg live counters.",
+      "pricePerPerson": 1099,
       "meal": "dinner",
-      "image": "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1200&q=80"
+      "image": "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1400&q=80"
     }
   ],
   "facilities": [
     {
       "id": "pool",
       "name": "Rooftop Pool",
-      "description": "Evening swims with city views\u2014open 6 AM to 10 PM.",
+      "description": "Evening swims with city views—open 6 AM to 10 PM.",
       "image": "https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=1200&q=80"
     },
     {
@@ -203,7 +206,7 @@
     {
       "id": "gym",
       "name": "Fitness Centre",
-      "description": "Cardio and free weights\u201424-hour access for in-house guests.",
+      "description": "Cardio and free weights—24-hour access for in-house guests.",
       "image": "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80"
     },
     {

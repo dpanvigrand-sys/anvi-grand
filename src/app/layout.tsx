@@ -21,6 +21,10 @@ export const metadata: Metadata = {
   },
   description:
     "ANVI GRAND near Benz Circle, Eluru Road, Vijayawada. Rooms, banquet, party hall, and CHIGURU dining. Call 7569494949.",
+  manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/icons/icon.svg",
+  },
 };
 
 export default function RootLayout({

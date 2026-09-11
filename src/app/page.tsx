@@ -46,7 +46,10 @@ export default async function HomePage() {
                 </Link>
                 <div className="mt-4 flex items-baseline justify-between gap-3">
                   <h3 className="font-display text-2xl text-[var(--ag-ink)]"><Link href={`/rooms/${room.id}`}>{room.name}</Link></h3>
-                  <p className="text-sm text-[var(--ag-muted)]">{formatINR(room.pricePerNight)}</p>
+                  <p className="text-sm font-medium text-[var(--ag-chocolate)]">
+                    {formatINR(room.pricePerNight)}
+                    <span className="font-normal text-[var(--ag-muted)]"> / night</span>
+                  </p>
                 </div>
                 <p className="mt-1 text-sm text-[var(--ag-muted)]">{room.tagline}</p>
               </article>
@@ -75,8 +78,8 @@ export default async function HomePage() {
       <section className="bg-[var(--ag-maroon)] text-white">
         <div className="mx-auto grid w-full max-w-6xl gap-10 px-5 py-20 md:grid-cols-2 md:items-center md:px-8">
           <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-white/60">{hotel.foodBrand}</p>
-            <h2 className="mt-3 font-display text-4xl md:text-5xl">Andhra flavours, hotel kitchen pace.</h2>
+            <Image src="/logos/chiguru.svg" alt="CHIGURU" width={160} height={44} className="h-10 w-auto" />
+            <h2 className="mt-4 font-display text-4xl md:text-5xl">Andhra flavours, hotel kitchen pace.</h2>
             <p className="mt-4 max-w-md text-white/75">Order to your room or book the weekend buffet. Tickets land on the KT board instantly.</p>
             <div className="mt-8 flex flex-wrap gap-3">
               <Link href="/food" className="inline-flex h-11 items-center bg-white px-6 text-sm text-[var(--ag-maroon)]">Order online</Link>

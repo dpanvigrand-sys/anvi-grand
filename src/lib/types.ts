@@ -5,6 +5,9 @@ export type HotelInfo = {
   phone: string;
   email: string;
   foodBrand: string;
+  heroImage?: string;
+  logo?: string;
+  foodLogo?: string;
 };
 
 export type Room = {

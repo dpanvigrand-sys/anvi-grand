@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=ANVI GRAND
+Comment=ANVI GRAND hotel website & CHIGURU dining (local demo)
+Exec=xdg-open http://127.0.0.1:3947/
+Icon=anvi-grand
+Terminal=false
+Categories=Network;WebBrowser;
+StartupNotify=true

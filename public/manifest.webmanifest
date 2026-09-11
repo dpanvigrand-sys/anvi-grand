@@ -1,0 +1,17 @@
+{
+  "name": "ANVI GRAND",
+  "short_name": "ANVI",
+  "description": "ANVI GRAND hotel & CHIGURU dining, Vijayawada",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#4A2C1A",
+  "theme_color": "#9B1B1E",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

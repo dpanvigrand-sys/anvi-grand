@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 
@@ -8,24 +9,34 @@ export function Hero() {
         className="absolute inset-0 animate-ken-burns bg-cover bg-center"
         style={{
           backgroundImage:
-            "url(https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=2000&q=80)",
+            "url(https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=2000&q=80)",
         }}
         aria-hidden
       />
-      <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(42,18,12,0.78)_0%,rgba(107,15,26,0.45)_48%,rgba(74,44,26,0.62)_100%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(42,18,12,0.82)_0%,rgba(107,15,26,0.48)_48%,rgba(74,44,26,0.68)_100%)]" />
       <div className="absolute inset-0 opacity-35 [background-image:radial-gradient(circle_at_18%_22%,rgba(255,250,247,0.16),transparent_34%),radial-gradient(circle_at_82%_68%,rgba(155,27,30,0.28),transparent_42%)]" />
 
-      <div className="relative mx-auto flex min-h-[100svh] w-full max-w-6xl flex-col justify-end px-5 pb-16 pt-28 md:px-8 md:pb-24">
+      <div className="relative mx-auto flex min-h-[100svh] w-full max-w-6xl flex-col justify-end px-5 pb-16 pt-36 md:px-8 md:pb-24">
         <div className="max-w-2xl">
-          <p className="animate-drift font-display text-5xl leading-[0.95] tracking-[-0.02em] text-white sm:text-6xl md:text-7xl lg:text-8xl">
-            ANVI GRAND
-          </p>
-          <h1 className="animate-drift-delay mt-5 max-w-xl text-lg font-medium leading-snug text-white/92 sm:text-xl md:text-2xl">
+          <Image
+            src="/logos/anvi-grand.svg"
+            alt="ANVI GRAND"
+            width={280}
+            height={72}
+            className="h-14 w-auto drop-shadow md:h-16"
+            priority
+          />
+          <p className="sr-only">ANVI GRAND</p>
+          <h1 className="animate-drift mt-6 max-w-xl font-display text-3xl leading-tight tracking-[-0.02em] text-white sm:text-4xl md:text-5xl">
             Grand stays on Eluru Road, Vijayawada.
           </h1>
-          <p className="animate-drift-delay-2 mt-4 max-w-md text-sm leading-relaxed text-white/75 md:text-base">
-            Near Benz Circle — rooms, banquet, party hall, and CHIGURU dining under
-            one roof. Call 7569494949.
+          <p className="animate-drift-delay mt-4 max-w-md text-sm leading-relaxed text-white/78 md:text-base">
+            Near Benz Circle — rooms from ₹3,499, banquet celebrations, party
+            nights, and CHIGURU Andhra dining. Call{" "}
+            <a href="tel:7569494949" className="underline decoration-white/40 underline-offset-4">
+              7569494949
+            </a>
+            .
           </p>
           <div className="animate-drift-delay-2 mt-8 flex flex-wrap gap-3">
             <Button
