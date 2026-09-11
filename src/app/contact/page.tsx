@@ -1,50 +1,28 @@
 import type { Metadata } from "next";
-import { ContactForm } from "@/components/hotel/contact-form";
+import { ContactForm } from "@/components/anvi/contact-form";
+import { MapEmbed } from "@/components/anvi/map-embed";
+import { getHotel } from "@/lib/store";
 
-export const metadata: Metadata = {
-  title: "Contact",
-  description: "Reach Havenmere concierge for dining, spa, and stay questions.",
-};
+export const metadata: Metadata = { title: "Contact" };
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const hotel = await getHotel();
   return (
-    <div className="pt-24">
-      <section className="mx-auto grid w-full max-w-6xl gap-12 px-5 pb-24 pt-8 md:grid-cols-[0.9fr_1.1fr] md:px-8 md:pt-12">
-        <div>
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--hm-sea)]">
-            Concierge
-          </p>
-          <h1 className="mt-3 font-display text-5xl text-[var(--hm-ink)] md:text-6xl">
-            Contact
-          </h1>
-          <p className="mt-4 max-w-md text-base leading-relaxed text-[var(--hm-muted)]">
-            Questions about arrival times, dining, or accessibility—send a note
-            and we’ll reply from the front desk.
-          </p>
-          <div className="mt-8 space-y-4 text-sm text-[var(--hm-ink)]">
-            <p>
-              <span className="block text-xs uppercase tracking-[0.16em] text-[var(--hm-muted)]">
-                Front desk
-              </span>
-              +1 (207) 555-0148
-              <br />
-              stay@havenmere.example
-            </p>
-            <p>
-              <span className="block text-xs uppercase tracking-[0.16em] text-[var(--hm-muted)]">
-                Address
-              </span>
-              48 Shoreline Road
-              <br />
-              North Haven, ME 04853
-            </p>
-          </div>
+    <div className="mx-auto grid max-w-6xl gap-12 px-5 py-12 md:grid-cols-[0.9fr_1.1fr] md:px-8">
+      <div>
+        <p className="text-xs uppercase tracking-[0.2em] text-[var(--ag-red)]">Contact</p>
+        <h1 className="mt-3 font-display text-5xl text-[var(--ag-ink)]">Front desk</h1>
+        <p className="mt-4 text-[var(--ag-muted)]">Questions on rooms, banquet, or CHIGURU catering—write to us.</p>
+        <div className="mt-8 space-y-4 text-sm text-[var(--ag-ink)]">
+          <p><span className="block text-xs uppercase tracking-[0.16em] text-[var(--ag-muted)]">Phone</span><a href={`tel:${hotel.phone}`}>{hotel.phone}</a></p>
+          <p><span className="block text-xs uppercase tracking-[0.16em] text-[var(--ag-muted)]">Email</span>{hotel.email}</p>
+          <p><span className="block text-xs uppercase tracking-[0.16em] text-[var(--ag-muted)]">Address</span>{hotel.address}</p>
         </div>
-
-        <div className="border border-[var(--hm-line)] bg-white/75 p-5 md:p-8">
-          <ContactForm />
-        </div>
-      </section>
+        <div className="mt-8"><MapEmbed /></div>
+      </div>
+      <div className="border border-[var(--ag-line)] bg-white/80 p-5 md:p-8">
+        <ContactForm />
+      </div>
     </div>
   );
 }

@@ -1,1 +1,17 @@
-[]
+[
+  {
+    "id": "hm-mtxcqoqq",
+    "roomId": "lake-suite",
+    "roomName": "Lake Suite",
+    "guestName": "Sarah Johnson",
+    "email": "sarah.johnson@email.com",
+    "phone": "",
+    "checkIn": "2026-09-15",
+    "checkOut": "2026-09-19",
+    "guests": 2,
+    "nights": 4,
+    "totalPrice": 1280,
+    "status": "confirmed",
+    "createdAt": "2026-09-11T19:31:22.178Z"
+  }
+]

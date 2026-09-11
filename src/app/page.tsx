@@ -1,121 +1,102 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Hero } from "@/components/hotel/hero";
-import { RoomPreview } from "@/components/hotel/room-preview";
-import { Button } from "@/components/ui/button";
-import { getRooms } from "@/lib/store";
+import { Hero } from "@/components/anvi/hero";
+import { formatINR } from "@/lib/format";
+import { getBuffets, getCatalog, getFacilities, getRooms, getVenues } from "@/lib/store";
 
 export default async function HomePage() {
+  const catalog = await getCatalog();
+  const hotel = catalog.hotel;
   const rooms = await getRooms();
+  const venues = await getVenues();
+  const buffets = await getBuffets();
+  const facilities = await getFacilities();
   const featured = rooms.slice(0, 3);
+  const banquet = venues.find((v) => v.type === "banquet");
+  const party = venues.find((v) => v.type === "party-hall");
 
   return (
     <>
       <Hero />
-
       <section className="mx-auto w-full max-w-6xl px-5 py-20 md:px-8 md:py-28">
-        <div className="max-w-2xl animate-drift">
-          <p className="text-xs uppercase tracking-[0.2em] text-[var(--hm-sea)]">
-            The house
-          </p>
-          <h2 className="mt-3 font-display text-4xl text-[var(--hm-ink)] md:text-5xl">
-            Built for long weekends and soft landings.
-          </h2>
-          <p className="mt-4 text-base leading-relaxed text-[var(--hm-muted)] md:text-lg">
-            Havenmere sits between cedar forest and open water. Guests come for
-            the quiet—and stay for the dining room, the morning mist, and rooms
-            that feel like a private cabin with a better mattress.
-          </p>
-        </div>
+        <p className="text-xs uppercase tracking-[0.2em] text-[var(--ag-red)]">Welcome</p>
+        <h2 className="mt-3 max-w-2xl font-display text-4xl text-[var(--ag-ink)] md:text-5xl">
+          A Vijayawada landmark for stays and celebrations.
+        </h2>
+        <p className="mt-4 max-w-2xl text-base leading-relaxed text-[var(--ag-muted)]">
+          {hotel.tagline}. Book rooms, reserve banquet or party hall, and order from{" "}
+          {hotel.foodBrand}—all flowing into the same ops desk.
+        </p>
       </section>
 
-      <section className="border-y border-[var(--hm-line)] bg-white/50">
-        <div className="mx-auto grid w-full max-w-6xl gap-10 px-5 py-16 md:grid-cols-2 md:items-center md:gap-16 md:px-8 md:py-24">
-          <div className="relative aspect-[4/5] overflow-hidden md:aspect-[5/6]">
-            <Image
-              src="https://images.unsplash.com/photo-1551882547-ff40c63fe5fa?auto=format&fit=crop&w=1400&q=80"
-              alt="Havenmere lobby lounge overlooking the lake"
-              fill
-              sizes="(max-width: 768px) 100vw, 50vw"
-              className="object-cover"
-            />
+      <section className="border-y border-[var(--ag-line)] bg-white/70">
+        <div className="mx-auto w-full max-w-6xl px-5 py-16 md:px-8">
+          <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-[var(--ag-red)]">Rooms</p>
+              <h2 className="mt-2 font-display text-4xl text-[var(--ag-ink)]">Rest well on Eluru Road</h2>
+            </div>
+            <Link href="/rooms" className="text-sm text-[var(--ag-red)] underline-offset-4 hover:underline">All rooms</Link>
           </div>
-          <div className="animate-drift-delay">
-            <p className="text-xs uppercase tracking-[0.2em] text-[var(--hm-sea)]">
-              Stay
-            </p>
-            <h2 className="mt-3 font-display text-4xl text-[var(--hm-ink)] md:text-5xl">
-              Sixteen rooms. One shoreline.
-            </h2>
-            <p className="mt-4 text-base leading-relaxed text-[var(--hm-muted)]">
-              From the Lake Suite’s glass wall to the freestanding Meadow
-              Cottage, every room faces water, trees, or both. Reserve online—
-              confirmation is instant in this local demo.
-            </p>
-            <Button
-              render={<Link href="/rooms" />}
-              className="mt-8 h-11 rounded-none bg-[var(--hm-sea)] px-6 text-white hover:bg-[var(--hm-sea)]/90"
-            >
-              Browse rooms
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      <section className="mx-auto w-full max-w-6xl px-5 py-20 md:px-8 md:py-28">
-        <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-[var(--hm-sea)]">
-              Rooms
-            </p>
-            <h2 className="mt-3 font-display text-4xl text-[var(--hm-ink)]">
-              A few places to begin
-            </h2>
-          </div>
-          <Link
-            href="/rooms"
-            className="text-sm text-[var(--hm-sea)] underline-offset-4 hover:underline"
-          >
-            See all rooms
-          </Link>
-        </div>
-        {featured.length === 0 ? (
-          <p className="border border-[var(--hm-line)] bg-white/70 px-6 py-10 text-center text-[var(--hm-muted)]">
-            Rooms are being refreshed. Please check back shortly.
-          </p>
-        ) : (
           <div className="grid gap-10 md:grid-cols-3">
             {featured.map((room) => (
-              <RoomPreview key={room.id} room={room} />
+              <article key={room.id} className="group">
+                <Link href={`/rooms/${room.id}`} className="relative block aspect-[4/3] overflow-hidden">
+                  <Image src={room.image} alt={room.name} fill sizes="(max-width:768px) 100vw, 33vw" className="object-cover transition duration-700 group-hover:scale-[1.03]" />
+                </Link>
+                <div className="mt-4 flex items-baseline justify-between gap-3">
+                  <h3 className="font-display text-2xl text-[var(--ag-ink)]"><Link href={`/rooms/${room.id}`}>{room.name}</Link></h3>
+                  <p className="text-sm text-[var(--ag-muted)]">{formatINR(room.pricePerNight)}</p>
+                </div>
+                <p className="mt-1 text-sm text-[var(--ag-muted)]">{room.tagline}</p>
+              </article>
             ))}
           </div>
-        )}
+        </div>
       </section>
 
-      <section className="relative overflow-hidden">
-        <div
-          className="absolute inset-0 bg-cover bg-center"
-          style={{
-            backgroundImage:
-              "url(https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=2000&q=80)",
-          }}
-          aria-hidden
-        />
-        <div className="absolute inset-0 bg-[var(--hm-deep)]/70" />
-        <div className="relative mx-auto flex w-full max-w-6xl flex-col items-start gap-5 px-5 py-24 md:px-8 md:py-32">
-          <h2 className="max-w-xl font-display text-4xl text-white md:text-5xl">
-            Ready for the lake?
-          </h2>
-          <p className="max-w-md text-white/75">
-            Choose dates, pick a room, and receive a confirmation number on the
-            spot.
-          </p>
-          <Button
-            render={<Link href="/book" />}
-            className="h-11 rounded-none bg-white px-6 text-[var(--hm-ink)] hover:bg-white/90"
-          >
-            Start a reservation
-          </Button>
+      <section className="mx-auto grid w-full max-w-6xl gap-10 px-5 py-20 md:grid-cols-2 md:px-8">
+        {[banquet, party].filter(Boolean).map((venue) => (
+          <article key={venue!.id} className="relative min-h-[360px] overflow-hidden">
+            <Image src={venue!.image} alt={venue!.name} fill className="object-cover" sizes="50vw" />
+            <div className="absolute inset-0 bg-[var(--ag-chocolate)]/65" />
+            <div className="relative flex h-full min-h-[360px] flex-col justify-end p-8 text-white">
+              <p className="text-xs uppercase tracking-[0.18em] text-white/70">{venue!.type === "banquet" ? "Banquet" : "Party hall"}</p>
+              <h3 className="mt-2 font-display text-3xl">{venue!.name}</h3>
+              <p className="mt-2 max-w-md text-sm text-white/80">{venue!.tagline}</p>
+              <Link href={venue!.type === "banquet" ? "/banquet" : "/party-hall"} className="mt-6 inline-flex h-10 w-fit items-center bg-white px-5 text-sm text-[var(--ag-chocolate)]">
+                Enquire · from {formatINR(venue!.priceFrom)}
+              </Link>
+            </div>
+          </article>
+        ))}
+      </section>
+
+      <section className="bg-[var(--ag-maroon)] text-white">
+        <div className="mx-auto grid w-full max-w-6xl gap-10 px-5 py-20 md:grid-cols-2 md:items-center md:px-8">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-white/60">{hotel.foodBrand}</p>
+            <h2 className="mt-3 font-display text-4xl md:text-5xl">Andhra flavours, hotel kitchen pace.</h2>
+            <p className="mt-4 max-w-md text-white/75">Order to your room or book the weekend buffet. Tickets land on the KT board instantly.</p>
+            <div className="mt-8 flex flex-wrap gap-3">
+              <Link href="/food" className="inline-flex h-11 items-center bg-white px-6 text-sm text-[var(--ag-maroon)]">Order online</Link>
+              <Link href="/buffet" className="inline-flex h-11 items-center border border-white/40 px-6 text-sm">Buffet booking</Link>
+            </div>
+          </div>
+          <div className="relative aspect-[4/3] overflow-hidden">
+            <Image src={buffets[0]?.image || facilities[0]?.image || rooms[0].image} alt="CHIGURU dining" fill className="object-cover" sizes="40vw" />
+          </div>
+        </div>
+      </section>
+
+      <section className="mx-auto w-full max-w-6xl px-5 py-20 md:px-8">
+        <p className="text-xs uppercase tracking-[0.2em] text-[var(--ag-red)]">Location</p>
+        <h2 className="mt-3 font-display text-4xl text-[var(--ag-ink)]">Near Benz Circle</h2>
+        <p className="mt-3 max-w-xl text-[var(--ag-muted)]">
+          {hotel.address}. Phone <a href={`tel:${hotel.phone}`} className="text-[var(--ag-red)]">{hotel.phone}</a>.
+        </p>
+        <div className="mt-8 overflow-hidden border border-[var(--ag-line)] bg-white">
+          <iframe title="ANVI GRAND map" src="https://maps.google.com/maps?q=Benz%20Circle%20Vijayawada&t=&z=15&ie=UTF8&iwloc=&output=embed" className="h-[360px] w-full border-0" loading="lazy" />
         </div>
       </section>
     </>

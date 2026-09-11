@@ -1,11 +1,11 @@
 {
-  "name": "havenmere",
+  "name": "anvi-grand",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --port 3847 --webpack",
+    "dev": "next dev --port 3947 --webpack",
     "build": "next build",
-    "start": "next start --port 3847",
+    "start": "next start --port 3947",
     "lint": "eslint"
   },
   "dependencies": {

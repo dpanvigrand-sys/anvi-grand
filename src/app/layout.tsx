@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import { Fraunces, Outfit, Geist_Mono } from "next/font/google";
-import { SiteFooter } from "@/components/hotel/site-footer";
-import { SiteHeader } from "@/components/hotel/site-header";
+import { Fraunces, Outfit } from "next/font/google";
+import { SiteFooter } from "@/components/anvi/site-footer";
+import { SiteHeader } from "@/components/anvi/site-header";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -14,27 +14,26 @@ const outfit = Outfit({
   subsets: ["latin"],
 });
 
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
 export const metadata: Metadata = {
   title: {
-    default: "Havenmere — Lakeside Boutique Hotel",
-    template: "%s · Havenmere",
+    default: "ANVI GRAND — Hotel & CHIGURU, Vijayawada",
+    template: "%s · ANVI GRAND",
   },
   description:
-    "Havenmere is a lakeside boutique hotel on Maine’s north shore. Browse rooms and reserve a stay online.",
+    "ANVI GRAND near Benz Circle, Eluru Road, Vijayawada. Rooms, banquet, party hall, and CHIGURU dining. Call 7569494949.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${outfit.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${fraunces.variable} ${outfit.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">
+      <body className="flex min-h-full flex-col font-sans">
         <SiteHeader />
         <main className="flex-1">{children}</main>
         <SiteFooter />

@@ -1,0 +1,49 @@
+{
+  "roomBookings": [],
+  "venueBookings": [],
+  "foodOrders": [],
+  "buffetBookings": [],
+  "messages": [],
+  "tables": [
+    {
+      "id": "T1",
+      "label": "Table 1",
+      "section": "Garden",
+      "seats": 4,
+      "status": "free"
+    },
+    {
+      "id": "T2",
+      "label": "Table 2",
+      "section": "Garden",
+      "seats": 4,
+      "status": "occupied"
+    },
+    {
+      "id": "T3",
+      "label": "Table 3",
+      "section": "Indoor",
+      "seats": 6,
+      "status": "free"
+    },
+    {
+      "id": "T4",
+      "label": "Table 4",
+      "section": "Indoor",
+      "seats": 2,
+      "status": "billing"
+    },
+    {
+      "id": "T5",
+      "label": "Table 5",
+      "section": "Terrace",
+      "seats": 8,
+      "status": "free"
+    }
+  ],
+  "kitchenTickets": [],
+  "ledger": [],
+  "inward": [],
+  "outward": [],
+  "guests": []
+}
