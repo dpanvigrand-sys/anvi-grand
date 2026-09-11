@@ -30,13 +30,18 @@ export function SiteHeader() {
   if (isOps) return null;
 
   return (
-    <header className="sticky top-0 z-50 bg-[var(--ag-red)] text-white shadow-md">
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3.5 md:px-8">
-        <Link
-          href="/"
-          className="font-display text-lg font-semibold tracking-[0.12em] text-white md:text-xl"
-        >
-          ANVI GRAND
+    <header className="sticky top-0 z-50 border-b border-[var(--ag-gold)]/35 bg-[var(--ag-red)] text-white shadow-md">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 md:px-8">
+        <Link href="/" className="flex items-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logos/ag-mark.svg"
+            alt=""
+            className="h-10 w-10 rounded-sm shadow-sm ring-1 ring-[var(--ag-gold)]/40"
+          />
+          <span className="font-display text-lg font-semibold tracking-[0.12em] text-white md:text-xl">
+            ANVI GRAND
+          </span>
         </Link>
 
         <nav className="hidden items-center gap-6 lg:flex">
@@ -45,8 +50,9 @@ export function SiteHeader() {
               key={l.href}
               href={l.href}
               className={cn(
-                "text-sm font-medium text-white/90 transition hover:text-white",
-                pathname === l.href && "text-white underline underline-offset-8",
+                "text-sm font-medium text-white/90 transition hover:text-[var(--ag-gold-soft)]",
+                pathname === l.href &&
+                  "text-[var(--ag-gold-soft)] underline decoration-[var(--ag-gold)] underline-offset-8",
               )}
             >
               {l.label}
@@ -54,7 +60,7 @@ export function SiteHeader() {
           ))}
           <Button
             render={<Link href="/book" />}
-            className="h-9 rounded-md bg-white px-4 text-sm font-semibold text-[var(--ag-red)] hover:bg-white/95"
+            className="h-9 rounded-md border border-[var(--ag-gold)] bg-white px-4 text-sm font-semibold text-[var(--ag-red)] hover:bg-[var(--ag-gold-soft)]"
           >
             Book Now
           </Button>
@@ -64,7 +70,7 @@ export function SiteHeader() {
           <Button
             render={<Link href="/book" />}
             size="sm"
-            className="h-8 rounded-md bg-white px-3 text-xs font-semibold text-[var(--ag-red)] hover:bg-white/95"
+            className="h-8 rounded-md border border-[var(--ag-gold)] bg-white px-3 text-xs font-semibold text-[var(--ag-red)] hover:bg-[var(--ag-gold-soft)]"
           >
             Book Now
           </Button>

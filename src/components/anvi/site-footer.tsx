@@ -10,10 +10,21 @@ export function SiteFooter() {
 
   return (
     <footer className="border-t-4 border-[var(--ag-red)] bg-[linear-gradient(180deg,#3a1618_0%,#2a0e10_100%)] text-white">
-      <div className="h-1.5 bg-[var(--ag-red)]" />
+      <div className="h-1.5 bg-[linear-gradient(90deg,var(--ag-red)_0%,var(--ag-gold)_50%,var(--ag-red)_100%)]" />
       <div className="mx-auto grid w-full max-w-6xl gap-10 px-5 py-14 md:grid-cols-[1.4fr_1fr_1fr] md:px-8">
         <div>
-          <p className="font-display text-xl tracking-[0.12em]">ANVI GRAND</p>
+          <div className="flex items-center gap-3">
+            <Image
+              src="/logos/ag-mark.svg"
+              alt=""
+              width={44}
+              height={44}
+              className="h-11 w-11 rounded-sm ring-1 ring-[var(--ag-gold)]/50"
+            />
+            <p className="font-display text-xl tracking-[0.12em] text-[var(--ag-gold-soft)]">
+              ANVI GRAND
+            </p>
+          </div>
           <div className="mt-4">
             <Image
               src="/logos/chiguru.svg"
@@ -29,7 +40,7 @@ export function SiteFooter() {
           </p>
         </div>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#ffb4b4]">
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ag-gold)]">
             Visit
           </p>
           <p className="mt-3 text-sm leading-relaxed text-white/80">

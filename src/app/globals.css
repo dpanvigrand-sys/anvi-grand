@@ -50,7 +50,7 @@
 }
 
 :root {
-  /* Reference: dark oxblood / white / charcoal */
+  /* Brand: oxblood / white / charcoal + facade gold accent */
   --ag-red: #8b0000;
   --ag-red-deep: #6b0000;
   --ag-maroon: #990000;
@@ -63,6 +63,9 @@
   --ag-line: #e8e8e8;
   --ag-soft: #f3f3f3;
   --ag-cart-pink: #fce8e8;
+  --ag-gold: #d4af37;
+  --ag-gold-soft: #f5e6b8;
+  --ag-night: #1a1210;
 
   --background: #f7f7f7;
   --foreground: var(--ag-ink);

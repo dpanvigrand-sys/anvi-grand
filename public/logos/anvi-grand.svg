@@ -1,9 +1,25 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" role="img" aria-label="ANVI GRAND">
-  <rect width="320" height="80" fill="#E31B23"/>
-  <rect x="0" y="0" width="14" height="80" fill="#4A2C1A"/>
-  <rect x="0" y="70" width="320" height="10" fill="#4A2C1A"/>
-  <text x="28" y="38" fill="#FFFAF7" font-family="Georgia, 'Times New Roman', serif" font-size="28" letter-spacing="4">ANVI</text>
-  <text x="28" y="62" fill="#FFD0D0" font-family="Georgia, 'Times New Roman', serif" font-size="15" letter-spacing="6">GRAND</text>
-  <circle cx="280" cy="36" r="18" fill="none" stroke="#FFFAF7" stroke-width="3"/>
-  <circle cx="280" cy="36" r="9" fill="#FFFAF7"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 360 96" role="img" aria-label="Hotel Anvi Grand">
+  <defs>
+    <linearGradient id="agGold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#F5E6B8"/>
+      <stop offset="35%" stop-color="#D4AF37"/>
+      <stop offset="70%" stop-color="#C5A028"/>
+      <stop offset="100%" stop-color="#8C6B1F"/>
+    </linearGradient>
+    <linearGradient id="agGoldSoft" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#FFE9A8"/>
+      <stop offset="100%" stop-color="#B8860B"/>
+    </linearGradient>
+  </defs>
+  <rect width="360" height="96" rx="2" fill="#1A1210"/>
+  <rect x="1.5" y="1.5" width="357" height="93" rx="1.5" fill="none" stroke="url(#agGold)" stroke-width="1.5"/>
+  <!-- AG monogram -->
+  <g transform="translate(18,14)">
+    <text x="0" y="48" fill="url(#agGold)" font-family="Georgia, 'Times New Roman', serif" font-size="52" font-weight="700">A</text>
+    <circle cx="42" cy="34" r="22" fill="none" stroke="url(#agGoldSoft)" stroke-width="3.5"/>
+    <text x="30" y="44" fill="url(#agGold)" font-family="Georgia, 'Times New Roman', serif" font-size="28" font-weight="700">G</text>
+  </g>
+  <!-- Wordmark -->
+  <text x="100" y="38" fill="url(#agGoldSoft)" font-family="Georgia, 'Times New Roman', serif" font-size="12" letter-spacing="6">HOTEL</text>
+  <text x="100" y="68" fill="url(#agGold)" font-family="Georgia, 'Times New Roman', serif" font-size="26" letter-spacing="3" font-weight="700">ANVI GRAND</text>
 </svg>

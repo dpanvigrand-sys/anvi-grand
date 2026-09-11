@@ -12,6 +12,11 @@ export default async function GalleryPage() {
   ]);
 
   const shots = [
+    {
+      src: "/images/anvi-entrance.jpg",
+      label: "Night entrance · HOTEL ANVI GRAND",
+      group: "Hotel",
+    },
     ...rooms.map((r) => ({ src: r.image, label: r.name, group: "Rooms" })),
     ...venues.map((v) => ({ src: v.image, label: v.name, group: "Venues" })),
     ...facilities.map((f) => ({
