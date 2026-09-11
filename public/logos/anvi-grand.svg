@@ -1,8 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" role="img" aria-label="ANVI GRAND">
-  <rect width="320" height="80" fill="#4A2C1A"/>
-  <rect x="0" y="0" width="8" height="80" fill="#9B1B1E"/>
+  <rect width="320" height="80" fill="#E31B23"/>
+  <rect x="0" y="0" width="14" height="80" fill="#4A2C1A"/>
+  <rect x="0" y="70" width="320" height="10" fill="#4A2C1A"/>
   <text x="28" y="38" fill="#FFFAF7" font-family="Georgia, 'Times New Roman', serif" font-size="28" letter-spacing="4">ANVI</text>
-  <text x="28" y="64" fill="#E8C9A8" font-family="Georgia, 'Times New Roman', serif" font-size="16" letter-spacing="6">GRAND</text>
-  <circle cx="280" cy="40" r="18" fill="none" stroke="#9B1B1E" stroke-width="2"/>
-  <circle cx="280" cy="40" r="8" fill="#6B0F1A"/>
+  <text x="28" y="62" fill="#FFD0D0" font-family="Georgia, 'Times New Roman', serif" font-size="15" letter-spacing="6">GRAND</text>
+  <circle cx="280" cy="36" r="18" fill="none" stroke="#FFFAF7" stroke-width="3"/>
+  <circle cx="280" cy="36" r="9" fill="#FFFAF7"/>
 </svg>

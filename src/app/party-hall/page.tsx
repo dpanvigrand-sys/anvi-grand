@@ -16,7 +16,7 @@ export default async function PartyHallPage() {
     <div>
       <section className="relative h-[45vh] min-h-[280px] overflow-hidden">
         <Image src={venue.image} alt={venue.name} fill priority className="object-cover" sizes="100vw" />
-        <div className="absolute inset-0 bg-[var(--ag-maroon)]/55" />
+        <div className="absolute inset-0 bg-[linear-gradient(160deg,rgba(227,27,35,0.7),rgba(90,20,24,0.68))]" />
         <div className="absolute inset-x-0 bottom-0 mx-auto max-w-6xl px-5 pb-10 md:px-8">
           <p className="text-xs uppercase tracking-[0.2em] text-white/70">Party hall</p>
           <h1 className="mt-2 font-display text-5xl text-white">{venue.name}</h1>

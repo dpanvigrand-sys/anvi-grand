@@ -35,14 +35,14 @@ export function SiteHeader() {
 
   return (
     <>
-      <div className="relative z-50 bg-[var(--ag-maroon)] text-white">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-5 py-2 text-xs md:px-8 md:text-sm">
-          <p className="text-white/85">
+      <div className="relative z-50 bg-[var(--ag-red)] text-white shadow-sm">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2 px-5 py-2.5 text-xs md:px-8 md:text-sm">
+          <p className="font-medium text-white">
             Anvi Grand · near Benz Circle, Eluru Road, Vijayawada
           </p>
           <a
             href="tel:7569494949"
-            className="inline-flex items-center gap-2 font-medium tracking-wide hover:text-white"
+            className="inline-flex items-center gap-2 rounded-none bg-white px-3 py-1 font-semibold tracking-wide text-[var(--ag-red)] hover:bg-white/90"
           >
             <Phone className="size-3.5" />
             7569494949
@@ -54,7 +54,7 @@ export function SiteHeader() {
           "z-40 w-full",
           onHero
             ? "absolute inset-x-0 top-[2.35rem]"
-            : "sticky top-0 border-b border-[var(--ag-line)] bg-[var(--ag-cream-white)]/95 backdrop-blur-sm",
+            : "sticky top-0 border-b-2 border-[var(--ag-red)] bg-[var(--ag-cream-white)]/95 backdrop-blur-sm",
         )}
       >
         <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-5 py-4 md:px-8">

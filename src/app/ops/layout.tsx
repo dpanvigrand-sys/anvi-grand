@@ -14,19 +14,19 @@ const links = [
 
 export default function OpsLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-[#f7efe9]">
+    <div className="min-h-screen bg-[#fff5f4]">
       <OpsGate>
-        <header className="border-b border-[var(--ag-line)] bg-[var(--ag-chocolate)] text-white">
+        <header className="border-b-4 border-[var(--ag-red)] bg-[linear-gradient(90deg,#b3141a_0%,#e31b23_55%,#8a1218_100%)] text-white">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-4 md:px-8">
             <div>
               <Link href="/ops" className="font-display text-2xl tracking-[0.04em]">
                 ANVI OPS
               </Link>
-              <p className="text-xs text-white/60">
+              <p className="text-xs text-white/80">
                 One desk · reception · server · kitchen · admin · accounts · stock
               </p>
             </div>
-            <Link href="/" className="text-sm text-white/80 hover:text-white">
+            <Link href="/" className="rounded-none bg-white px-3 py-1.5 text-sm font-semibold text-[var(--ag-red)] hover:bg-white/90">
               ← Guest site
             </Link>
           </div>
@@ -35,7 +35,7 @@ export default function OpsLayout({ children }: { children: React.ReactNode }) {
               <Link
                 key={l.href}
                 href={l.href}
-                className="whitespace-nowrap px-3 py-1.5 text-sm text-white/75 hover:bg-white/10 hover:text-white"
+                className="whitespace-nowrap bg-white/10 px-3 py-1.5 text-sm text-white hover:bg-white hover:text-[var(--ag-red)]"
               >
                 {l.label}
               </Link>

@@ -4,12 +4,12 @@ import { getOps } from "@/lib/store";
 
 const cards = [
   { href: "/ops/reception", title: "Reception", desc: "Room bookings, check-in / check-out", tone: "bg-[var(--ag-red)]" },
-  { href: "/ops/server", title: "Server", desc: "Floor tables and dine-in orders", tone: "bg-[var(--ag-maroon)]" },
-  { href: "/ops/kitchen", title: "KT Kitchen", desc: "Ticket queue, cook, ready, bump", tone: "bg-[var(--ag-chocolate)]" },
-  { href: "/ops/admin", title: "Admin", desc: "Occupancy and order overview", tone: "bg-[#3a2418]" },
-  { href: "/ops/accounts", title: "Accounts", desc: "Income / expense ledger", tone: "bg-[var(--ag-red)]" },
+  { href: "/ops/server", title: "Server", desc: "Floor tables and dine-in orders", tone: "bg-[var(--ag-red-deep)]" },
+  { href: "/ops/kitchen", title: "KT Kitchen", desc: "Ticket queue, cook, ready, bump", tone: "bg-[var(--ag-maroon)]" },
+  { href: "/ops/admin", title: "Admin", desc: "Occupancy and order overview", tone: "bg-[var(--ag-red)]" },
+  { href: "/ops/accounts", title: "Accounts", desc: "Income / expense ledger", tone: "bg-[var(--ag-red-deep)]" },
   { href: "/ops/inward", title: "Inward", desc: "Stock receipts from vendors", tone: "bg-[var(--ag-maroon)]" },
-  { href: "/ops/outward", title: "Outward", desc: "Issues to kitchen & departments", tone: "bg-[var(--ag-chocolate)]" },
+  { href: "/ops/outward", title: "Outward", desc: "Issues to kitchen & departments", tone: "bg-[var(--ag-red)]" },
 ];
 
 export default async function OpsHomePage() {
