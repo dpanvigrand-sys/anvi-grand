@@ -6,13 +6,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import type { Room } from "@/lib/types";
 import { formatCurrency } from "@/lib/format";
 
@@ -99,18 +92,19 @@ export function BookingForm({ rooms, initialRoomId }: Props) {
     <form onSubmit={onSubmit} className="grid gap-6">
       <div className="grid gap-2">
         <Label htmlFor="room">Room</Label>
-        <Select value={roomId} onValueChange={(value) => setRoomId(value ?? "")}>
-          <SelectTrigger id="room" className="w-full rounded-none bg-white">
-            <SelectValue placeholder="Select a room" />
-          </SelectTrigger>
-          <SelectContent>
-            {rooms.map((room) => (
-              <SelectItem key={room.id} value={room.id}>
-                {room.name} — {formatCurrency(room.pricePerNight)}/night
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <select
+          id="room"
+          required
+          value={roomId}
+          onChange={(e) => setRoomId(e.target.value)}
+          className="flex h-10 w-full rounded-none border border-input bg-white px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+        >
+          {rooms.map((room) => (
+            <option key={room.id} value={room.id}>
+              {room.name} — {formatCurrency(room.pricePerNight)}/night
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="grid gap-6 sm:grid-cols-2">

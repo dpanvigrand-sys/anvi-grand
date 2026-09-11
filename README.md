@@ -32,7 +32,7 @@ npm run dev
 
 App URL: [http://127.0.0.1:3847](http://127.0.0.1:3847)
 
-Production-style run:
+`npm run dev` uses Webpack (more reliable in this environment than Turbopack). For a production-style local run:
 
 ```bash
 npm run build
