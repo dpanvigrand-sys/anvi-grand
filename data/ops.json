@@ -1,7 +1,76 @@
 {
-  "roomBookings": [],
+  "roomBookings": [
+    {
+      "id": "ag-mtxdusnd0ar9",
+      "type": "room",
+      "roomId": "executive-suite",
+      "roomName": "Executive Suite",
+      "guestName": "Smoke Test",
+      "email": "smoke@anvigrand.in",
+      "phone": "7569494949",
+      "checkIn": "2026-09-25",
+      "checkOut": "2026-09-27",
+      "guests": 2,
+      "nights": 2,
+      "total": 10400,
+      "status": "confirmed",
+      "createdAt": "2026-09-11T20:02:33.481Z"
+    },
+    {
+      "id": "ag-mtxdtn0a3v05",
+      "type": "room",
+      "roomId": "deluxe-king",
+      "roomName": "Deluxe King",
+      "guestName": "Ravi Kumar",
+      "email": "ravi@example.com",
+      "phone": "9876543210",
+      "checkIn": "2026-10-01",
+      "checkOut": "2026-10-03",
+      "guests": 2,
+      "nights": 2,
+      "total": 6400,
+      "status": "confirmed",
+      "createdAt": "2026-09-11T20:01:39.514Z"
+    },
+    {
+      "id": "ag-mtxdsbrvw8fx",
+      "type": "room",
+      "roomId": "deluxe-king",
+      "roomName": "Deluxe King",
+      "guestName": "Test Guest",
+      "email": "test@anvigrand.in",
+      "phone": "7569494949",
+      "checkIn": "2026-09-20",
+      "checkOut": "2026-09-22",
+      "guests": 2,
+      "nights": 2,
+      "total": 6400,
+      "notes": "smoke",
+      "status": "confirmed",
+      "createdAt": "2026-09-11T20:00:38.299Z"
+    }
+  ],
   "venueBookings": [],
-  "foodOrders": [],
+  "foodOrders": [
+    {
+      "id": "fo-mtxdtn0ljek6",
+      "type": "food",
+      "guestName": "Sita",
+      "phone": "9000000000",
+      "items": [
+        {
+          "menuId": "gongura-mutton",
+          "name": "Gongura Mutton",
+          "qty": 1,
+          "price": 420
+        }
+      ],
+      "total": 420,
+      "status": "placed",
+      "source": "online",
+      "createdAt": "2026-09-11T20:01:39.525Z"
+    }
+  ],
   "buffetBookings": [],
   "messages": [],
   "tables": [
@@ -41,9 +110,84 @@
       "status": "free"
     }
   ],
-  "kitchenTickets": [],
-  "ledger": [],
+  "kitchenTickets": [
+    {
+      "id": "kt-mtxdtn0l5otq",
+      "orderId": "fo-mtxdtn0ljek6",
+      "items": [
+        {
+          "menuId": "gongura-mutton",
+          "name": "Gongura Mutton",
+          "qty": 1,
+          "price": 420
+        }
+      ],
+      "status": "queued",
+      "createdAt": "2026-09-11T20:01:39.525Z",
+      "updatedAt": "2026-09-11T20:01:39.525Z"
+    }
+  ],
+  "ledger": [
+    {
+      "id": "led-mtxdusnedx8z",
+      "kind": "income",
+      "category": "room",
+      "description": "Executive Suite · Smoke Test",
+      "amount": 10400,
+      "refId": "ag-mtxdusnd0ar9",
+      "createdAt": "2026-09-11T20:02:33.481Z"
+    },
+    {
+      "id": "led-mtxdtn0m0x0f",
+      "kind": "income",
+      "category": "food",
+      "description": "CHIGURU · Sita",
+      "amount": 420,
+      "refId": "fo-mtxdtn0ljek6",
+      "createdAt": "2026-09-11T20:01:39.525Z"
+    },
+    {
+      "id": "led-mtxdtn0bw2et",
+      "kind": "income",
+      "category": "room",
+      "description": "Deluxe King · Ravi Kumar",
+      "amount": 6400,
+      "refId": "ag-mtxdtn0a3v05",
+      "createdAt": "2026-09-11T20:01:39.514Z"
+    },
+    {
+      "id": "led-mtxdsbrw1h7r",
+      "kind": "income",
+      "category": "room",
+      "description": "Deluxe King · Test Guest",
+      "amount": 6400,
+      "refId": "ag-mtxdsbrvw8fx",
+      "createdAt": "2026-09-11T20:00:38.299Z"
+    }
+  ],
   "inward": [],
   "outward": [],
-  "guests": []
+  "guests": [
+    {
+      "id": "gst-mtxdusnehe3w",
+      "name": "Smoke Test",
+      "phone": "7569494949",
+      "roomId": "executive-suite",
+      "status": "booked"
+    },
+    {
+      "id": "gst-mtxdtn0b2nco",
+      "name": "Ravi Kumar",
+      "phone": "9876543210",
+      "roomId": "deluxe-king",
+      "status": "booked"
+    },
+    {
+      "id": "gst-mtxdsbrw2rb1",
+      "name": "Test Guest",
+      "phone": "7569494949",
+      "roomId": "deluxe-king",
+      "status": "booked"
+    }
+  ]
 }

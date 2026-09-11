@@ -1,48 +1,63 @@
 # ANVI GRAND
 
-Hotel website and staff ops for **ANVI GRAND** with restaurant brand **CHIGURU**.
+Full-stack hotel website for **ANVI GRAND** (Vijayawada) with **CHIGURU** dining and staff ops dashboards.
 
-**Address:** Anvi Grand, near Benz Circle, Eluru Road, Vijayawada  
-**Phone:** 7569494949
+## Brand
+
+- Hotel: ANVI GRAND  
+- Food: CHIGURU  
+- Address: Anvi Grand, near Benz Circle, Eluru Road, Vijayawada  
+- Phone: [7569494949](tel:7569494949)  
+- Theme: red / chocolate brown / maroon / white
 
 ## Stack
 
-- Next.js (App Router) + TypeScript + Tailwind + shadcn/ui
-- JSON persistence in `data/catalog.json` (rooms, venues, menu, buffets, facilities) and `data/ops.json` (bookings, orders, KT, ledger, stock)
+- Next.js (App Router) + TypeScript + Tailwind CSS + shadcn/ui  
+- Persistence: JSON files in `data/` (no database or auth credentials)
 
-## Run
+| File | Purpose |
+|------|---------|
+| `data/catalog.json` | Rooms, venues, menu, buffets, facilities |
+| `data/ops.json` | Bookings, orders, kitchen tickets, ledger, stock, tables |
+
+## Run locally
 
 ```bash
 npm install
-npm run dev      # http://localhost:3947
-npm run build && npm run start   # production on 3947
+npm run dev
 ```
 
-## Guest routes
+App: [http://127.0.0.1:3947](http://127.0.0.1:3947)
 
-| Path | Purpose |
-|------|---------|
-| `/` | Brand hero + rooms / venues / CHIGURU / map |
-| `/rooms`, `/rooms/[id]` | Room catalogue & detail |
-| `/book` | Room booking form |
-| `/bookings/[id]` | Booking confirmation |
-| `/banquet`, `/party-hall` | Venue booking |
-| `/food` | CHIGURU online order |
-| `/buffet` | Buffet booking |
-| `/facilities` | Hotel facilities |
-| `/contact` | Contact + map |
+```bash
+npm run build
+npm start
+```
+
+## Guest site
+
+- `/` — brand hero + highlights + map  
+- `/rooms`, `/rooms/[id]`, `/book`, `/bookings/[id]` — room booking  
+- `/banquet`, `/party-hall` — venue booking  
+- `/food` — CHIGURU online order  
+- `/buffet` — buffet booking  
+- `/facilities`, `/contact`
 
 ## Staff ops (`/ops`)
 
-Role picker plus working desks: reception, server, kitchen (KT), admin, accounts, inward, outward. Mutations hit `/api/ops/*` and write to `data/ops.json`.
+Shared store with the guest site:
 
-## Key APIs
+1. Reception — room bookings / check-in  
+2. Server — table floor  
+3. KT Kitchen — ticket queue  
+4. Admin — overview  
+5. Accounts — ledger  
+6. Inward — stock in  
+7. Outward — stock out  
 
-- `POST /api/bookings/rooms` → `createRoomBooking`
-- `POST /api/bookings/venues` → `createVenueBooking`
-- `POST /api/orders` → `createFoodOrder`
-- `POST /api/buffet` → `createBuffetBooking`
-- `POST /api/contact` → `createContactMessage`
-- `GET /api/ops` → `getOps`
-- `PATCH /api/ops/bookings/[id]`, `/tables/[id]`, `/kitchen/[id]`
-- `POST /api/ops/ledger`, `/api/ops/inventory`, `/api/ops/stock`
+## API (selection)
+
+- `POST /api/bookings/rooms` · `POST /api/bookings/venues`  
+- `POST /api/orders` · `POST /api/buffet` · `POST /api/contact`  
+- `GET /api/ops` · `PATCH /api/ops/bookings/[id]` · `PATCH /api/ops/kitchen/[id]` · `PATCH /api/ops/tables/[id]`  
+- `POST /api/ops/ledger` · `POST /api/ops/stock`

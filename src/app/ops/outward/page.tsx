@@ -1,107 +1,23 @@
-"use client";
+import { StockForm } from "@/components/ops/stock-form";
+import { getOps } from "@/lib/store";
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useOps } from "@/components/ops/use-ops";
-
-export default function OutwardPage() {
-  const { ops, error, loading, refresh } = useOps();
-  const [item, setItem] = useState("");
-  const [quantity, setQuantity] = useState(1);
-  const [unit, setUnit] = useState("kg");
-  const [vendorOrDept, setVendorOrDept] = useState("CHIGURU kitchen");
-  const [notes, setNotes] = useState("");
-  const [msg, setMsg] = useState("");
-
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setMsg("");
-    const res = await fetch("/api/ops/stock", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        direction: "outward",
-        item,
-        quantity,
-        unit,
-        vendorOrDept,
-        notes: notes || undefined,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setMsg(data.error || "Failed");
-      return;
-    }
-    setMsg(`Logged ${data.move.id}`);
-    setItem("");
-    setNotes("");
-    await refresh();
-  }
-
-  if (loading) return <p className="text-[var(--ag-muted)]">Loading outward…</p>;
-  if (error || !ops) return <p className="text-[var(--ag-red)]">{error || "No data"}</p>;
-
+export default async function OutwardPage() {
+  const ops = await getOps();
   return (
-    <div>
-      <p className="text-xs uppercase tracking-[0.2em] text-[var(--ag-red)]">Stores</p>
-      <h1 className="mt-2 font-display text-4xl text-[var(--ag-ink)]">Outward stock</h1>
-
-      <form onSubmit={onSubmit} className="mt-8 max-w-md space-y-3 border border-[var(--ag-line)] bg-white p-5">
-        <div className="space-y-1">
-          <Label>Item</Label>
-          <Input className="rounded-none" required value={item} onChange={(e) => setItem(e.target.value)} />
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <Label>Qty</Label>
-            <Input
-              type="number"
-              min={0.01}
-              step="any"
-              className="rounded-none"
-              required
-              value={quantity}
-              onChange={(e) => setQuantity(Number(e.target.value))}
-            />
+    <div className="grid gap-10 lg:grid-cols-2">
+      <div>
+        <h1 className="font-display text-4xl text-[var(--ag-ink)]">Outward</h1>
+        <p className="mt-2 text-[var(--ag-muted)]">Issue stock to kitchen and departments.</p>
+        <div className="mt-6"><StockForm direction="outward" /></div>
+      </div>
+      <div className="space-y-3">
+        {ops.outward.length === 0 ? <p className="text-[var(--ag-muted)]">No outward moves.</p> : ops.outward.map((m) => (
+          <div key={m.id} className="border border-[var(--ag-line)] bg-white px-4 py-3 text-sm">
+            <p className="font-medium">{m.item} · {m.quantity} {m.unit}</p>
+            <p className="text-[var(--ag-muted)]">{m.vendorOrDept}</p>
           </div>
-          <div className="space-y-1">
-            <Label>Unit</Label>
-            <Input className="rounded-none" required value={unit} onChange={(e) => setUnit(e.target.value)} />
-          </div>
-        </div>
-        <div className="space-y-1">
-          <Label>Department</Label>
-          <Input
-            className="rounded-none"
-            required
-            value={vendorOrDept}
-            onChange={(e) => setVendorOrDept(e.target.value)}
-          />
-        </div>
-        <div className="space-y-1">
-          <Label>Notes</Label>
-          <Input className="rounded-none" value={notes} onChange={(e) => setNotes(e.target.value)} />
-        </div>
-        {msg && <p className="text-sm text-[var(--ag-maroon)]">{msg}</p>}
-        <Button type="submit" className="h-10 w-full rounded-none bg-[var(--ag-red)] text-white">
-          Record outward
-        </Button>
-      </form>
-
-      <ul className="mt-8 space-y-2 text-sm">
-        {ops.outward.length === 0 ? (
-          <li className="text-[var(--ag-muted)]">No outward moves yet.</li>
-        ) : (
-          ops.outward.map((m) => (
-            <li key={m.id} className="border border-[var(--ag-line)] bg-white px-4 py-3">
-              {m.item} · {m.quantity} {m.unit} · {m.vendorOrDept} · {m.id}
-            </li>
-          ))
-        )}
-      </ul>
+        ))}
+      </div>
     </div>
   );
 }

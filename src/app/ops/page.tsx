@@ -1,68 +1,40 @@
-import type { Metadata } from "next";
 import Link from "next/link";
+import { getOps } from "@/lib/store";
 
-export const metadata: Metadata = {
-  title: "Staff Ops",
-  description: "ANVI GRAND staff operations — reception, kitchen, accounts, and more.",
-};
-
-const roles = [
-  {
-    href: "/ops/reception",
-    title: "Reception",
-    blurb: "Room bookings, check-in / check-out, guest list.",
-  },
-  {
-    href: "/ops/server",
-    title: "Server",
-    blurb: "Dining tables and floor orders to CHIGURU kitchen.",
-  },
-  {
-    href: "/ops/kitchen",
-    title: "Kitchen (KT)",
-    blurb: "Ticket queue — queued → cooking → ready → bumped.",
-  },
-  {
-    href: "/ops/admin",
-    title: "Admin",
-    blurb: "Overview of bookings, orders, messages, and stock.",
-  },
-  {
-    href: "/ops/accounts",
-    title: "Accounts",
-    blurb: "Ledger income/expense entries for the house.",
-  },
-  {
-    href: "/ops/inward",
-    title: "Inward",
-    blurb: "Record stock arriving from vendors.",
-  },
-  {
-    href: "/ops/outward",
-    title: "Outward",
-    blurb: "Record stock issued to departments.",
-  },
+const cards = [
+  { href: "/ops/reception", title: "Reception", desc: "Room bookings, check-in / check-out" },
+  { href: "/ops/server", title: "Server", desc: "Floor tables and dine-in orders" },
+  { href: "/ops/kitchen", title: "KT Kitchen", desc: "Ticket queue, cook, ready, bump" },
+  { href: "/ops/admin", title: "Admin", desc: "Occupancy and order overview" },
+  { href: "/ops/accounts", title: "Accounts", desc: "Income / expense ledger" },
+  { href: "/ops/inward", title: "Inward", desc: "Stock receipts from vendors" },
+  { href: "/ops/outward", title: "Outward", desc: "Issues to kitchen & departments" },
 ];
 
-export default function OpsHomePage() {
+export default async function OpsHomePage() {
+  const ops = await getOps();
   return (
     <div>
-      <p className="text-xs uppercase tracking-[0.2em] text-[var(--ag-red)]">Staff</p>
-      <h1 className="mt-2 font-display text-4xl text-[var(--ag-ink)] md:text-5xl">
-        Choose your station
-      </h1>
-      <p className="mt-3 max-w-xl text-[var(--ag-muted)]">
-        Demo ops for ANVI GRAND — no login. Pick a role to work the live JSON store.
-      </p>
-      <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {roles.map((r) => (
-          <Link
-            key={r.href}
-            href={r.href}
-            className="border border-[var(--ag-line)] bg-white p-5 transition hover:border-[var(--ag-red)]"
-          >
-            <h2 className="font-display text-2xl text-[var(--ag-chocolate)]">{r.title}</h2>
-            <p className="mt-2 text-sm text-[var(--ag-muted)]">{r.blurb}</p>
+      <h1 className="font-display text-4xl text-[var(--ag-ink)]">Staff desk</h1>
+      <p className="mt-2 text-[var(--ag-muted)]">Pick a system. Live counts from data/ops.json.</p>
+      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {[
+          ["Room bookings", ops.roomBookings.length],
+          ["Food orders", ops.foodOrders.length],
+          ["Kitchen tickets", ops.kitchenTickets.length],
+          ["Ledger lines", ops.ledger.length],
+        ].map(([label, n]) => (
+          <div key={label as string} className="border border-[var(--ag-line)] bg-white px-4 py-5">
+            <p className="text-xs uppercase tracking-[0.14em] text-[var(--ag-muted)]">{label}</p>
+            <p className="mt-2 font-display text-3xl text-[var(--ag-red)]">{n}</p>
+          </div>
+        ))}
+      </div>
+      <div className="mt-10 grid gap-4 md:grid-cols-2">
+        {cards.map((c) => (
+          <Link key={c.href} href={c.href} className="border border-[var(--ag-line)] bg-white p-6 transition hover:border-[var(--ag-red)]">
+            <h2 className="font-display text-2xl text-[var(--ag-ink)]">{c.title}</h2>
+            <p className="mt-2 text-sm text-[var(--ag-muted)]">{c.desc}</p>
           </Link>
         ))}
       </div>
