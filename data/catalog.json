@@ -1,26 +1,26 @@
 {
   "hotel": {
     "name": "ANVI GRAND",
-    "tagline": "Grand stays on Eluru Road",
+    "tagline": "Experience Luxury & Comfort",
     "address": "Anvi Grand, near Benz Circle, Eluru Road, Vijayawada",
     "phone": "7569494949",
     "email": "stay@anvigrand.in",
     "foodBrand": "CHIGURU",
-    "heroImage": "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=2000&q=80",
+    "heroImage": "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=2000&q=80",
     "logo": "/logos/anvi-grand.svg",
     "foodLogo": "/logos/chiguru.svg"
   },
   "rooms": [
     {
-      "id": "deluxe-king",
-      "name": "Deluxe King",
-      "tagline": "Spacious king bed with city light",
-      "description": "A calm deluxe room with a king bed, work desk, and monsoon-ready AC. Ideal for business travellers and couples visiting Vijayawada.",
-      "pricePerNight": 3499,
+      "id": "executive-red-suite",
+      "name": "Anvi Executive Red Suite",
+      "tagline": "AC Luxury, King Bed",
+      "description": "Signature red-accent suite with king bed, monsoon-ready AC, and a calm work desk. Ideal for business travellers and couples visiting Vijayawada.",
+      "pricePerNight": 3500,
       "capacity": 2,
       "amenities": [
-        "King bed",
-        "AC",
+        "AC Luxury",
+        "King Bed",
         "Wi-Fi",
         "TV",
         "Mini fridge"
@@ -66,7 +66,7 @@
       "id": "grand-presidential",
       "name": "Grand Presidential",
       "tagline": "Top-floor grandeur for celebrations",
-      "description": "Our signature presidential floor—private dining nook, butler desk, and panoramic Eluru Road views for weddings and corporate hosts.",
+      "description": "Our signature presidential floor\u2014private dining nook, butler desk, and panoramic Eluru Road views for weddings and corporate hosts.",
       "pricePerNight": 9999,
       "capacity": 4,
       "amenities": [
@@ -82,13 +82,13 @@
   ],
   "venues": [
     {
-      "id": "anvi-banquet",
+      "id": "royal-grand-ballroom",
       "type": "banquet",
-      "name": "Anvi Banquet Hall",
+      "name": "Royal Grand Ballroom",
       "tagline": "Weddings and grand receptions",
-      "description": "Column-free banquet with stage, LED wall option, and in-house CHIGURU catering. Holds up to 450 guests for seated dinners.",
-      "capacity": 450,
-      "priceFrom": 95000,
+      "description": "Column-free ballroom with stage, LED wall option, and in-house CHIGURU catering.",
+      "capacity": 500,
+      "priceFrom": 50000,
       "image": "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=1600&q=80",
       "amenities": [
         "Stage",
@@ -99,13 +99,13 @@
       ]
     },
     {
-      "id": "chiguru-party",
+      "id": "imperial-ruby-mini",
       "type": "party-hall",
-      "name": "CHIGURU Party Hall",
+      "name": "Imperial Ruby Mini Hall",
       "tagline": "Birthdays, office parties, intimate nights",
-      "description": "Flexible party hall with DJ-ready sound, soft lighting, and buffet counters—ideal for 80–180 guests.",
-      "capacity": 180,
-      "priceFrom": 32000,
+      "description": "Flexible mini hall with DJ-ready sound and soft ruby lighting\u2014ideal for up to 150 guests.",
+      "capacity": 150,
+      "priceFrom": 20000,
       "image": "https://images.unsplash.com/photo-1478146896981-b80fe463b330?auto=format&fit=crop&w=1600&q=80",
       "amenities": [
         "DJ booth",
@@ -118,10 +118,19 @@
   ],
   "menu": [
     {
+      "id": "chiguru-handi-biryani",
+      "name": "CHIGURU Special Handi Biryani",
+      "category": "main-course",
+      "description": "Slow-cooked dum biryani finished in a sealed handi\u2014signature CHIGURU main.",
+      "price": 320,
+      "veg": false,
+      "image": "https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=800&q=80"
+    },
+    {
       "id": "gongura-mutton",
       "name": "Gongura Mutton",
       "category": "non-veg",
-      "description": "Andhra classic—tangy gongura with slow-cooked mutton.",
+      "description": "Andhra classic\u2014tangy gongura with slow-cooked mutton.",
       "price": 449,
       "veg": false,
       "image": "https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=800&q=80"
@@ -139,7 +148,7 @@
       "id": "panasa-pottu",
       "name": "Panasa Pottu Biryani",
       "category": "veg",
-      "description": "Jackfruit biryani from coastal Andhra kitchens—aromatic and filling.",
+      "description": "Jackfruit biryani from coastal Andhra kitchens\u2014aromatic and filling.",
       "price": 279,
       "veg": true,
       "image": "https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=800&q=80"
@@ -157,7 +166,7 @@
       "id": "bobbatlu",
       "name": "Bobbattu",
       "category": "dessert",
-      "description": "Sweet lentil-stuffed flatbread—festival favourite.",
+      "description": "Sweet lentil-stuffed flatbread\u2014festival favourite.",
       "price": 79,
       "veg": true,
       "image": "https://images.unsplash.com/photo-1571115177098-24ec42ed204d?auto=format&fit=crop&w=800&q=80"
@@ -176,7 +185,7 @@
     {
       "id": "weekend-andhra",
       "name": "Weekend Andhra Buffet",
-      "description": "Saturday–Sunday lunch buffet featuring gongura, pulusu, rice stations, and sweets.",
+      "description": "Saturday\u2013Sunday lunch buffet featuring gongura, pulusu, rice stations, and sweets.",
       "pricePerPerson": 899,
       "meal": "lunch",
       "image": "https://images.unsplash.com/photo-1555939596-1926a1f1e5d8?auto=format&fit=crop&w=1400&q=80"
@@ -184,7 +193,7 @@
     {
       "id": "executive-dinner",
       "name": "Executive Dinner Buffet",
-      "description": "Weeknight dinner buffet for walk-ins and in-house guests—veg and non-veg live counters.",
+      "description": "Weeknight dinner buffet for walk-ins and in-house guests\u2014veg and non-veg live counters.",
       "pricePerPerson": 1099,
       "meal": "dinner",
       "image": "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1400&q=80"
@@ -194,7 +203,7 @@
     {
       "id": "pool",
       "name": "Rooftop Pool",
-      "description": "Evening swims with city views—open 6 AM to 10 PM.",
+      "description": "Evening swims with city views\u2014open 6 AM to 10 PM.",
       "image": "https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=1200&q=80"
     },
     {
@@ -206,7 +215,7 @@
     {
       "id": "gym",
       "name": "Fitness Centre",
-      "description": "Cardio and free weights—24-hour access for in-house guests.",
+      "description": "Cardio and free weights\u201424-hour access for in-house guests.",
       "image": "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80"
     },
     {

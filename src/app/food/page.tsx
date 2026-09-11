@@ -3,10 +3,11 @@ import Image from "next/image";
 import { FoodOrderForm } from "@/components/anvi/food-order-form";
 import { getHotel, getMenu } from "@/lib/store";
 
-export const metadata: Metadata = { title: "CHIGURU Food Order" };
+export const metadata: Metadata = { title: "CHIGURU Dining" };
 
 export default async function FoodPage() {
   const [hotel, menu] = await Promise.all([getHotel(), getMenu()]);
+
   return (
     <div className="mx-auto max-w-6xl px-5 py-12 md:px-8">
       <Image
@@ -17,12 +18,13 @@ export default async function FoodPage() {
         className="h-11 w-auto"
         priority
       />
-      <h1 className="mt-5 font-display text-5xl text-[var(--ag-ink)]">
-        Order Andhra favourites
+      <h1 className="mt-5 font-display text-4xl text-[var(--ag-ink)] md:text-5xl">
+        Order from CHIGURU Restaurant
       </h1>
       <p className="mt-4 max-w-2xl text-[var(--ag-muted)]">
-        Room service and takeaway from the {hotel.foodBrand} kitchen at ANVI GRAND.
-        Clear ₹ prices on every dish. Orders appear on the KT board for the cooks.
+        Room service and takeaway from the {hotel.foodBrand} kitchen at ANVI
+        GRAND. Clear ₹ prices on every dish. Pay Now sends tickets to the kitchen
+        board.
       </p>
       <p className="mt-2 text-sm text-[var(--ag-chocolate)]">
         Call{" "}
@@ -31,8 +33,8 @@ export default async function FoodPage() {
         </a>{" "}
         for banquet catering.
       </p>
-      <div className="mt-10 border border-[var(--ag-line)] bg-white/80 p-5 md:p-8">
-        <FoodOrderForm menu={menu} />
+      <div className="mt-10">
+        <FoodOrderForm menu={menu} variant="page" />
       </div>
     </div>
   );

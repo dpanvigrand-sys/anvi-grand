@@ -13,13 +13,7 @@ export function SiteFooter() {
       <div className="h-1.5 bg-[var(--ag-red)]" />
       <div className="mx-auto grid w-full max-w-6xl gap-10 px-5 py-14 md:grid-cols-[1.4fr_1fr_1fr] md:px-8">
         <div>
-          <Image
-            src="/logos/anvi-grand.svg"
-            alt="ANVI GRAND"
-            width={180}
-            height={48}
-            className="h-10 w-auto"
-          />
+          <p className="font-display text-xl tracking-[0.12em]">ANVI GRAND</p>
           <div className="mt-4">
             <Image
               src="/logos/chiguru.svg"
@@ -35,13 +29,18 @@ export function SiteFooter() {
           </p>
         </div>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ag-red)]">Visit</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#ffb4b4]">
+            Visit
+          </p>
           <p className="mt-3 text-sm leading-relaxed text-white/80">
             Anvi Grand, near Benz Circle
             <br />
             Eluru Road, Vijayawada
             <br />
-            <a href="tel:7569494949" className="mt-2 inline-block text-base font-semibold text-[var(--ag-red)] hover:underline">
+            <a
+              href="tel:7569494949"
+              className="mt-2 inline-block text-base font-semibold text-[#ffb4b4] hover:underline"
+            >
               7569494949
             </a>
             <br />
@@ -51,18 +50,34 @@ export function SiteFooter() {
           </p>
         </div>
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ag-red)]">Explore</p>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[#ffb4b4]">
+            Explore
+          </p>
           <div className="mt-3 flex flex-col gap-2 text-sm text-white/80">
-            <Link href="/rooms" className="hover:text-[var(--ag-red)]">Rooms & rates</Link>
-            <Link href="/banquet" className="hover:text-[var(--ag-red)]">Banquet</Link>
-            <Link href="/food" className="hover:text-[var(--ag-red)]">CHIGURU menu</Link>
-            <Link href="/contact" className="hover:text-[var(--ag-red)]">Contact & map</Link>
-            <Link href="/ops" className="hover:text-[var(--ag-red)]">Staff ops</Link>
+            <Link href="/rooms" className="hover:text-[#ffb4b4]">
+              Rooms & rates
+            </Link>
+            <Link href="/banquet" className="hover:text-[#ffb4b4]">
+              Banquet Halls
+            </Link>
+            <Link href="/food" className="hover:text-[#ffb4b4]">
+              CHIGURU menu
+            </Link>
+            <Link href="/gallery" className="hover:text-[#ffb4b4]">
+              Gallery
+            </Link>
+            <Link href="/contact" className="hover:text-[#ffb4b4]">
+              Contact & map
+            </Link>
+            <Link href="/ops" className="hover:text-[#ffb4b4]">
+              Staff ops
+            </Link>
           </div>
         </div>
       </div>
-      <div className="border-t border-[var(--ag-red)]/30 bg-[var(--ag-red)]/15 px-5 py-5 text-center text-xs text-white/60 md:px-8">
-        © {new Date().getFullYear()} ANVI GRAND · Vijayawada · Demo password for ops in README
+      <div className="border-t border-white/10 bg-black/20 px-5 py-5 text-center text-xs text-white/60 md:px-8">
+        © {new Date().getFullYear()} ANVI GRAND · Vijayawada · Demo password for
+        ops in README
       </div>
     </footer>
   );

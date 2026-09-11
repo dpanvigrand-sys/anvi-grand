@@ -1,17 +1,20 @@
 "use client";
 
+import Image from "next/image";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatINR } from "@/lib/format";
 import type { MenuItem } from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 type Props = {
   menu: MenuItem[];
+  variant?: "home" | "page";
 };
 
-export function FoodOrderForm({ menu }: Props) {
+export function FoodOrderForm({ menu, variant = "page" }: Props) {
   const [cart, setCart] = useState<Record<string, number>>({});
   const [guestName, setGuestName] = useState("");
   const [phone, setPhone] = useState("");
@@ -19,6 +22,8 @@ export function FoodOrderForm({ menu }: Props) {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [pending, setPending] = useState(false);
+
+  const featured = variant === "home" ? menu.slice(0, 3) : menu;
 
   const items = useMemo(
     () =>
@@ -34,6 +39,10 @@ export function FoodOrderForm({ menu }: Props) {
       return sum + (dish ? dish.price * line.qty : 0);
     }, 0);
   }, [items, menu]);
+
+  function addOne(id: string) {
+    setCart((prev) => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
+  }
 
   function bump(id: string, delta: number) {
     setCart((prev) => {
@@ -64,7 +73,9 @@ export function FoodOrderForm({ menu }: Props) {
         setError(data.error || "Could not place order.");
         return;
       }
-      setSuccess(`Order ${data.order.id} placed · ${formatINR(data.order.total)}. CHIGURU kitchen is on it.`);
+      setSuccess(
+        `Order ${data.order.id} paid · ${formatINR(data.order.total)}. CHIGURU kitchen is on it.`,
+      );
       setCart({});
     } catch {
       setError("Network error. Please try again.");
@@ -73,131 +84,197 @@ export function FoodOrderForm({ menu }: Props) {
     }
   }
 
-  const categories = [...new Set(menu.map((m) => m.category))];
-
   if (!menu.length) {
     return (
-      <p className="border border-[var(--ag-line)] bg-white px-5 py-8 text-[var(--ag-muted)]">
+      <p className="rounded-lg border border-[var(--ag-line)] bg-white px-5 py-8 text-[var(--ag-muted)]">
         Menu is being updated. Call 7569494949 for today’s specials.
       </p>
     );
   }
 
+  const categories = [...new Set(featured.map((m) => m.category))];
+
   return (
-    <div className="grid gap-10 lg:grid-cols-[1.4fr_1fr]">
-      <div className="space-y-10">
-        {categories.map((cat) => (
-          <div key={cat}>
-            <h3 className="font-display text-2xl capitalize text-[var(--ag-chocolate)]">{cat}</h3>
-            <ul className="mt-4 divide-y divide-[var(--ag-line)] border-y border-[var(--ag-line)]">
-              {menu
-                .filter((m) => m.category === cat)
-                .map((m) => (
-                  <li key={m.id} className="flex items-start justify-between gap-4 py-4">
-                    <div>
-                      <p className="font-medium text-[var(--ag-chocolate)]">
-                        {m.name}
-                        {m.veg ? (
-                          <span className="ml-2 text-xs text-emerald-700">veg</span>
-                        ) : (
-                          <span className="ml-2 text-xs text-[var(--ag-red)]">non-veg</span>
-                        )}
-                      </p>
-                      <p className="mt-1 text-sm text-[var(--ag-muted)]">{m.description}</p>
-                      <p className="mt-2 text-sm font-medium">{formatINR(m.price)}</p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon-sm"
-                        className="rounded-none"
-                        onClick={() => bump(m.id, -1)}
-                      >
-                        −
-                      </Button>
-                      <span className="w-6 text-center text-sm">{cart[m.id] || 0}</span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="icon-sm"
-                        className="rounded-none"
-                        onClick={() => bump(m.id, 1)}
-                      >
-                        +
-                      </Button>
-                    </div>
-                  </li>
-                ))}
-            </ul>
+    <div
+      className={cn(
+        "grid gap-8",
+        variant === "home"
+          ? "lg:grid-cols-[1fr_280px]"
+          : "lg:grid-cols-[1.35fr_320px]",
+      )}
+    >
+      <div className="space-y-8">
+        {variant === "home" ? (
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {featured.map((m) => (
+              <article
+                key={m.id}
+                className="overflow-hidden rounded-lg bg-white shadow-md ring-1 ring-black/5"
+              >
+                <div className="relative aspect-[4/3]">
+                  <Image
+                    src={m.image}
+                    alt={m.name}
+                    fill
+                    className="object-cover"
+                    sizes="(max-width:768px) 100vw, 280px"
+                  />
+                </div>
+                <div className="p-4">
+                  <h3 className="font-semibold text-[var(--ag-ink)]">{m.name}</h3>
+                  <p className="mt-1 text-sm font-medium text-[var(--ag-red)]">
+                    {formatINR(m.price)}
+                  </p>
+                  <p className="mt-0.5 text-xs capitalize text-[var(--ag-muted)]">
+                    {m.category.replace("-", " ")}
+                  </p>
+                  <Button
+                    type="button"
+                    onClick={() => addOne(m.id)}
+                    className="mt-4 h-10 w-full rounded-md bg-[var(--ag-charcoal)] text-sm font-semibold text-white hover:bg-[#222]"
+                  >
+                    Add to Order
+                  </Button>
+                </div>
+              </article>
+            ))}
           </div>
-        ))}
+        ) : (
+          categories.map((cat) => (
+            <div key={cat}>
+              <h3 className="text-lg font-semibold capitalize text-[var(--ag-ink)]">
+                {cat.replace("-", " ")}
+              </h3>
+              <div className="mt-4 grid gap-5 sm:grid-cols-2">
+                {featured
+                  .filter((m) => m.category === cat)
+                  .map((m) => (
+                    <article
+                      key={m.id}
+                      className="overflow-hidden rounded-lg bg-white shadow-md ring-1 ring-black/5"
+                    >
+                      <div className="relative aspect-[16/10]">
+                        <Image
+                          src={m.image}
+                          alt={m.name}
+                          fill
+                          className="object-cover"
+                          sizes="(max-width:768px) 100vw, 40vw"
+                        />
+                      </div>
+                      <div className="p-4">
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <h4 className="font-semibold text-[var(--ag-ink)]">{m.name}</h4>
+                            <p className="mt-1 text-sm text-[var(--ag-muted)]">
+                              {m.description}
+                            </p>
+                          </div>
+                          <p className="shrink-0 font-semibold text-[var(--ag-red)]">
+                            {formatINR(m.price)}
+                          </p>
+                        </div>
+                        <div className="mt-4 flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon-sm"
+                            className="rounded-md"
+                            onClick={() => bump(m.id, -1)}
+                          >
+                            −
+                          </Button>
+                          <span className="w-6 text-center text-sm">
+                            {cart[m.id] || 0}
+                          </span>
+                          <Button
+                            type="button"
+                            className="h-9 flex-1 rounded-md bg-[var(--ag-charcoal)] text-sm font-semibold text-white hover:bg-[#222]"
+                            onClick={() => addOne(m.id)}
+                          >
+                            Add to Order
+                          </Button>
+                        </div>
+                      </div>
+                    </article>
+                  ))}
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       <form
         onSubmit={onSubmit}
-        className="h-fit space-y-4 border border-[var(--ag-line)] bg-white p-6 lg:sticky lg:top-24"
+        className="h-fit overflow-hidden rounded-lg shadow-lg ring-1 ring-black/5 lg:sticky lg:top-24"
       >
-        <p className="font-display text-2xl text-[var(--ag-chocolate)]">Your order</p>
-        {items.length === 0 ? (
-          <p className="text-sm text-[var(--ag-muted)]">Add dishes from the menu.</p>
-        ) : (
-          <ul className="space-y-2 text-sm">
-            {items.map((line) => {
-              const dish = menu.find((m) => m.id === line.menuId)!;
-              return (
-                <li key={line.menuId} className="flex justify-between gap-2">
-                  <span>
-                    {dish.name} × {line.qty}
-                  </span>
-                  <span>{formatINR(dish.price * line.qty)}</span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        <p className="border-t border-[var(--ag-line)] pt-3 text-sm font-medium">
-          Total {formatINR(total)}
-        </p>
-        <div className="space-y-2">
-          <Label htmlFor="guestName">Name</Label>
-          <Input
-            id="guestName"
-            required
-            value={guestName}
-            onChange={(e) => setGuestName(e.target.value)}
-            className="rounded-none"
-          />
+        <div className="bg-[var(--ag-cart-pink)] px-4 py-3">
+          <p className="text-sm font-bold text-[var(--ag-red)]">CHIGURU Order Cart</p>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="phone">Phone</Label>
-          <Input
-            id="phone"
-            required
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="rounded-none"
-          />
+        <div className="space-y-3 bg-white p-4">
+          {items.length === 0 ? (
+            <p className="text-sm text-[var(--ag-muted)]">Add dishes to begin checkout.</p>
+          ) : (
+            <ul className="space-y-2 text-sm text-[var(--ag-ink)]">
+              {items.map((line) => {
+                const dish = menu.find((m) => m.id === line.menuId)!;
+                return (
+                  <li key={line.menuId} className="flex justify-between gap-2">
+                    <span>
+                      {line.qty}x {dish.name}
+                    </span>
+                    <span className="font-medium">
+                      {formatINR(dish.price * line.qty)}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+          <p className="border-t border-[var(--ag-line)] pt-3 text-sm font-semibold text-[var(--ag-ink)]">
+            Total Payable: {formatINR(total)}
+          </p>
+          <div className="space-y-2">
+            <Label htmlFor="guestName">Name</Label>
+            <Input
+              id="guestName"
+              required
+              value={guestName}
+              onChange={(e) => setGuestName(e.target.value)}
+              className="rounded-md"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="phone">Phone</Label>
+            <Input
+              id="phone"
+              required
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="rounded-md"
+              placeholder="7569494949"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="roomNumber">Room (optional)</Label>
+            <Input
+              id="roomNumber"
+              value={roomNumber}
+              onChange={(e) => setRoomNumber(e.target.value)}
+              className="rounded-md"
+              placeholder="e.g. 204"
+            />
+          </div>
+          {error && <p className="text-sm text-[var(--ag-red)]">{error}</p>}
+          {success && <p className="text-sm text-emerald-700">{success}</p>}
+          <Button
+            type="submit"
+            disabled={pending || items.length === 0}
+            className="h-11 w-full rounded-md bg-[var(--ag-red)] text-sm font-semibold text-white hover:bg-[var(--ag-red-deep)]"
+          >
+            {pending ? "Processing…" : "Pay Now (Anvi Grand Checkout)"}
+          </Button>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="roomNumber">Room number (optional)</Label>
-          <Input
-            id="roomNumber"
-            value={roomNumber}
-            onChange={(e) => setRoomNumber(e.target.value)}
-            className="rounded-none"
-            placeholder="e.g. 204"
-          />
-        </div>
-        {error && <p className="text-sm text-[var(--ag-red)]">{error}</p>}
-        {success && <p className="text-sm text-[var(--ag-maroon)]">{success}</p>}
-        <Button
-          type="submit"
-          disabled={pending || items.length === 0}
-          className="h-11 w-full rounded-none bg-[var(--ag-red)] text-white hover:bg-[var(--ag-maroon)]"
-        >
-          {pending ? "Placing…" : "Place CHIGURU order"}
-        </Button>
       </form>
     </div>
   );

@@ -55,7 +55,8 @@ Opens `http://127.0.0.1:3947/`. A web app manifest is also at `public/manifest.w
 - `/` brand-first hero + rates teaser + map  
 - `/rooms`, `/rooms/[id]`, `/book`, `/bookings/[id]` — room booking with ₹ rates  
 - `/banquet`, `/party-hall` — venue booking  
-- `/food` — CHIGURU online order with ₹ menu prices  
+- `/food` — CHIGURU online order with cart + Pay Now checkout
+- `/gallery` — photo gallery of rooms, halls, and facilities  
 - `/buffet` — buffet booking  
 - `/facilities`, `/contact`
 
