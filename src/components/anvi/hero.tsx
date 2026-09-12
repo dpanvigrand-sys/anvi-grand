@@ -20,7 +20,7 @@ export function Hero() {
             alt="ANVI GRAND"
             className="mb-5 h-14 w-auto drop-shadow-lg md:mb-6 md:h-16"
           />
-          <h1 className="animate-drift font-sans text-4xl font-extrabold leading-[1.1] tracking-tight text-white [text-shadow:0_2px_18px_rgba(0,0,0,0.55)] sm:text-5xl md:text-6xl">
+          <h1 className="animate-drift font-sans text-4xl font-normal leading-[1.1] tracking-tight text-white [text-shadow:0_2px_18px_rgba(0,0,0,0.55)] sm:text-5xl md:text-6xl">
             Welcome to Anvi Grand
           </h1>
           <p className="animate-drift-delay mt-3 text-left text-lg font-semibold text-[var(--ag-gold)] [text-shadow:0_1px_10px_rgba(0,0,0,0.45)] sm:text-xl md:text-2xl">
