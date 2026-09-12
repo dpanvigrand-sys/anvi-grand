@@ -31,22 +31,31 @@ export async function POST(req: Request) {
     const label = String(form.get("label") || "");
     const groupRaw = String(form.get("group") || "Gallery");
     const slotRaw = String(form.get("slot") || "");
+    const srcRaw = String(form.get("src") || "").trim();
+    const catalogKeyRaw = String(form.get("catalogKey") || "").trim();
 
-    if (!(file instanceof File)) {
-      return NextResponse.json({ error: "Missing image file" }, { status: 400 });
-    }
-    if (file.size > 6 * 1024 * 1024) {
+    const hasFile = file instanceof File && file.size > 0;
+    if (!hasFile && !srcRaw) {
       return NextResponse.json(
-        { error: "Image must be 6MB or smaller" },
+        { error: "Provide an image file or image URL" },
         { status: 400 },
       );
     }
-    const type = file.type || "";
-    if (!type.startsWith("image/")) {
-      return NextResponse.json(
-        { error: "Only image uploads are allowed" },
-        { status: 400 },
-      );
+
+    if (hasFile) {
+      if (file.size > 6 * 1024 * 1024) {
+        return NextResponse.json(
+          { error: "Image must be 6MB or smaller" },
+          { status: 400 },
+        );
+      }
+      const type = file.type || "";
+      if (!type.startsWith("image/")) {
+        return NextResponse.json(
+          { error: "Only image uploads are allowed" },
+          { status: 400 },
+        );
+      }
     }
 
     const group = GROUPS.includes(groupRaw as MediaItem["group"])
@@ -56,18 +65,22 @@ export async function POST(req: Request) {
       ? (slotRaw as NonNullable<MediaItem["slot"]>)
       : undefined;
 
-    const bytes = Buffer.from(await file.arrayBuffer());
     const item = await addMedia({
-      label: label || file.name,
+      label: label || (hasFile ? file.name : "Photo"),
       group,
       slot,
-      fileName: file.name || "photo.jpg",
-      bytes,
+      catalogKey: catalogKeyRaw || undefined,
+      src: srcRaw || undefined,
+      fileName: hasFile ? file.name || "photo.jpg" : undefined,
+      bytes: hasFile ? Buffer.from(await file.arrayBuffer()) : undefined,
     });
 
     return NextResponse.json({ item }, { status: 201 });
   } catch (err) {
     console.error("media upload failed", err);
-    return NextResponse.json({ error: "Upload failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Upload failed" },
+      { status: 500 },
+    );
   }
 }

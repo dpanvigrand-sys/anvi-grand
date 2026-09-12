@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { MediaItem } from "@/lib/media";
+import type { MediaItem } from "@/lib/media-types";
+import { websitePlace } from "@/lib/media-place";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,17 +22,32 @@ type Props = { initialItems: MediaItem[] };
 export function PhotoManager({ initialItems }: Props) {
   const router = useRouter();
   const [items, setItems] = useState(initialItems);
-  const [filter, setFilter] = useState<string>("All");
+  const [filter, setFilter] = useState("All");
   const [label, setLabel] = useState("");
   const [group, setGroup] = useState<MediaItem["group"]>("Gallery");
   const [slot, setSlot] = useState("");
+  const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [catalogKey, setCatalogKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
   const [editGroup, setEditGroup] = useState<MediaItem["group"]>("Gallery");
+  const [editSrc, setEditSrc] = useState("");
+
+  const placementOptions = useMemo(() => {
+    const opts: { value: string; label: string }[] = [
+      { value: "", label: "Gallery only (extra photo)" },
+      { value: "hotel:hero", label: "Home hero (/)" },
+    ];
+    for (const item of items) {
+      if (!item.catalogKey || item.catalogKey === "hotel:hero") continue;
+      opts.push({ value: item.catalogKey, label: websitePlace(item) });
+    }
+    return opts;
+  }, [items]);
 
   const byGroup = useMemo(() => {
     const map = new Map<string, MediaItem[]>();
@@ -50,10 +66,10 @@ export function PhotoManager({ initialItems }: Props) {
     return c;
   }, [items]);
 
-  async function onUpload(e: React.FormEvent) {
+  async function onAdd(e: React.FormEvent) {
     e.preventDefault();
-    if (!file) {
-      setError("Choose an image file first.");
+    if (!file && !url.trim()) {
+      setError("Choose an image file or paste an image URL.");
       return;
     }
     setBusy(true);
@@ -61,20 +77,37 @@ export function PhotoManager({ initialItems }: Props) {
     setMessage("");
     try {
       const fd = new FormData();
-      fd.set("file", file);
+      if (file) fd.set("file", file);
+      if (url.trim()) fd.set("src", url.trim());
       fd.set("label", label);
       fd.set("group", group);
       if (slot) fd.set("slot", slot);
+      if (catalogKey) fd.set("catalogKey", catalogKey);
       const res = await fetch("/api/ops/media", { method: "POST", body: fd });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Upload failed");
-      setItems((prev) => [data.item as MediaItem, ...prev]);
+      if (!res.ok) throw new Error(data.error || "Add failed");
+      const saved = data.item as MediaItem;
+      setItems((prev) => {
+        const without = prev.filter(
+          (i) =>
+            i.id !== saved.id &&
+            (!saved.catalogKey || i.catalogKey !== saved.catalogKey),
+        );
+        return [saved, ...without];
+      });
       setLabel("");
       setFile(null);
-      setMessage("Photo added to the library.");
+      setUrl("");
+      setCatalogKey("");
+      setSlot("");
+      setMessage(
+        saved.catalogKey
+          ? `Saved — live on ${websitePlace(saved)}.`
+          : "Photo added to the library / gallery.",
+      );
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Upload failed");
+      setError(err instanceof Error ? err.message : "Add failed");
     } finally {
       setBusy(false);
     }
@@ -105,7 +138,17 @@ export function PhotoManager({ initialItems }: Props) {
   }
 
   async function onDelete(id: string) {
-    if (!window.confirm("Delete this photo from the managed library?")) return;
+    const target = items.find((i) => i.id === id);
+    const place = target ? websitePlace(target) : "this photo";
+    if (
+      !window.confirm(
+        target?.catalogKey
+          ? `Delete photo for ${place}? Guests will stop seeing this image until you add a new one.`
+          : "Delete this gallery photo?",
+      )
+    ) {
+      return;
+    }
     setBusy(true);
     setError("");
     setMessage("");
@@ -114,7 +157,7 @@ export function PhotoManager({ initialItems }: Props) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Delete failed");
       setItems((prev) => prev.filter((i) => i.id !== id));
-      setMessage("Photo deleted.");
+      setMessage(`Deleted — ${place} updated.`);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Delete failed");
@@ -124,6 +167,10 @@ export function PhotoManager({ initialItems }: Props) {
   }
 
   async function onSaveEdit(id: string) {
+    if (!editSrc.trim()) {
+      setError("Image URL cannot be empty.");
+      return;
+    }
     setBusy(true);
     setError("");
     setMessage("");
@@ -131,15 +178,18 @@ export function PhotoManager({ initialItems }: Props) {
       const res = await fetch(`/api/ops/media/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ label: editLabel, group: editGroup }),
+        body: JSON.stringify({
+          label: editLabel,
+          group: editGroup,
+          src: editSrc.trim(),
+        }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Update failed");
-      setItems((prev) =>
-        prev.map((i) => (i.id === id ? (data.item as MediaItem) : i)),
-      );
+      const saved = data.item as MediaItem;
+      setItems((prev) => prev.map((i) => (i.id === id ? saved : i)));
       setEditingId(null);
-      setMessage("Photo updated.");
+      setMessage(`Updated — live on ${websitePlace(saved)}.`);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Update failed");
@@ -151,14 +201,15 @@ export function PhotoManager({ initialItems }: Props) {
   return (
     <div className="space-y-10">
       <div className="flex flex-wrap items-center gap-3 border border-[var(--ag-line)] bg-white p-4">
-        <p className="text-sm text-[var(--ag-muted)]">
-          Library shows every image used on the public site (hero, rooms,
-          CHIGURU food, venues, facilities) plus staff uploads.
+        <p className="flex-1 text-sm text-[var(--ag-muted)]">
+          Every public photo place is listed below (hero, rooms, CHIGURU food,
+          banquet/venues, facilities, gallery). Edit changes the guest page
+          immediately.
         </p>
         <Button
           type="button"
           disabled={busy}
-          onClick={() => onSync(false)}
+          onClick={() => void onSync(false)}
           className="h-10 rounded-none bg-[var(--ag-maroon)] text-white hover:bg-[var(--ag-red)]"
         >
           {busy ? "Working…" : "Sync from website"}
@@ -166,7 +217,7 @@ export function PhotoManager({ initialItems }: Props) {
       </div>
 
       <form
-        onSubmit={onUpload}
+        onSubmit={(e) => void onAdd(e)}
         className="grid gap-4 border border-[var(--ag-line)] bg-white p-5 md:grid-cols-2"
       >
         <div className="md:col-span-2">
@@ -174,19 +225,28 @@ export function PhotoManager({ initialItems }: Props) {
             Add photo
           </p>
           <p className="mt-1 text-sm text-[var(--ag-muted)]">
-            Upload JPG/PNG/WebP (max 6MB). Files save under{" "}
-            <code>/public/uploads</code>.
+            Upload a file <em>or</em> paste an image URL. Assign a website place
+            to replace that slot on the public site.
           </p>
         </div>
         <div className="grid gap-2">
-          <Label htmlFor="photo-file">Image file</Label>
+          <Label htmlFor="photo-file">Image file (optional)</Label>
           <Input
             id="photo-file"
             type="file"
             accept="image/*"
             className="rounded-none"
             onChange={(e) => setFile(e.target.files?.[0] || null)}
-            required
+          />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="photo-url">Image URL (optional)</Label>
+          <Input
+            id="photo-url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="https://… or /uploads/…"
+            className="rounded-none font-mono text-xs"
           />
         </div>
         <div className="grid gap-2">
@@ -214,19 +274,28 @@ export function PhotoManager({ initialItems }: Props) {
             ))}
           </select>
         </div>
-        <div className="grid gap-2">
-          <Label htmlFor="photo-slot">Website slot (optional)</Label>
+        <div className="grid gap-2 md:col-span-2">
+          <Label htmlFor="photo-place">Website place</Label>
           <select
-            id="photo-slot"
-            value={slot}
-            onChange={(e) => setSlot(e.target.value)}
+            id="photo-place"
+            value={catalogKey}
+            onChange={(e) => {
+              const v = e.target.value;
+              setCatalogKey(v);
+              if (v === "hotel:hero") setSlot("hero");
+              else if (v.startsWith("room:")) setSlot("room");
+              else if (v.startsWith("menu:") || v.startsWith("buffet:"))
+                setSlot("food");
+              else if (!v) setSlot("");
+              else setSlot("gallery");
+            }}
             className="h-9 border border-input bg-transparent px-2 text-sm"
           >
-            <option value="">None (gallery only)</option>
-            <option value="hero">Hero / home entrance</option>
-            <option value="room">Featured room teaser</option>
-            <option value="food">Featured food teaser</option>
-            <option value="gallery">Gallery highlight</option>
+            {placementOptions.map((o) => (
+              <option key={o.value || "gallery"} value={o.value}>
+                {o.label}
+              </option>
+            ))}
           </select>
         </div>
         <div className="md:col-span-2">
@@ -235,7 +304,7 @@ export function PhotoManager({ initialItems }: Props) {
             disabled={busy}
             className="h-11 rounded-none bg-[var(--ag-red)] text-white hover:bg-[var(--ag-maroon)]"
           >
-            {busy ? "Working…" : "Upload photo"}
+            {busy ? "Working…" : "Add / replace photo"}
           </Button>
         </div>
         {message ? (
@@ -273,8 +342,8 @@ export function PhotoManager({ initialItems }: Props) {
 
         {items.length === 0 ? (
           <p className="mt-3 text-[var(--ag-muted)]">
-            No photos yet. Click <strong>Sync from website</strong> to pull
-            rooms, food, venues, and facilities, or upload above.
+            No photos yet. Click <strong>Sync from website</strong> or add
+            above.
           </p>
         ) : (
           <div className="mt-5 space-y-8">
@@ -289,12 +358,18 @@ export function PhotoManager({ initialItems }: Props) {
                       key={item.id}
                       className="overflow-hidden border border-[var(--ag-line)] bg-white"
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={item.src}
-                        alt={item.label}
-                        className="aspect-[4/3] w-full object-cover"
-                      />
+                      {item.src ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={item.src}
+                          alt={item.label}
+                          className="aspect-[4/3] w-full object-cover"
+                        />
+                      ) : (
+                        <div className="flex aspect-[4/3] items-center justify-center bg-[var(--ag-cream)] text-sm text-[var(--ag-muted)]">
+                          No image
+                        </div>
+                      )}
                       <figcaption className="space-y-2 p-3">
                         {editingId === item.id ? (
                           <div className="space-y-2">
@@ -302,6 +377,13 @@ export function PhotoManager({ initialItems }: Props) {
                               value={editLabel}
                               onChange={(e) => setEditLabel(e.target.value)}
                               className="rounded-none"
+                              placeholder="Label"
+                            />
+                            <Input
+                              value={editSrc}
+                              onChange={(e) => setEditSrc(e.target.value)}
+                              className="rounded-none font-mono text-xs"
+                              placeholder="Image URL"
                             />
                             <select
                               value={editGroup}
@@ -322,7 +404,7 @@ export function PhotoManager({ initialItems }: Props) {
                               <Button
                                 type="button"
                                 disabled={busy}
-                                onClick={() => onSaveEdit(item.id)}
+                                onClick={() => void onSaveEdit(item.id)}
                                 className="h-9 flex-1 rounded-none bg-[var(--ag-red)] text-white"
                               >
                                 Save
@@ -343,9 +425,11 @@ export function PhotoManager({ initialItems }: Props) {
                             <p className="font-medium text-[var(--ag-ink)]">
                               {item.label}
                             </p>
+                            <p className="text-xs font-semibold text-[var(--ag-maroon)]">
+                              Shows on: {websitePlace(item)}
+                            </p>
                             <p className="break-all text-xs text-[var(--ag-muted)]">
-                              {item.src}
-                              {item.slot ? ` · slot:${item.slot}` : ""}
+                              {item.src || "(empty)"}
                               {item.managedFile ? " · upload" : " · site"}
                             </p>
                             <div className="flex gap-2">
@@ -357,6 +441,7 @@ export function PhotoManager({ initialItems }: Props) {
                                   setEditingId(item.id);
                                   setEditLabel(item.label);
                                   setEditGroup(item.group);
+                                  setEditSrc(item.src);
                                 }}
                                 className="h-9 flex-1 rounded-none"
                               >
@@ -366,7 +451,7 @@ export function PhotoManager({ initialItems }: Props) {
                                 type="button"
                                 variant="outline"
                                 disabled={busy}
-                                onClick={() => onDelete(item.id)}
+                                onClick={() => void onDelete(item.id)}
                                 className="h-9 flex-1 rounded-none border-[var(--ag-red)] text-[var(--ag-red)] hover:bg-[var(--ag-red)] hover:text-white"
                               >
                                 Delete

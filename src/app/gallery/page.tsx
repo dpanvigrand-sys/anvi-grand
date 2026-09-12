@@ -21,25 +21,33 @@ export default async function GalleryPage() {
       label: "Night entrance · HOTEL ANVI GRAND",
       group: "Hotel",
     },
-    ...rooms.map((r) => ({ src: r.image, label: r.name, group: "Rooms" })),
-    ...venues.map((v) => ({ src: v.image, label: v.name, group: "Venues" })),
-    ...facilities.map((f) => ({
-      src: f.image,
-      label: f.name,
-      group: "Facilities",
-    })),
+    ...rooms
+      .filter((r) => r.image)
+      .map((r) => ({ src: r.image, label: r.name, group: "Rooms" })),
+    ...venues
+      .filter((v) => v.image)
+      .map((v) => ({ src: v.image, label: v.name, group: "Venues" })),
+    ...facilities
+      .filter((f) => f.image)
+      .map((f) => ({
+        src: f.image,
+        label: f.name,
+        group: "Facilities",
+      })),
   ];
 
-  const managedShots = media.map((m) => ({
-    src: m.src,
-    label: m.label,
-    group: m.group,
-  }));
+  const managedShots = media
+    .filter((m) => m.src)
+    .map((m) => ({
+      src: m.src,
+      label: m.label,
+      group: m.group,
+    }));
 
-  // Managed photos first (newest), then catalog defaults not already present by src
+  // Media library first (includes site placements), then any catalog leftovers
   const seen = new Set<string>();
   const shots = [...managedShots, ...catalogShots].filter((s) => {
-    if (seen.has(s.src)) return false;
+    if (!s.src || seen.has(s.src)) return false;
     seen.add(s.src);
     return true;
   });

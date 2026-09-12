@@ -2,26 +2,10 @@ import { promises as fs } from "fs";
 import path from "path";
 import { uid } from "./format";
 import type { Catalog } from "./types";
+import type { MediaItem, MediaStore } from "./media-types";
 
-export type MediaItem = {
-  id: string;
-  src: string;
-  label: string;
-  group: "Gallery" | "Website" | "Rooms" | "Food" | "Venues" | "Facilities";
-  /** Optional website slot: hero | room | food | gallery */
-  slot?: "hero" | "room" | "food" | "gallery";
-  createdAt: string;
-  /** true when file lives under public/uploads and can be deleted from disk */
-  managedFile: boolean;
-  /** Set when row was seeded from catalog / site inventory */
-  catalogKey?: string;
-};
-
-export type MediaStore = {
-  items: MediaItem[];
-  /** Catalog-synced ids the staff deleted — sync will not restore these */
-  removedIds?: string[];
-};
+export type { MediaItem, MediaStore } from "./media-types";
+export { websitePlace } from "./media-place";
 
 const dataDir = path.join(process.cwd(), "data");
 const uploadsDir = path.join(process.cwd(), "public", "uploads");
@@ -34,7 +18,6 @@ async function readStore(): Promise<MediaStore> {
     const raw = JSON.parse(
       await fs.readFile(path.join(dataDir, mediaFile), "utf8"),
     ) as MediaStore & { items: Array<MediaItem & { managedFile?: boolean }> };
-    // Normalize legacy managedFile key if present
     const items = (raw.items || []).map((i) => {
       const legacy = i as MediaItem & { managedFile?: boolean };
       return {
@@ -63,7 +46,46 @@ async function writeStore(store: MediaStore): Promise<void> {
   );
 }
 
-/** Inventory every public-site image from catalog + local entrance. */
+/**
+ * Write an image URL into the matching catalog field so public pages update live.
+ * catalogKey examples: hotel:hero | room:{id} | venue:{id} | menu:{id} | buffet:{id} | facility:{id}
+ */
+export async function writeCatalogImage(
+  catalogKey: string,
+  src: string,
+): Promise<boolean> {
+  const { getCatalog, saveCatalog, updateHotel } = await import("./store");
+  const [kind, id] = catalogKey.split(":");
+  if (!kind) return false;
+
+  if (kind === "hotel" && id === "hero") {
+    await updateHotel({ heroImage: src });
+    return true;
+  }
+
+  const catalog = await getCatalog();
+  const listKey =
+    kind === "room"
+      ? "rooms"
+      : kind === "venue"
+        ? "venues"
+        : kind === "menu"
+          ? "menu"
+          : kind === "buffet"
+            ? "buffets"
+            : kind === "facility"
+              ? "facilities"
+              : null;
+  if (!listKey || !id) return false;
+  const list = catalog[listKey] as Array<{ id: string; image: string }>;
+  const idx = list.findIndex((x) => x.id === id);
+  if (idx < 0) return false;
+  list[idx] = { ...list[idx], image: src };
+  await saveCatalog(catalog);
+  return true;
+}
+
+/** Inventory every public-site image from catalog + local entrance. One row per placement (no src dedupe). */
 export function inventorySiteImages(catalog: Catalog): MediaItem[] {
   const now = new Date().toISOString();
   const out: MediaItem[] = [];
@@ -151,13 +173,7 @@ export function inventorySiteImages(catalog: Catalog): MediaItem[] {
     });
   }
 
-  // Dedupe by src, keep first (hero wins over later dups)
-  const seen = new Set<string>();
-  return out.filter((item) => {
-    if (seen.has(item.src)) return false;
-    seen.add(item.src);
-    return true;
-  });
+  return out;
 }
 
 /**
@@ -173,14 +189,12 @@ export async function syncSiteMedia(opts?: {
   const store = await readStore();
   const removed = new Set(opts?.force ? [] : store.removedIds || []);
   const byId = new Map(store.items.map((i) => [i.id, i]));
-  const bySrc = new Map(store.items.map((i) => [i.src, i]));
 
   let added = 0;
   for (const site of siteItems) {
     if (removed.has(site.id)) continue;
-    const existing = byId.get(site.id) || bySrc.get(site.src);
+    const existing = byId.get(site.id);
     if (existing) {
-      // Refresh label/group/slot for catalog-backed rows; never overwrite uploads
       if (!existing.managedFile) {
         existing.label = site.label;
         existing.group = site.group;
@@ -192,12 +206,9 @@ export async function syncSiteMedia(opts?: {
       continue;
     }
     byId.set(site.id, site);
-    bySrc.set(site.src, site);
     added += 1;
   }
 
-  // Keep uploads + catalog rows; drop stale non-managed site-* ids no longer in inventory
-  // unless they were user uploads
   const siteIds = new Set(siteItems.map((i) => i.id));
   const merged = [...byId.values()].filter((item) => {
     if (item.managedFile) return true;
@@ -205,7 +216,6 @@ export async function syncSiteMedia(opts?: {
     return siteIds.has(item.id) && !removed.has(item.id);
   });
 
-  // Stable-ish order: Website, Rooms, Venues, Food, Facilities, Gallery, then uploads first within group by createdAt desc
   const groupOrder = [
     "Website",
     "Rooms",
@@ -247,57 +257,94 @@ export async function getMediaBySlot(
   return items.find((i) => i.slot === slot);
 }
 
-export async function addMedia(input: {
-  label: string;
-  group: MediaItem["group"];
-  slot?: MediaItem["slot"];
-  fileName: string;
-  bytes: Buffer;
-}): Promise<MediaItem> {
+async function persistUploadedFile(fileName: string, bytes: Buffer): Promise<{ id: string; src: string; diskName: string }> {
   await fs.mkdir(uploadsDir, { recursive: true });
-  const safe = input.fileName
+  const safe = fileName
     .toLowerCase()
     .replace(/[^a-z0-9._-]+/g, "-")
     .replace(/-+/g, "-");
   const id = uid("media");
   const diskName = `${id}-${safe}`;
-  const diskPath = path.join(uploadsDir, diskName);
-  await fs.writeFile(diskPath, input.bytes);
+  await fs.writeFile(path.join(uploadsDir, diskName), bytes);
+  return { id, src: `/uploads/${diskName}`, diskName };
+}
+
+export async function addMedia(input: {
+  label: string;
+  group: MediaItem["group"];
+  slot?: MediaItem["slot"];
+  /** Optional catalog placement to write through (e.g. hotel:hero, room:id) */
+  catalogKey?: string;
+  fileName?: string;
+  bytes?: Buffer;
+  /** URL-only add (no file upload) */
+  src?: string;
+}): Promise<MediaItem> {
+  let src = (input.src || "").trim();
+  let managedFile = false;
+  let id = uid("media");
+
+  if (input.bytes && input.fileName) {
+    const up = await persistUploadedFile(input.fileName, input.bytes);
+    src = up.src;
+    id = up.id;
+    managedFile = true;
+  }
+
+  if (!src) {
+    throw new Error("Image file or URL is required");
+  }
+
+  // If assigning to an existing catalog placement, upsert that site-* row instead
+  const catalogKey = input.catalogKey?.trim() || undefined;
+  if (catalogKey) {
+    await writeCatalogImage(catalogKey, src);
+  } else if (input.slot === "hero") {
+    await writeCatalogImage("hotel:hero", src);
+  }
 
   const item: MediaItem = {
-    id,
-    src: `/uploads/${diskName}`,
-    label: input.label.trim() || safe,
+    id: catalogKey
+      ? catalogKey === "hotel:hero"
+        ? "site-hero-entrance"
+        : `site-${catalogKey.replace(":", "-")}`
+      : id,
+    src,
+    label: input.label.trim() || "Photo",
     group: input.group,
-    slot: input.slot,
+    slot: input.slot || (catalogKey === "hotel:hero" ? "hero" : undefined),
     createdAt: new Date().toISOString(),
-    managedFile: true,
+    managedFile,
+    catalogKey,
   };
 
   const store = await readStore();
+
   if (item.slot === "hero" || item.slot === "room" || item.slot === "food") {
     store.items = store.items.map((i) =>
-      i.slot === item.slot ? { ...i, slot: undefined } : i,
+      i.slot === item.slot && i.id !== item.id ? { ...i, slot: undefined } : i,
     );
   }
-  store.items.unshift(item);
-  await writeStore(store);
 
-  if (item.slot === "hero") {
-    try {
-      const { updateHotel } = await import("./store");
-      await updateHotel({ heroImage: item.src });
-    } catch {
-      /* ignore */
-    }
+  // Replace existing row for same catalog placement
+  if (catalogKey) {
+    store.items = store.items.filter(
+      (i) => i.catalogKey !== catalogKey && i.id !== item.id,
+    );
   }
 
+  store.items.unshift(item);
+  // Clear removed flag if re-adding a site id
+  if (store.removedIds?.length) {
+    store.removedIds = store.removedIds.filter((rid) => rid !== item.id);
+  }
+  await writeStore(store);
   return item;
 }
 
 export async function updateMedia(
   id: string,
-  patch: Partial<Pick<MediaItem, "label" | "group" | "slot">>,
+  patch: Partial<Pick<MediaItem, "label" | "group" | "slot" | "src">>,
 ): Promise<MediaItem | null> {
   const store = await readStore();
   const idx = store.items.findIndex((i) => i.id === id);
@@ -306,6 +353,9 @@ export async function updateMedia(
   const next = { ...store.items[idx] };
   if (typeof patch.label === "string") next.label = patch.label.trim() || next.label;
   if (patch.group) next.group = patch.group;
+  if (typeof patch.src === "string" && patch.src.trim()) {
+    next.src = patch.src.trim();
+  }
   if (patch.slot === undefined && "slot" in patch) {
     next.slot = undefined;
   } else if (patch.slot) {
@@ -321,13 +371,11 @@ export async function updateMedia(
   store.items[idx] = next;
   await writeStore(store);
 
-  if (next.slot === "hero") {
-    try {
-      const { updateHotel } = await import("./store");
-      await updateHotel({ heroImage: next.src });
-    } catch {
-      /* ignore */
-    }
+  // Write-through to catalog so guest pages update immediately
+  if (next.catalogKey && typeof patch.src === "string" && patch.src.trim()) {
+    await writeCatalogImage(next.catalogKey, next.src);
+  } else if (next.slot === "hero" && (patch.src || patch.slot === "hero")) {
+    await writeCatalogImage("hotel:hero", next.src);
   }
 
   return next;
@@ -354,5 +402,15 @@ export async function deleteMedia(id: string): Promise<boolean> {
       /* ignore */
     }
   }
+
+  // Clearing a catalog placement: set empty image so guest pages stop showing it
+  if (item.catalogKey) {
+    try {
+      await writeCatalogImage(item.catalogKey, "");
+    } catch {
+      /* ignore */
+    }
+  }
+
   return true;
 }

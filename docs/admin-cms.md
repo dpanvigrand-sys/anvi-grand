@@ -30,11 +30,36 @@ Inline **Save ₹**, full **Edit**, **+ Add room**, **Delete**.
 
 **Edit item** opens a highlighted full form (not price-only). **Save full item** writes the whole object into `catalog.json`. Public `/food` and `/buffet` are `force-dynamic` and pick up changes immediately after save.
 
-## Photos
+## Photos — every website place
 
-- **Admin UI:** `/ops/admin/photos`
-- **Storage:** `data/media.json`
-- **Sync:** `POST /api/ops/media/sync` (or **Sync from website**) seeds hero, rooms, venues, food, and facilities.
+- **Admin UI:** `/ops/admin/photos` (ops nav **Photos**, Admin hub)
+- **Password:** `anviops2026`
+- **Storage:** `data/media.json` (library) + write-through to `data/catalog.json` image fields
+- **Sync:** `POST /api/ops/media/sync` (or **Sync from website**) pulls every public placement into the library
+- **UI:** `src/components/ops/photo-manager.tsx` · page `src/app/ops/admin/photos/page.tsx`
+
+### Website places covered
+
+| Place | Catalog / media key | Guest page |
+|-------|---------------------|------------|
+| Home hero | `hotel:hero` → `hotel.heroImage` | `/` |
+| Room card / detail | `room:{id}` → `rooms[].image` | `/rooms`, `/rooms/[id]` |
+| CHIGURU dish | `menu:{id}` → `menu[].image` | `/food` |
+| Buffet package | `buffet:{id}` → `buffets[].image` | `/buffet` |
+| Banquet / party hall | `venue:{id}` → `venues[].image` | `/banquet`, `/party-hall` |
+| Facility | `facility:{id}` → `facilities[].image` | `/facilities` |
+| Extra gallery shots | library-only uploads | `/gallery` |
+
+### Staff actions
+
+| Action | Behavior |
+|--------|----------|
+| **Sync from website** | Lists every current site image with category + “Shows on” page mapping |
+| **Add / replace** | File upload **or** image URL; optional website place assignment |
+| **Edit** | Change label, category, and image URL — catalog placements update guest pages live |
+| **Delete** | Removes library row; catalog placements clear that page’s image until replaced |
+
+Hero reads `hotel.heroImage` (not a hardcoded file). Public routes are `force-dynamic`.
 
 ## Related
 

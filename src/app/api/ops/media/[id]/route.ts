@@ -25,8 +25,10 @@ export async function PATCH(req: Request, ctx: Ctx) {
   try {
     const { id } = await ctx.params;
     const body = await req.json();
-    const patch: Partial<Pick<MediaItem, "label" | "group" | "slot">> = {};
+    const patch: Partial<Pick<MediaItem, "label" | "group" | "slot" | "src">> =
+      {};
     if (typeof body.label === "string") patch.label = body.label;
+    if (typeof body.src === "string") patch.src = body.src;
     if (GROUPS.includes(body.group)) patch.group = body.group;
     if (body.slot === "" || body.slot === null) patch.slot = undefined;
     else if (SLOTS.includes(body.slot)) patch.slot = body.slot;

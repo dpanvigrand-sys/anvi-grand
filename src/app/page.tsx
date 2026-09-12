@@ -3,12 +3,13 @@ import Link from "next/link";
 import { FoodOrderForm } from "@/components/anvi/food-order-form";
 import { Hero } from "@/components/anvi/hero";
 import { formatINR } from "@/lib/format";
-import { getMenu, getRooms, getVenues } from "@/lib/store";
+import { getHotel, getMenu, getRooms, getVenues } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [rooms, venues, menu] = await Promise.all([
+  const [hotel, rooms, venues, menu] = await Promise.all([
+    getHotel(),
     getRooms(),
     getVenues(),
     getMenu(),
@@ -22,7 +23,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <Hero />
+      <Hero imageSrc={hotel.heroImage} />
 
       <section className="bg-[var(--ag-soft)] py-14 md:py-20">
         <div className="mx-auto grid w-full max-w-6xl gap-6 px-5 md:grid-cols-3 md:px-8">
