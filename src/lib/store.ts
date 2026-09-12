@@ -1,8 +1,10 @@
 import { promises as fs } from "fs";
+import { unstable_noStore as noStore } from "next/cache";
 import path from "path";
 import { nightsBetween, uid } from "./format";
 import type {
   BuffetBooking,
+  HotelInfo,
   Catalog,
   ContactMessage,
   DiningTable,
@@ -54,6 +56,7 @@ async function saveOps(ops: OpsStore): Promise<void> {
 }
 
 export async function getCatalog(): Promise<Catalog> {
+  noStore();
   return readJson<Catalog>("catalog.json", {
     hotel: {
       name: "ANVI GRAND",
@@ -421,4 +424,45 @@ export async function addStockMove(input: Omit<StockMove, "id" | "createdAt">) {
 
 export async function getRoomBooking(id: string) {
   return (await getOpsStore()).roomBookings.find((b) => b.id === id);
+}
+
+
+/** Persist full catalog (Admin CMS). */
+export async function saveCatalog(catalog: Catalog): Promise<void> {
+  await writeJson("catalog.json", catalog);
+}
+
+export async function updateHotel(patch: Partial<HotelInfo>): Promise<HotelInfo> {
+  const catalog = await getCatalog();
+  catalog.hotel = { ...catalog.hotel, ...patch };
+  await saveCatalog(catalog);
+  return catalog.hotel;
+}
+
+type ListKey = "rooms" | "venues" | "menu" | "buffets" | "facilities";
+
+export async function upsertCatalogItem<K extends ListKey>(
+  key: K,
+  item: Catalog[K][number],
+): Promise<Catalog[K][number]> {
+  const catalog = await getCatalog();
+  const list = catalog[key] as Array<{ id: string }>;
+  const idx = list.findIndex((x) => x.id === item.id);
+  if (idx >= 0) list[idx] = item as (typeof list)[number];
+  else list.unshift(item as (typeof list)[number]);
+  await saveCatalog(catalog);
+  return item;
+}
+
+export async function deleteCatalogItem(
+  key: ListKey,
+  id: string,
+): Promise<boolean> {
+  const catalog = await getCatalog();
+  const list = catalog[key] as Array<{ id: string }>;
+  const next = list.filter((x) => x.id !== id);
+  if (next.length === list.length) return false;
+  (catalog as Record<string, unknown>)[key] = next;
+  await saveCatalog(catalog);
+  return true;
 }

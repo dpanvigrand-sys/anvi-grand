@@ -5,6 +5,8 @@ import { notFound } from "next/navigation";
 import { formatINR } from "@/lib/format";
 import { getRoom, getRooms } from "@/lib/store";
 
+export const dynamic = "force-dynamic";
+
 type Props = { params: Promise<{ id: string }> };
 
 export async function generateStaticParams() {

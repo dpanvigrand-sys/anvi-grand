@@ -1,17 +1,21 @@
 import type { Metadata } from "next";
 import Image from "next/image";
+import { getMedia } from "@/lib/media";
 import { getFacilities, getRooms, getVenues } from "@/lib/store";
+
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "Gallery" };
 
 export default async function GalleryPage() {
-  const [rooms, venues, facilities] = await Promise.all([
+  const [rooms, venues, facilities, media] = await Promise.all([
     getRooms(),
     getVenues(),
     getFacilities(),
+    getMedia(),
   ]);
 
-  const shots = [
+  const catalogShots = [
     {
       src: "/images/anvi-entrance.jpg",
       label: "Night entrance · HOTEL ANVI GRAND",
@@ -26,6 +30,20 @@ export default async function GalleryPage() {
     })),
   ];
 
+  const managedShots = media.map((m) => ({
+    src: m.src,
+    label: m.label,
+    group: m.group,
+  }));
+
+  // Managed photos first (newest), then catalog defaults not already present by src
+  const seen = new Set<string>();
+  const shots = [...managedShots, ...catalogShots].filter((s) => {
+    if (seen.has(s.src)) return false;
+    seen.add(s.src);
+    return true;
+  });
+
   return (
     <div className="mx-auto max-w-6xl px-5 py-12 md:px-8">
       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[var(--ag-red)]">
@@ -36,12 +54,13 @@ export default async function GalleryPage() {
       </h1>
       <p className="mt-3 max-w-2xl text-[var(--ag-muted)]">
         Rooms, banquet halls, CHIGURU dining spaces, and hotel facilities near
-        Benz Circle, Eluru Road, Vijayawada.
+        Benz Circle, Eluru Road, Vijayawada. Staff can add or remove photos from{" "}
+        <span className="text-[var(--ag-ink)]">/ops → Photos</span>.
       </p>
       <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {shots.map((shot) => (
           <figure
-            key={`${shot.group}-${shot.label}`}
+            key={`${shot.group}-${shot.label}-${shot.src}`}
             className="overflow-hidden rounded-lg bg-white shadow-md ring-1 ring-black/5"
           >
             <div className="relative aspect-[4/3]">
@@ -51,6 +70,7 @@ export default async function GalleryPage() {
                 fill
                 className="object-cover"
                 sizes="(max-width:768px) 100vw, 33vw"
+                unoptimized={shot.src.startsWith("/uploads/")}
               />
             </div>
             <figcaption className="px-4 py-3">

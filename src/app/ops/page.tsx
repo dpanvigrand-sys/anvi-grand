@@ -7,6 +7,8 @@ const cards = [
   { href: "/ops/server", title: "Server", desc: "Floor tables and dine-in orders", tone: "bg-[var(--ag-red-deep)]" },
   { href: "/ops/kitchen", title: "KT Kitchen", desc: "Ticket queue, cook, ready, bump", tone: "bg-[var(--ag-maroon)]" },
   { href: "/ops/admin", title: "Admin", desc: "Occupancy and order overview", tone: "bg-[var(--ag-red)]" },
+  { href: "/ops/admin/rooms", title: "Rooms", desc: "Edit room names & ₹ prices", tone: "bg-[var(--ag-maroon)]" },
+  { href: "/ops/admin/photos", title: "Photos", desc: "Add / delete gallery & website images", tone: "bg-[var(--ag-maroon)]" },
   { href: "/ops/accounts", title: "Accounts", desc: "Income / expense ledger", tone: "bg-[var(--ag-red-deep)]" },
   { href: "/ops/inward", title: "Inward", desc: "Stock receipts from vendors", tone: "bg-[var(--ag-maroon)]" },
   { href: "/ops/outward", title: "Outward", desc: "Issues to kitchen & departments", tone: "bg-[var(--ag-red)]" },

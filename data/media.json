@@ -1,0 +1,195 @@
+{
+  "items": [
+    {
+      "id": "site-hero-entrance",
+      "src": "/images/anvi-entrance.jpg",
+      "label": "Night entrance · ANVI GRAND",
+      "group": "Website",
+      "createdAt": "2026-09-12T10:19:57.951Z",
+      "managedFile": false,
+      "slot": "hero",
+      "catalogKey": "hotel:hero"
+    },
+    {
+      "id": "site-room-executive-red-suite",
+      "src": "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=1600&q=80",
+      "label": "Anvi Executive Red Suite",
+      "group": "Rooms",
+      "createdAt": "2026-09-12T10:19:57.951Z",
+      "managedFile": false,
+      "slot": "gallery",
+      "catalogKey": "room:executive-red-suite"
+    },
+    {
+      "id": "site-room-executive-suite",
+      "src": "https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=1600&q=80",
+      "label": "Executive Suite",
+      "group": "Rooms",
+      "createdAt": "2026-09-12T10:19:57.951Z",
+      "managedFile": false,
+      "slot": "gallery",
+      "catalogKey": "room:executive-suite"
+    },
+    {
+      "id": "site-room-family-twin",
+      "src": "https://images.unsplash.com/photo-1595576508898-0ad5c879a061?auto=format&fit=crop&w=1600&q=80",
+      "label": "Family Twin",
+      "group": "Rooms",
+      "createdAt": "2026-09-12T10:19:57.951Z",
+      "managedFile": false,
+      "slot": "gallery",
+      "catalogKey": "room:family-twin"
+    },
+    {
+      "id": "site-room-grand-presidential",
+      "src": "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=1600&q=80",
+      "label": "Grand Presidential",
+      "group": "Rooms",
+      "createdAt": "2026-09-12T10:19:57.951Z",
+      "managedFile": false,
+      "slot": "gallery",
+      "catalogKey": "room:grand-presidential"
+    },
+    {
+      "id": "site-venue-royal-grand-ballroom",
+      "src": "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=1600&q=80",
+      "label": "Royal Grand Ballroom",
+      "group": "Venues",
+      "createdAt": "2026-09-12T10:19:57.951Z",
+      "managedFile": false,
+      "slot": "gallery",
+      "catalogKey": "venue:royal-grand-ballroom"
+    },
+    {
+      "id": "site-venue-imperial-ruby-mini",
+      "src": "https://images.unsplash.com/photo-1478146896981-b80fe463b330?auto=format&fit=crop&w=1600&q=80",
+      "label": "Imperial Ruby Mini Hall",
+      "group": "Venues",
+      "createdAt": "2026-09-12T10:19:57.951Z",
+      "managedFile": false,
+      "slot": "gallery",
+      "catalogKey": "venue:imperial-ruby-mini"
+    },
+    {
+      "id": "site-food-chiguru-handi-biryani",
+      "src": "https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=800&q=80",
+      "label": "CHIGURU Special Handi Biryani",
+      "group": "Food",
+      "createdAt": "2026-09-12T10:19:57.951Z",
+      "managedFile": false,
+      "slot": "gallery",
+      "catalogKey": "menu:chiguru-handi-biryani"
+    },
+    {
+      "id": "site-food-gongura-mutton",
+      "src": "https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=800&q=80",
+      "label": "Gongura Mutton",
+      "group": "Food",
+      "createdAt": "2026-09-12T10:19:57.951Z",
+      "managedFile": false,
+      "slot": "gallery",
+      "catalogKey": "menu:gongura-mutton"
+    },
+    {
+      "id": "site-food-pesarattu",
+      "src": "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=800&q=80",
+      "label": "Pesarattu & Upma",
+      "group": "Food",
+      "createdAt": "2026-09-12T10:19:57.951Z",
+      "managedFile": false,
+      "slot": "gallery",
+      "catalogKey": "menu:pesarattu"
+    },
+    {
+      "id": "site-food-natu-kodi",
+      "src": "https://images.unsplash.com/photo-1603894584373-5ac82b2ae958?auto=format&fit=crop&w=800&q=80",
+      "label": "Natu Kodi Pulusu",
+      "group": "Food",
+      "createdAt": "2026-09-12T10:19:57.951Z",
+      "managedFile": false,
+      "slot": "gallery",
+      "catalogKey": "menu:natu-kodi"
+    },
+    {
+      "id": "site-food-bobbatlu",
+      "src": "https://images.unsplash.com/photo-1571115177098-24ec42ed204d?auto=format&fit=crop&w=800&q=80",
+      "label": "Bobbattu",
+      "group": "Food",
+      "createdAt": "2026-09-12T10:19:57.951Z",
+      "managedFile": false,
+      "slot": "gallery",
+      "catalogKey": "menu:bobbatlu"
+    },
+    {
+      "id": "site-food-filter-coffee",
+      "src": "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&q=80",
+      "label": "Filter Coffee",
+      "group": "Food",
+      "createdAt": "2026-09-12T10:19:57.951Z",
+      "managedFile": false,
+      "slot": "gallery",
+      "catalogKey": "menu:filter-coffee"
+    },
+    {
+      "id": "site-buffet-weekend-andhra",
+      "src": "https://images.unsplash.com/photo-1555939596-1926a1f1e5d8?auto=format&fit=crop&w=1400&q=80",
+      "label": "Weekend Andhra Buffet",
+      "group": "Food",
+      "createdAt": "2026-09-12T10:19:57.951Z",
+      "managedFile": false,
+      "slot": "gallery",
+      "catalogKey": "buffet:weekend-andhra"
+    },
+    {
+      "id": "site-buffet-executive-dinner",
+      "src": "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1400&q=80",
+      "label": "Executive Dinner Buffet",
+      "group": "Food",
+      "createdAt": "2026-09-12T10:19:57.951Z",
+      "managedFile": false,
+      "slot": "gallery",
+      "catalogKey": "buffet:executive-dinner"
+    },
+    {
+      "id": "site-facility-pool",
+      "src": "https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=1200&q=80",
+      "label": "Rooftop Pool",
+      "group": "Facilities",
+      "createdAt": "2026-09-12T10:19:57.951Z",
+      "managedFile": false,
+      "slot": "gallery",
+      "catalogKey": "facility:pool"
+    },
+    {
+      "id": "site-facility-spa",
+      "src": "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=1200&q=80",
+      "label": "Wellness Spa",
+      "group": "Facilities",
+      "createdAt": "2026-09-12T10:19:57.951Z",
+      "managedFile": false,
+      "slot": "gallery",
+      "catalogKey": "facility:spa"
+    },
+    {
+      "id": "site-facility-gym",
+      "src": "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80",
+      "label": "Fitness Centre",
+      "group": "Facilities",
+      "createdAt": "2026-09-12T10:19:57.951Z",
+      "managedFile": false,
+      "slot": "gallery",
+      "catalogKey": "facility:gym"
+    },
+    {
+      "id": "site-facility-parking",
+      "src": "https://images.unsplash.com/photo-1506521781263-d8422e82f27a?auto=format&fit=crop&w=1200&q=80",
+      "label": "Secure Parking",
+      "group": "Facilities",
+      "createdAt": "2026-09-12T10:19:57.951Z",
+      "managedFile": false,
+      "slot": "gallery",
+      "catalogKey": "facility:parking"
+    }
+  ],
+  "removedIds": []
+}

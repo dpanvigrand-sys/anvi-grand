@@ -5,6 +5,8 @@ import { Hero } from "@/components/anvi/hero";
 import { formatINR } from "@/lib/format";
 import { getMenu, getRooms, getVenues } from "@/lib/store";
 
+export const dynamic = "force-dynamic";
+
 export default async function HomePage() {
   const [rooms, venues, menu] = await Promise.all([
     getRooms(),

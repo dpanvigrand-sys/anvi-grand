@@ -34,11 +34,12 @@ resolve_chrome() {
 
 public_url() {
   local u=""
+  # First https URL line only (file may contain ops notes below)
   if [[ -f "$PUBLIC_URL_FILE" ]]; then
-    u="$(tr -d '[:space:]' < "$PUBLIC_URL_FILE" || true)"
+    u="$(grep -m1 -E '^https://' "$PUBLIC_URL_FILE" 2>/dev/null | tr -d '[:space:]' || true)"
   fi
   if [[ -z "$u" && -f "$PUBLIC_URL_FALLBACK_FILE" ]]; then
-    u="$(tr -d '[:space:]' < "$PUBLIC_URL_FALLBACK_FILE" || true)"
+    u="$(grep -m1 -E '^https://' "$PUBLIC_URL_FALLBACK_FILE" 2>/dev/null | tr -d '[:space:]' || true)"
   fi
   # Only accept https trycloudflare / loca.lt style
   if [[ "$u" == https://* ]]; then

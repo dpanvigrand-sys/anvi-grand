@@ -7,6 +7,8 @@ const links = [
   { href: "/ops/server", label: "Server" },
   { href: "/ops/kitchen", label: "KT Kitchen" },
   { href: "/ops/admin", label: "Admin" },
+  { href: "/ops/admin/rooms", label: "Rooms" },
+  { href: "/ops/admin/photos", label: "Photos" },
   { href: "/ops/accounts", label: "Accounts" },
   { href: "/ops/inward", label: "Inward" },
   { href: "/ops/outward", label: "Outward" },

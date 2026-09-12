@@ -4,6 +4,8 @@ import Link from "next/link";
 import { formatINR } from "@/lib/format";
 import { getRooms } from "@/lib/store";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = { title: "Rooms" };
 
 export default async function RoomsPage() {
