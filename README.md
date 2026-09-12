@@ -24,6 +24,22 @@ App: [http://127.0.0.1:3947](http://127.0.0.1:3947)
 npm run build && npm start
 ```
 
+## Standing rule — auto-open after every update
+
+**The user never opens the site.** After every code/content change on this project, the agent must:
+
+1. Keep the app serving on `0.0.0.0:3947`
+2. Run `npm run live` or `npm run live:refresh` (see `scripts/live-open.sh`)
+3. Leave Chrome **maximized + frontmost** on the Try Live desktop at `http://127.0.0.1:3947/` (and the public tunnel tab when available)
+
+| Script | What it does |
+|--------|----------------|
+| `npm run live` / `live:refresh` | Ensure server + open/refresh Chrome |
+| `npm run live:ensure` | Server only |
+| `npm run live:restart` | Restart server (+ optional `--rebuild`) then Chrome |
+
+`127.0.0.1:3947` works only on the cloud VM / Try Live. For a laptop browser, use the public HTTPS URL in the agent store `docs/public-url.md` when a tunnel is running.
+
 ## Staff ops password (demo)
 
 All ops systems open from **one hub** at `/ops` after unlock:
