@@ -13,10 +13,11 @@ export default async function AdminFoodPage() {
         Admin · Food
       </p>
       <h1 className="mt-2 font-display text-4xl text-[var(--ag-ink)]">
-        CHIGURU menu & buffet prices
+        CHIGURU menu & buffets
       </h1>
       <p className="mt-2 max-w-2xl text-[var(--ag-muted)]">
-        Change dish and buffet ₹ prices, add or remove items. Public pages at{" "}
+        Full item edit (name, description, category, veg, price, image), plus quick Save ₹,
+        add, and delete. Public pages at{" "}
         <Link href="/food" className="text-[var(--ag-red)] underline">
           /food
         </Link>{" "}

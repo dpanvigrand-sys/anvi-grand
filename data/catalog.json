@@ -119,10 +119,10 @@
   "menu": [
     {
       "id": "chiguru-handi-biryani",
-      "name": "CHIGURU Special Handi Biryani",
-      "category": "main-course",
-      "description": "Slow-cooked dum biryani finished in a sealed handi—signature CHIGURU main.",
-      "price": 359,
+      "name": "CHIGURU Handi Biryani (Edited)",
+      "category": "biryani",
+      "description": "Full-edit proof: dum biryani in sealed handi — name, category, description updated via admin upsert.",
+      "price": 379,
       "veg": false,
       "image": "https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=800&q=80"
     },
@@ -184,11 +184,11 @@
   "buffets": [
     {
       "id": "weekend-andhra",
-      "name": "Weekend Andhra Buffet",
-      "description": "Saturday–Sunday lunch buffet featuring gongura, pulusu, rice stations, and sweets.",
-      "pricePerPerson": 899,
+      "name": "Weekend Andhra Buffet (Edited)",
+      "description": "Full-edit proof: gongura, pulusu, rice stations — updated via admin buffet upsert.",
+      "pricePerPerson": 949,
       "meal": "lunch",
-      "image": "https://images.unsplash.com/photo-1555939596-1926a1f1e5d8?auto=format&fit=crop&w=1400&q=80"
+      "image": "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1400&q=80"
     },
     {
       "id": "executive-dinner",

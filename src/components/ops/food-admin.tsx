@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import Image from "next/image";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Buffet, MenuItem } from "@/lib/types";
 import { formatINR } from "@/lib/format";
@@ -8,11 +9,16 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+type Props = {
+  initialMenu: MenuItem[];
+  initialBuffets: Buffet[];
+};
+
 type MenuForm = {
   id?: string;
   name: string;
-  category: string;
   description: string;
+  category: string;
   price: number;
   veg: boolean;
   image: string;
@@ -22,19 +28,34 @@ type BuffetForm = {
   id?: string;
   name: string;
   description: string;
-  pricePerPerson: number;
   meal: string;
+  pricePerPerson: number;
   image: string;
 };
+
+const MENU_CATEGORIES = [
+  "main-course",
+  "veg",
+  "non-veg",
+  "breakfast",
+  "dessert",
+  "beverage",
+  "starters",
+  "biryani",
+  "breads",
+];
+
+const MEALS = ["breakfast", "lunch", "dinner"];
 
 function blankMenu(): MenuForm {
   return {
     name: "",
-    category: "main-course",
     description: "",
-    price: 199,
+    category: "main-course",
+    price: 299,
     veg: true,
-    image: "",
+    image:
+      "https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=1200&q=80",
   };
 }
 
@@ -42,9 +63,10 @@ function blankBuffet(): BuffetForm {
   return {
     name: "",
     description: "",
-    pricePerPerson: 899,
     meal: "lunch",
-    image: "",
+    pricePerPerson: 699,
+    image:
+      "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1200&q=80",
   };
 }
 
@@ -52,8 +74,8 @@ function toMenuForm(item: MenuItem): MenuForm {
   return {
     id: item.id,
     name: item.name,
-    category: item.category,
     description: item.description,
+    category: item.category,
     price: item.price,
     veg: item.veg,
     image: item.image,
@@ -65,33 +87,36 @@ function toBuffetForm(item: Buffet): BuffetForm {
     id: item.id,
     name: item.name,
     description: item.description,
-    pricePerPerson: item.pricePerPerson,
     meal: item.meal,
+    pricePerPerson: item.pricePerPerson,
     image: item.image,
   };
 }
-
-type Props = { initialMenu: MenuItem[]; initialBuffets: Buffet[] };
 
 export function FoodAdmin({ initialMenu, initialBuffets }: Props) {
   const router = useRouter();
   const [menu, setMenu] = useState(initialMenu);
   const [buffets, setBuffets] = useState(initialBuffets);
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
-  const [error, setError] = useState("");
-
-  const [menuEditing, setMenuEditing] = useState<string | "new" | null>(null);
-  const [buffetEditing, setBuffetEditing] = useState<string | "new" | null>(null);
-  const [menuForm, setMenuForm] = useState<MenuForm>(blankMenu());
-  const [buffetForm, setBuffetForm] = useState<BuffetForm>(blankBuffet());
   const [menuPrices, setMenuPrices] = useState<Record<string, string>>(() =>
     Object.fromEntries(initialMenu.map((m) => [m.id, String(m.price)])),
   );
   const [buffetPrices, setBuffetPrices] = useState<Record<string, string>>(() =>
-    Object.fromEntries(
-      initialBuffets.map((b) => [b.id, String(b.pricePerPerson)]),
-    ),
+    Object.fromEntries(initialBuffets.map((b) => [b.id, String(b.pricePerPerson)])),
+  );
+  const [menuForm, setMenuForm] = useState<MenuForm | null>(null);
+  const [buffetForm, setBuffetForm] = useState<BuffetForm | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+
+  const sortedMenu = useMemo(
+    () =>
+      [...menu].sort((a, b) =>
+        a.category === b.category
+          ? a.name.localeCompare(b.name)
+          : a.category.localeCompare(b.category),
+      ),
+    [menu],
   );
 
   async function postCatalog(body: Record<string, unknown>) {
@@ -135,10 +160,9 @@ export function FoodAdmin({ initialMenu, initialBuffets }: Props) {
       });
       setMenuPrices((d) => ({ ...d, [saved.id]: String(saved.price) }));
       setMessage(
-        `Saved “${saved.name}” — CHIGURU menu now shows ${formatINR(saved.price)}.`,
+        `Saved full menu item “${saved.name}” — live on /food (${formatINR(saved.price)}).`,
       );
-      setMenuEditing(null);
-      setMenuForm(blankMenu());
+      setMenuForm(null);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
@@ -179,10 +203,9 @@ export function FoodAdmin({ initialMenu, initialBuffets }: Props) {
         [saved.id]: String(saved.pricePerPerson),
       }));
       setMessage(
-        `Saved “${saved.name}” — buffet now ${formatINR(saved.pricePerPerson)}/person.`,
+        `Saved full buffet “${saved.name}” — live on /buffet (${formatINR(saved.pricePerPerson)}/person).`,
       );
-      setBuffetEditing(null);
-      setBuffetForm(blankBuffet());
+      setBuffetForm(null);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Save failed");
@@ -222,10 +245,13 @@ export function FoodAdmin({ initialMenu, initialBuffets }: Props) {
       await postCatalog({ section, action: "delete", id });
       if (section === "menu") {
         setMenu((prev) => prev.filter((m) => m.id !== id));
+        if (menuForm?.id === id) setMenuForm(null);
+        setMessage("Menu item deleted. Public /food updated.");
       } else {
         setBuffets((prev) => prev.filter((b) => b.id !== id));
+        if (buffetForm?.id === id) setBuffetForm(null);
+        setMessage("Buffet deleted. Public /buffet updated.");
       }
-      setMessage(`Deleted ${label} from catalog.`);
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Delete failed");
@@ -234,181 +260,174 @@ export function FoodAdmin({ initialMenu, initialBuffets }: Props) {
     }
   }
 
+  function submitMenu() {
+    if (!menuForm) return;
+    if (!menuForm.name.trim() || !menuForm.description.trim() || !menuForm.image.trim()) {
+      setError("Name, description, and image URL are required.");
+      return;
+    }
+    if (!Number.isFinite(menuForm.price) || menuForm.price <= 0) {
+      setError("Enter a valid price.");
+      return;
+    }
+    void upsertMenu({
+      ...menuForm,
+      name: menuForm.name.trim(),
+      description: menuForm.description.trim(),
+      category: menuForm.category.trim() || "main-course",
+      image: menuForm.image.trim(),
+      price: Math.round(menuForm.price),
+    });
+  }
+
+  function submitBuffet() {
+    if (!buffetForm) return;
+    if (
+      !buffetForm.name.trim() ||
+      !buffetForm.description.trim() ||
+      !buffetForm.image.trim()
+    ) {
+      setError("Name, description, and image URL are required.");
+      return;
+    }
+    if (!Number.isFinite(buffetForm.pricePerPerson) || buffetForm.pricePerPerson <= 0) {
+      setError("Enter a valid price per person.");
+      return;
+    }
+    void upsertBuffet({
+      ...buffetForm,
+      name: buffetForm.name.trim(),
+      description: buffetForm.description.trim(),
+      meal: buffetForm.meal.trim() || "lunch",
+      image: buffetForm.image.trim(),
+      pricePerPerson: Math.round(buffetForm.pricePerPerson),
+    });
+  }
+
   return (
     <div className="space-y-10">
-      {message ? <p className="text-sm text-emerald-700">{message}</p> : null}
+      {message ? <p className="rounded-md bg-emerald-50 px-4 py-3 text-sm text-emerald-900">{message}</p> : null}
       {error ? (
-        <p role="alert" className="text-sm text-red-700">
+        <p role="alert" className="rounded-md bg-red-50 px-4 py-3 text-sm text-red-800">
           {error}
         </p>
       ) : null}
 
-      {/* MENU */}
       <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="font-display text-2xl text-[var(--ag-ink)]">
-              CHIGURU menu
-            </h2>
-            <p className="text-sm text-[var(--ag-muted)]">
-              Dish prices write to <code>data/catalog.json</code> →{" "}
-              <code>menu</code> and show on <code>/food</code>.
+            <h2 className="font-display text-2xl text-[var(--ag-ink)]">CHIGURU menu</h2>
+            <p className="mt-1 text-sm text-[var(--ag-muted)]">
+              <strong>Edit item</strong> opens the full form (name, description, category, veg/non-veg,
+              price, image URL). Keep <strong>Save ₹</strong> for rate-only updates. Add / Delete stay
+              available.
             </p>
           </div>
           <Button
             type="button"
             disabled={busy}
             onClick={() => {
-              setMenuEditing("new");
+              setBuffetForm(null);
               setMenuForm(blankMenu());
             }}
             className="rounded-none bg-[var(--ag-red)] text-white hover:bg-[var(--ag-maroon)]"
           >
-            + Add dish
+            + Add menu item
           </Button>
         </div>
 
-        {menuEditing === "new" ? (
-          <MenuEditor
-            busy={busy}
+        {menuForm ? (
+          <MenuFullForm
             form={menuForm}
-            setForm={setMenuForm}
-            onCancel={() => setMenuEditing(null)}
-            onSave={() => upsertMenu(menuForm)}
+            busy={busy}
+            onChange={setMenuForm}
+            onCancel={() => setMenuForm(null)}
+            onSubmit={submitMenu}
           />
         ) : null}
 
-        <div className="overflow-x-auto border border-[var(--ag-line)] bg-white">
-          <table className="w-full min-w-[760px] text-left text-sm">
-            <thead className="border-b border-[var(--ag-line)] bg-[var(--ag-soft)] text-xs uppercase tracking-[0.14em] text-[var(--ag-muted)]">
-              <tr>
-                <th className="px-4 py-3 font-medium">Dish</th>
-                <th className="px-4 py-3 font-medium">Price (₹)</th>
-                <th className="px-4 py-3 font-medium">Category</th>
-                <th className="px-4 py-3 font-medium">Type</th>
-                <th className="px-4 py-3 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {menu.map((item) => (
-                <tr
-                  key={item.id}
-                  className="border-b border-[var(--ag-line)] align-top"
+        <div className="divide-y divide-[var(--ag-line)] overflow-hidden rounded-2xl border border-[var(--ag-line)] bg-white">
+          {sortedMenu.map((item) => (
+            <div
+              key={item.id}
+              className="grid gap-3 p-4 sm:grid-cols-[72px_1fr_auto] sm:items-center"
+            >
+              <div className="relative h-16 w-[72px] overflow-hidden rounded-lg bg-[var(--ag-cream)]">
+                <Image src={item.image} alt="" fill className="object-cover" sizes="72px" unoptimized />
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-[var(--ag-ink)]">
+                  {item.name}{" "}
+                  <span className="text-xs font-normal text-[var(--ag-muted)]">
+                    · {item.category} · {item.veg ? "Veg" : "Non-veg"}
+                  </span>
+                </p>
+                <p className="mt-0.5 line-clamp-2 text-sm text-[var(--ag-muted)]">{item.description}</p>
+                <p className="mt-1 text-sm font-semibold text-[var(--ag-maroon)]">
+                  {formatINR(item.price)}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Label className="flex items-center gap-1 text-sm font-normal">
+                  <span className="text-[var(--ag-muted)]">₹</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={menuPrices[item.id] ?? ""}
+                    onChange={(e) =>
+                      setMenuPrices((d) => ({ ...d, [item.id]: e.target.value }))
+                    }
+                    className="h-9 w-24 rounded-md"
+                  />
+                </Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => void saveMenuPrice(item)}
+                  className="h-9 rounded-none px-3 text-xs"
                 >
-                  <td
-                    className="px-4 py-4"
-                    colSpan={menuEditing === item.id ? 5 : 1}
-                  >
-                    {menuEditing === item.id ? (
-                      <MenuEditor
-                        busy={busy}
-                        form={menuForm}
-                        setForm={setMenuForm}
-                        onCancel={() => setMenuEditing(null)}
-                        onSave={() => upsertMenu(menuForm)}
-                      />
-                    ) : (
-                      <>
-                        <p className="font-medium text-[var(--ag-ink)]">
-                          {item.name}
-                        </p>
-                        <p className="mt-1 text-xs text-[var(--ag-muted)]">
-                          Live: {formatINR(item.price)}
-                        </p>
-                      </>
-                    )}
-                  </td>
-                  {menuEditing === item.id ? null : (
-                    <>
-                      <td className="px-4 py-4">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-[var(--ag-muted)]">₹</span>
-                          <Input
-                            type="number"
-                            min={0}
-                            step={1}
-                            className="h-9 w-24 rounded-none"
-                            value={menuPrices[item.id] ?? String(item.price)}
-                            onChange={(e) =>
-                              setMenuPrices((d) => ({
-                                ...d,
-                                [item.id]: e.target.value,
-                              }))
-                            }
-                            aria-label={`Price for ${item.name}`}
-                          />
-                          <Button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => saveMenuPrice(item)}
-                            className="h-9 rounded-none bg-[var(--ag-red)] px-3 text-white hover:bg-[var(--ag-maroon)]"
-                          >
-                            Save ₹
-                          </Button>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4">{item.category}</td>
-                      <td className="px-4 py-4">
-                        {item.veg ? "Veg" : "Non-veg"}
-                      </td>
-                      <td className="px-4 py-4">
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            disabled={busy}
-                            onClick={() => {
-                              setMenuEditing(item.id);
-                              setMenuForm(toMenuForm(item));
-                            }}
-                            className="h-9 rounded-none"
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            disabled={busy}
-                            onClick={() => removeItem("menu", item.id)}
-                            className="h-9 rounded-none border-[var(--ag-red)] text-[var(--ag-red)] hover:bg-[var(--ag-red)] hover:text-white"
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </td>
-                    </>
-                  )}
-                </tr>
-              ))}
-              {menu.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-[var(--ag-muted)]">
-                    No dishes yet. Click + Add dish.
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
+                  Save ₹
+                </Button>
+                <Button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    setBuffetForm(null);
+                    setMenuForm(toMenuForm(item));
+                  }}
+                  className="h-9 rounded-none bg-[var(--ag-ink)] px-3 text-xs text-white hover:bg-[var(--ag-maroon)]"
+                >
+                  Edit item
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => void removeItem("menu", item.id)}
+                  className="h-9 px-3 text-xs text-red-700 hover:bg-red-50"
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* BUFFETS */}
       <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="font-display text-2xl text-[var(--ag-ink)]">
-              Buffets
-            </h2>
-            <p className="text-sm text-[var(--ag-muted)]">
-              Per-person rates write to <code>buffets</code> and show on{" "}
-              <code>/buffet</code>.
+            <h2 className="font-display text-2xl text-[var(--ag-ink)]">Buffet packages</h2>
+            <p className="mt-1 text-sm text-[var(--ag-muted)]">
+              Full edit for name, meal, description, price/person, and image. Changes go live on /buffet.
             </p>
           </div>
           <Button
             type="button"
             disabled={busy}
             onClick={() => {
-              setBuffetEditing("new");
+              setMenuForm(null);
               setBuffetForm(blankBuffet());
             }}
             className="rounded-none bg-[var(--ag-red)] text-white hover:bg-[var(--ag-maroon)]"
@@ -417,323 +436,318 @@ export function FoodAdmin({ initialMenu, initialBuffets }: Props) {
           </Button>
         </div>
 
-        {buffetEditing === "new" ? (
-          <BuffetEditor
-            busy={busy}
+        {buffetForm ? (
+          <BuffetFullForm
             form={buffetForm}
-            setForm={setBuffetForm}
-            onCancel={() => setBuffetEditing(null)}
-            onSave={() => upsertBuffet(buffetForm)}
+            busy={busy}
+            onChange={setBuffetForm}
+            onCancel={() => setBuffetForm(null)}
+            onSubmit={submitBuffet}
           />
         ) : null}
 
-        <div className="overflow-x-auto border border-[var(--ag-line)] bg-white">
-          <table className="w-full min-w-[720px] text-left text-sm">
-            <thead className="border-b border-[var(--ag-line)] bg-[var(--ag-soft)] text-xs uppercase tracking-[0.14em] text-[var(--ag-muted)]">
-              <tr>
-                <th className="px-4 py-3 font-medium">Buffet</th>
-                <th className="px-4 py-3 font-medium">₹ / person</th>
-                <th className="px-4 py-3 font-medium">Meal</th>
-                <th className="px-4 py-3 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {buffets.map((item) => (
-                <tr
-                  key={item.id}
-                  className="border-b border-[var(--ag-line)] align-top"
+        <div className="divide-y divide-[var(--ag-line)] overflow-hidden rounded-2xl border border-[var(--ag-line)] bg-white">
+          {buffets.map((item) => (
+            <div
+              key={item.id}
+              className="grid gap-3 p-4 sm:grid-cols-[72px_1fr_auto] sm:items-center"
+            >
+              <div className="relative h-16 w-[72px] overflow-hidden rounded-lg bg-[var(--ag-cream)]">
+                <Image src={item.image} alt="" fill className="object-cover" sizes="72px" unoptimized />
+              </div>
+              <div className="min-w-0">
+                <p className="font-medium text-[var(--ag-ink)]">
+                  {item.name}{" "}
+                  <span className="text-xs font-normal text-[var(--ag-muted)]">· {item.meal}</span>
+                </p>
+                <p className="mt-0.5 line-clamp-2 text-sm text-[var(--ag-muted)]">{item.description}</p>
+                <p className="mt-1 text-sm font-semibold text-[var(--ag-maroon)]">
+                  {formatINR(item.pricePerPerson)}
+                  <span className="font-normal text-[var(--ag-muted)]"> / person</span>
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <Label className="flex items-center gap-1 text-sm font-normal">
+                  <span className="text-[var(--ag-muted)]">₹</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    value={buffetPrices[item.id] ?? ""}
+                    onChange={(e) =>
+                      setBuffetPrices((d) => ({ ...d, [item.id]: e.target.value }))
+                    }
+                    className="h-9 w-24 rounded-md"
+                  />
+                </Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={busy}
+                  onClick={() => void saveBuffetPrice(item)}
+                  className="h-9 rounded-none px-3 text-xs"
                 >
-                  <td
-                    className="px-4 py-4"
-                    colSpan={buffetEditing === item.id ? 4 : 1}
-                  >
-                    {buffetEditing === item.id ? (
-                      <BuffetEditor
-                        busy={busy}
-                        form={buffetForm}
-                        setForm={setBuffetForm}
-                        onCancel={() => setBuffetEditing(null)}
-                        onSave={() => upsertBuffet(buffetForm)}
-                      />
-                    ) : (
-                      <>
-                        <p className="font-medium text-[var(--ag-ink)]">
-                          {item.name}
-                        </p>
-                        <p className="mt-1 text-xs text-[var(--ag-muted)]">
-                          Live: {formatINR(item.pricePerPerson)}/person
-                        </p>
-                      </>
-                    )}
-                  </td>
-                  {buffetEditing === item.id ? null : (
-                    <>
-                      <td className="px-4 py-4">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-[var(--ag-muted)]">₹</span>
-                          <Input
-                            type="number"
-                            min={0}
-                            step={1}
-                            className="h-9 w-28 rounded-none"
-                            value={
-                              buffetPrices[item.id] ??
-                              String(item.pricePerPerson)
-                            }
-                            onChange={(e) =>
-                              setBuffetPrices((d) => ({
-                                ...d,
-                                [item.id]: e.target.value,
-                              }))
-                            }
-                            aria-label={`Price for ${item.name}`}
-                          />
-                          <Button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => saveBuffetPrice(item)}
-                            className="h-9 rounded-none bg-[var(--ag-red)] px-3 text-white hover:bg-[var(--ag-maroon)]"
-                          >
-                            Save ₹
-                          </Button>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 capitalize">{item.meal}</td>
-                      <td className="px-4 py-4">
-                        <div className="flex flex-wrap gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            disabled={busy}
-                            onClick={() => {
-                              setBuffetEditing(item.id);
-                              setBuffetForm(toBuffetForm(item));
-                            }}
-                            className="h-9 rounded-none"
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            disabled={busy}
-                            onClick={() => removeItem("buffets", item.id)}
-                            className="h-9 rounded-none border-[var(--ag-red)] text-[var(--ag-red)] hover:bg-[var(--ag-red)] hover:text-white"
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </td>
-                    </>
-                  )}
-                </tr>
-              ))}
-              {buffets.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-[var(--ag-muted)]">
-                    No buffets yet. Click + Add buffet.
-                  </td>
-                </tr>
-              ) : null}
-            </tbody>
-          </table>
+                  Save ₹
+                </Button>
+                <Button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => {
+                    setMenuForm(null);
+                    setBuffetForm(toBuffetForm(item));
+                  }}
+                  className="h-9 rounded-none bg-[var(--ag-ink)] px-3 text-xs text-white hover:bg-[var(--ag-maroon)]"
+                >
+                  Edit item
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={busy}
+                  onClick={() => void removeItem("buffets", item.id)}
+                  className="h-9 px-3 text-xs text-red-700 hover:bg-red-50"
+                >
+                  Delete
+                </Button>
+              </div>
+            </div>
+          ))}
         </div>
       </section>
     </div>
   );
 }
 
-function MenuEditor({
+function MenuFullForm({
   form,
-  setForm,
   busy,
-  onSave,
+  onChange,
   onCancel,
+  onSubmit,
 }: {
   form: MenuForm;
-  setForm: React.Dispatch<React.SetStateAction<MenuForm>>;
   busy: boolean;
-  onSave: () => void;
+  onChange: (f: MenuForm) => void;
   onCancel: () => void;
+  onSubmit: () => void;
 }) {
+  const categories = MENU_CATEGORIES.includes(form.category)
+    ? MENU_CATEGORIES
+    : [form.category, ...MENU_CATEGORIES];
+
   return (
-    <form
-      className="grid gap-3 border border-dashed border-[var(--ag-red)]/40 bg-[#fff8f7] p-4 md:grid-cols-2"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSave();
-      }}
+    <div
+      id="menu-full-editor"
+      className="space-y-4 rounded-2xl border-2 border-[var(--ag-maroon)] bg-[var(--ag-cream)]/50 p-5"
     >
-      <div className="grid gap-1">
-        <Label>Name</Label>
-        <Input
-          className="rounded-none"
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-          required
-        />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-display text-xl text-[var(--ag-ink)]">
+          {form.id ? "Edit menu item" : "New menu item"}
+        </h3>
+        <p className="text-xs text-[var(--ag-muted)]">
+          Full upsert → name, description, category, veg, price, image
+        </p>
       </div>
-      <div className="grid gap-1">
-        <Label>Category</Label>
-        <Input
-          className="rounded-none"
-          value={form.category}
-          onChange={(e) => setForm({ ...form, category: e.target.value })}
-          placeholder="main-course, breakfast, dessert…"
-        />
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor="menu-name">Name</Label>
+          <Input
+            id="menu-name"
+            value={form.name}
+            onChange={(e) => onChange({ ...form, name: e.target.value })}
+            placeholder="Dish name"
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="menu-category">Category</Label>
+          <select
+            id="menu-category"
+            value={form.category}
+            onChange={(e) => onChange({ ...form, category: e.target.value })}
+            className="flex h-9 w-full rounded-md border border-[var(--ag-line)] bg-white px-3 text-sm"
+          >
+            {categories.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="menu-price">Price (₹)</Label>
+          <Input
+            id="menu-price"
+            type="number"
+            min={1}
+            value={form.price}
+            onChange={(e) => onChange({ ...form, price: Number(e.target.value) })}
+          />
+        </div>
+        <fieldset className="sm:col-span-2">
+          <legend className="mb-1.5 text-sm font-medium">Diet</legend>
+          <div className="flex gap-4 text-sm">
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="menu-veg"
+                checked={form.veg}
+                onChange={() => onChange({ ...form, veg: true })}
+              />
+              Veg
+            </label>
+            <label className="flex items-center gap-2">
+              <input
+                type="radio"
+                name="menu-veg"
+                checked={!form.veg}
+                onChange={() => onChange({ ...form, veg: false })}
+              />
+              Non-veg
+            </label>
+          </div>
+        </fieldset>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor="menu-desc">Description</Label>
+          <textarea
+            id="menu-desc"
+            rows={3}
+            value={form.description}
+            onChange={(e) => onChange({ ...form, description: e.target.value })}
+            className="w-full rounded-md border border-[var(--ag-line)] bg-white px-3 py-2 text-sm"
+            placeholder="Short dish description for the public menu"
+          />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor="menu-image">Image URL</Label>
+          <Input
+            id="menu-image"
+            value={form.image}
+            onChange={(e) => onChange({ ...form, image: e.target.value })}
+            className="font-mono text-xs"
+          />
+        </div>
+        {form.image ? (
+          <div className="relative h-40 overflow-hidden rounded-xl sm:col-span-2">
+            <Image src={form.image} alt="" fill className="object-cover" sizes="600px" unoptimized />
+          </div>
+        ) : null}
       </div>
-      <div className="grid gap-1 md:col-span-2">
-        <Label>Description</Label>
-        <textarea
-          className="min-h-20 border border-input bg-white px-2 py-1 text-sm"
-          value={form.description}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
-        />
-      </div>
-      <div className="grid gap-1">
-        <Label>Price (₹)</Label>
-        <Input
-          type="number"
-          min={0}
-          className="rounded-none"
-          value={form.price}
-          onChange={(e) =>
-            setForm({ ...form, price: Number(e.target.value) || 0 })
-          }
-          required
-        />
-      </div>
-      <div className="flex items-end gap-2 pb-1">
-        <input
-          id="dish-veg"
-          type="checkbox"
-          checked={form.veg}
-          onChange={(e) => setForm({ ...form, veg: e.target.checked })}
-        />
-        <Label htmlFor="dish-veg">Vegetarian</Label>
-      </div>
-      <div className="grid gap-1 md:col-span-2">
-        <Label>Image URL or path</Label>
-        <Input
-          className="rounded-none"
-          value={form.image}
-          onChange={(e) => setForm({ ...form, image: e.target.value })}
-        />
-      </div>
-      <div className="flex gap-2 md:col-span-2">
-        <Button
-          type="submit"
-          disabled={busy}
-          className="rounded-none bg-[var(--ag-red)] text-white hover:bg-[var(--ag-maroon)]"
-        >
-          {busy ? "Saving…" : "Save dish"}
-        </Button>
+      <div className="flex flex-wrap gap-2">
         <Button
           type="button"
-          variant="outline"
           disabled={busy}
-          onClick={onCancel}
-          className="rounded-none"
+          onClick={onSubmit}
+          className="rounded-none bg-[var(--ag-red)] text-white hover:bg-[var(--ag-maroon)]"
         >
+          {busy ? "Saving…" : "Save full item"}
+        </Button>
+        <Button type="button" variant="outline" onClick={onCancel} className="rounded-none">
           Cancel
         </Button>
       </div>
-    </form>
+    </div>
   );
 }
 
-function BuffetEditor({
+function BuffetFullForm({
   form,
-  setForm,
   busy,
-  onSave,
+  onChange,
   onCancel,
+  onSubmit,
 }: {
   form: BuffetForm;
-  setForm: React.Dispatch<React.SetStateAction<BuffetForm>>;
   busy: boolean;
-  onSave: () => void;
+  onChange: (f: BuffetForm) => void;
   onCancel: () => void;
+  onSubmit: () => void;
 }) {
+  const meals = MEALS.includes(form.meal) ? MEALS : [form.meal, ...MEALS];
+
   return (
-    <form
-      className="grid gap-3 border border-dashed border-[var(--ag-red)]/40 bg-[#fff8f7] p-4 md:grid-cols-2"
-      onSubmit={(e) => {
-        e.preventDefault();
-        onSave();
-      }}
+    <div
+      id="buffet-full-editor"
+      className="space-y-4 rounded-2xl border-2 border-[var(--ag-maroon)] bg-[var(--ag-cream)]/50 p-5"
     >
-      <div className="grid gap-1">
-        <Label>Name</Label>
-        <Input
-          className="rounded-none"
-          value={form.name}
-          onChange={(e) => setForm({ ...form, name: e.target.value })}
-          required
-        />
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="font-display text-xl text-[var(--ag-ink)]">
+          {form.id ? "Edit buffet package" : "New buffet package"}
+        </h3>
+        <p className="text-xs text-[var(--ag-muted)]">
+          Full upsert → name, meal, description, price/person, image
+        </p>
       </div>
-      <div className="grid gap-1">
-        <Label>Meal</Label>
-        <select
-          className="h-9 border border-input bg-white px-2 text-sm"
-          value={form.meal}
-          onChange={(e) => setForm({ ...form, meal: e.target.value })}
-        >
-          <option value="breakfast">Breakfast</option>
-          <option value="lunch">Lunch</option>
-          <option value="dinner">Dinner</option>
-        </select>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor="buffet-name">Name</Label>
+          <Input
+            id="buffet-name"
+            value={form.name}
+            onChange={(e) => onChange({ ...form, name: e.target.value })}
+          />
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="buffet-meal">Meal</Label>
+          <select
+            id="buffet-meal"
+            value={form.meal}
+            onChange={(e) => onChange({ ...form, meal: e.target.value })}
+            className="flex h-9 w-full rounded-md border border-[var(--ag-line)] bg-white px-3 text-sm"
+          >
+            {meals.map((m) => (
+              <option key={m} value={m}>
+                {m}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="space-y-1.5">
+          <Label htmlFor="buffet-price">Price / person (₹)</Label>
+          <Input
+            id="buffet-price"
+            type="number"
+            min={1}
+            value={form.pricePerPerson}
+            onChange={(e) => onChange({ ...form, pricePerPerson: Number(e.target.value) })}
+          />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor="buffet-desc">Description</Label>
+          <textarea
+            id="buffet-desc"
+            rows={3}
+            value={form.description}
+            onChange={(e) => onChange({ ...form, description: e.target.value })}
+            className="w-full rounded-md border border-[var(--ag-line)] bg-white px-3 py-2 text-sm"
+          />
+        </div>
+        <div className="space-y-1.5 sm:col-span-2">
+          <Label htmlFor="buffet-image">Image URL</Label>
+          <Input
+            id="buffet-image"
+            value={form.image}
+            onChange={(e) => onChange({ ...form, image: e.target.value })}
+            className="font-mono text-xs"
+          />
+        </div>
+        {form.image ? (
+          <div className="relative h-40 overflow-hidden rounded-xl sm:col-span-2">
+            <Image src={form.image} alt="" fill className="object-cover" sizes="600px" unoptimized />
+          </div>
+        ) : null}
       </div>
-      <div className="grid gap-1 md:col-span-2">
-        <Label>Description</Label>
-        <textarea
-          className="min-h-20 border border-input bg-white px-2 py-1 text-sm"
-          value={form.description}
-          onChange={(e) => setForm({ ...form, description: e.target.value })}
-        />
-      </div>
-      <div className="grid gap-1">
-        <Label>Price / person (₹)</Label>
-        <Input
-          type="number"
-          min={0}
-          className="rounded-none"
-          value={form.pricePerPerson}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              pricePerPerson: Number(e.target.value) || 0,
-            })
-          }
-          required
-        />
-      </div>
-      <div className="grid gap-1">
-        <Label>Image URL or path</Label>
-        <Input
-          className="rounded-none"
-          value={form.image}
-          onChange={(e) => setForm({ ...form, image: e.target.value })}
-        />
-      </div>
-      <div className="flex gap-2 md:col-span-2">
-        <Button
-          type="submit"
-          disabled={busy}
-          className="rounded-none bg-[var(--ag-red)] text-white hover:bg-[var(--ag-maroon)]"
-        >
-          {busy ? "Saving…" : "Save buffet"}
-        </Button>
+      <div className="flex flex-wrap gap-2">
         <Button
           type="button"
-          variant="outline"
           disabled={busy}
-          onClick={onCancel}
-          className="rounded-none"
+          onClick={onSubmit}
+          className="rounded-none bg-[var(--ag-red)] text-white hover:bg-[var(--ag-maroon)]"
         >
+          {busy ? "Saving…" : "Save full item"}
+        </Button>
+        <Button type="button" variant="outline" onClick={onCancel} className="rounded-none">
           Cancel
         </Button>
       </div>
-    </form>
+    </div>
   );
 }

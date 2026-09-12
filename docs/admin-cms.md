@@ -11,15 +11,24 @@ Staff password: **`anviops2026`**
 
 Inline **Save ₹**, full **Edit**, **+ Add room**, **Delete**.
 
-## Food (CHIGURU menu & buffets)
+## Food (CHIGURU menu & buffets) — full item edit
 
 - **Admin UI:** `/ops/admin/food` (ops nav **Food**, Admin hub card)
 - **Public:** `/food` (menu dishes) and `/buffet` (buffets)
-- **Storage:** `data/catalog.json` → `menu[].price`, `buffets[].pricePerPerson`
-- **API:** `POST /api/ops/catalog` `{ "section": "menu"|"buffets", "action": "upsert"|"delete", ... }`
+- **Storage:** `data/catalog.json` → `menu[]` and `buffets[]`
+- **API:** `POST /api/ops/catalog` `{ "section": "menu"|"buffets", "action": "upsert"|"delete", item|id }`
 - **UI:** `src/components/ops/food-admin.tsx` · page `src/app/ops/admin/food/page.tsx`
 
-Inline **Save ₹** for dishes and buffet per-person rates; full edit / add / delete for both sections.
+### What staff can change
+
+| Action | Menu dish | Buffet |
+|--------|-----------|--------|
+| **Edit item** (full upsert) | name, description, category, veg/non-veg, price ₹, image URL | name, description, meal, price/person ₹, image URL |
+| **Save ₹** (inline) | price only | price/person only |
+| **Add** | new dish | new package |
+| **Delete** | removes from `/food` | removes from `/buffet` |
+
+**Edit item** opens a highlighted full form (not price-only). **Save full item** writes the whole object into `catalog.json`. Public `/food` and `/buffet` are `force-dynamic` and pick up changes immediately after save.
 
 ## Photos
 
