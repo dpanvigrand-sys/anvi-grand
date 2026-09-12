@@ -119,10 +119,10 @@
   "menu": [
     {
       "id": "chiguru-handi-biryani",
-      "name": "CHIGURU Handi Biryani (Edited)",
+      "name": "Handi Biryani — Staff Edit Demo",
       "category": "biryani",
-      "description": "Full-edit proof: dum biryani in sealed handi — name, category, description updated via admin upsert.",
-      "price": 379,
+      "description": "Full item edit demo: name, description, category, price and image updated from /ops/admin/food.",
+      "price": 389,
       "veg": false,
       "image": "https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=800&q=80"
     },
@@ -175,7 +175,7 @@
       "id": "filter-coffee",
       "name": "Filter Coffee",
       "category": "beverage",
-      "description": "Strong South Indian filter coffee in steel tumbler service.",
+      "description": "South Indian filter coffee, decoction over hot milk.",
       "price": 49,
       "veg": true,
       "image": "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&q=80"
