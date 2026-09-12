@@ -1,11 +1,15 @@
 import Link from "next/link";
 import { formatINR } from "@/lib/format";
-import { getOps, getRooms } from "@/lib/store";
+import { getMenu, getOps, getRooms } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPage() {
-  const [ops, rooms] = await Promise.all([getOps(), getRooms()]);
+  const [ops, rooms, menu] = await Promise.all([
+    getOps(),
+    getRooms(),
+    getMenu(),
+  ]);
   const revenue = ops.ledger
     .filter((l) => l.kind === "income")
     .reduce((s, l) => s + l.amount, 0);
@@ -28,6 +32,20 @@ export default async function AdminPage() {
           </p>
           <p className="mt-1 text-sm text-[var(--ag-muted)]">
             Edit ₹ rates · add / delete rooms
+          </p>
+        </Link>
+        <Link
+          href="/ops/admin/food"
+          className="border border-[var(--ag-line)] bg-white p-5 transition hover:border-[var(--ag-red)]"
+        >
+          <p className="text-xs uppercase tracking-[0.14em] text-[var(--ag-red)]">
+            CMS
+          </p>
+          <p className="mt-2 font-display text-2xl text-[var(--ag-ink)]">
+            Food & prices
+          </p>
+          <p className="mt-1 text-sm text-[var(--ag-muted)]">
+            CHIGURU menu · buffet ₹ rates
           </p>
         </Link>
         <Link
@@ -83,6 +101,35 @@ export default async function AdminPage() {
                 <td className="px-4 py-3 text-right">
                   <Link
                     href="/ops/admin/rooms"
+                    className="text-[var(--ag-red)] underline"
+                  >
+                    Edit
+                  </Link>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <h2 className="mt-10 font-display text-2xl">CHIGURU menu prices</h2>
+      <div className="mt-4 overflow-x-auto border border-[var(--ag-line)] bg-white">
+        <table className="w-full text-left text-sm">
+          <thead className="border-b border-[var(--ag-line)] bg-[var(--ag-soft)] text-xs uppercase tracking-[0.12em] text-[var(--ag-muted)]">
+            <tr>
+              <th className="px-4 py-3">Dish</th>
+              <th className="px-4 py-3">Price</th>
+              <th className="px-4 py-3" />
+            </tr>
+          </thead>
+          <tbody>
+            {menu.slice(0, 8).map((dish) => (
+              <tr key={dish.id} className="border-b border-[var(--ag-line)]">
+                <td className="px-4 py-3 font-medium">{dish.name}</td>
+                <td className="px-4 py-3">{formatINR(dish.price)}</td>
+                <td className="px-4 py-3 text-right">
+                  <Link
+                    href="/ops/admin/food"
                     className="text-[var(--ag-red)] underline"
                   >
                     Edit

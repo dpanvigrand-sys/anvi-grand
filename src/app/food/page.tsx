@@ -3,6 +3,8 @@ import Image from "next/image";
 import { FoodOrderForm } from "@/components/anvi/food-order-form";
 import { getHotel, getMenu } from "@/lib/store";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = { title: "CHIGURU Dining" };
 
 export default async function FoodPage() {

@@ -4,6 +4,8 @@ import { BuffetBookingForm } from "@/components/anvi/buffet-booking-form";
 import { formatINR } from "@/lib/format";
 import { getBuffets } from "@/lib/store";
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = { title: "Buffet Booking" };
 
 export default async function BuffetPage() {
