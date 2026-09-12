@@ -12,9 +12,15 @@ import { cn } from "@/lib/utils";
 type Props = {
   menu: MenuItem[];
   variant?: "home" | "page";
+  contactPhone?: string;
 };
 
-export function FoodOrderForm({ menu, variant = "page" }: Props) {
+export function FoodOrderForm({
+  menu,
+  variant = "page",
+  contactPhone = "7569494949",
+}: Props) {
+  const desk = contactPhone.trim() || "7569494949";
   const [cart, setCart] = useState<Record<string, number>>({});
   const [guestName, setGuestName] = useState("");
   const [phone, setPhone] = useState("");
@@ -87,7 +93,7 @@ export function FoodOrderForm({ menu, variant = "page" }: Props) {
   if (!menu.length) {
     return (
       <p className="rounded-lg border border-[var(--ag-line)] bg-white px-5 py-8 text-[var(--ag-muted)]">
-        Menu is being updated. Call 7569494949 for today’s specials.
+        Menu is being updated. Call {desk} for today’s specials.
       </p>
     );
   }
@@ -252,7 +258,7 @@ export function FoodOrderForm({ menu, variant = "page" }: Props) {
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
               className="rounded-md"
-              placeholder="7569494949"
+              placeholder={desk}
             />
           </div>
           <div className="space-y-2">

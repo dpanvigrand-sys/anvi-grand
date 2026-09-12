@@ -4,9 +4,27 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-export function SiteFooter() {
+type Props = {
+  receptionPhone?: string;
+  roomsPhone?: string;
+  foodPhone?: string;
+  email?: string;
+  address?: string;
+};
+
+export function SiteFooter({
+  receptionPhone = "7569494949",
+  roomsPhone,
+  foodPhone,
+  email = "stay@anvigrand.in",
+  address = "Anvi Grand, near Benz Circle, Eluru Road, Vijayawada",
+}: Props) {
   const pathname = usePathname();
   if (pathname.startsWith("/ops")) return null;
+
+  const reception = receptionPhone.trim() || "7569494949";
+  const rooms = (roomsPhone || reception).trim();
+  const food = (foodPhone || reception).trim();
 
   return (
     <footer className="border-t-4 border-[var(--ag-red)] bg-[linear-gradient(180deg,#3a1618_0%,#2a0e10_100%)] text-white">
@@ -41,22 +59,43 @@ export function SiteFooter() {
         </div>
         <div>
           <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[var(--ag-gold)]">
-            Visit
+            Visit & call
           </p>
           <p className="mt-3 text-sm leading-relaxed text-white/80">
-            Anvi Grand, near Benz Circle
+            {address}
             <br />
-            Eluru Road, Vijayawada
-            <br />
+            <span className="mt-3 block text-xs uppercase tracking-[0.14em] text-[var(--ag-gold)]">
+              Reception
+            </span>
             <a
-              href="tel:7569494949"
-              className="mt-2 inline-block text-base font-semibold text-[#ffb4b4] hover:underline"
+              href={`tel:${reception}`}
+              className="inline-block text-base font-semibold text-[#ffb4b4] hover:underline"
             >
-              7569494949
+              {reception}
             </a>
             <br />
-            <a href="mailto:stay@anvigrand.in" className="hover:text-white">
-              stay@anvigrand.in
+            <span className="mt-2 block text-xs uppercase tracking-[0.14em] text-[var(--ag-gold)]">
+              Rooms booking
+            </span>
+            <a
+              href={`tel:${rooms}`}
+              className="inline-block text-base font-semibold text-[#ffb4b4] hover:underline"
+            >
+              {rooms}
+            </a>
+            <br />
+            <span className="mt-2 block text-xs uppercase tracking-[0.14em] text-[var(--ag-gold)]">
+              Food booking
+            </span>
+            <a
+              href={`tel:${food}`}
+              className="inline-block text-base font-semibold text-[#ffb4b4] hover:underline"
+            >
+              {food}
+            </a>
+            <br />
+            <a href={`mailto:${email}`} className="mt-2 inline-block hover:text-white">
+              {email}
             </a>
           </p>
         </div>

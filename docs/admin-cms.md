@@ -1,6 +1,23 @@
-# Admin CMS (rooms, food & photos)
+# Admin CMS (rooms, food, venues, photos & contacts)
 
 Staff password: **`anviops2026`**
+
+## Contacts (three booking lines)
+
+- **Admin UI:** `/ops/admin/contacts` (ops nav **Contacts**, Admin hub)
+- **Roles:** Rooms booking · Food booking · Reception
+- **Storage:** `data/catalog.json` → `hotel.roomsPhone`, `hotel.foodPhone`, `hotel.receptionPhone`
+- **Fallback:** Legacy `hotel.phone` (default `7569494949`) when a role line is empty
+- **API:** `POST /api/ops/catalog` `{ "section": "hotel", "item": { "roomsPhone"|"foodPhone"|"receptionPhone": "..." } }`
+- **UI:** `src/components/ops/contacts-admin.tsx` · page `src/app/ops/admin/contacts/page.tsx`
+
+| Role | Guest pages |
+|------|-------------|
+| Rooms booking | `/rooms`, `/rooms/[id]`, `/book` |
+| Food booking | `/food`, `/buffet`, home CHIGURU order |
+| Reception | Header mobile call, footer, hero, `/contact` |
+
+**Add / Save / Delete (clear)** per role. Saving Reception also updates `hotel.phone` so the main desk stays in sync. Cleared roles fall back to `hotel.phone` — existing `7569494949` is kept unless Reception is replaced in CMS.
 
 ## Rooms & ₹ prices
 

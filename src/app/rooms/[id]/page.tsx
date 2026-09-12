@@ -3,7 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { formatINR } from "@/lib/format";
-import { getRoom, getRooms } from "@/lib/store";
+import { getHotel, getRoom, getRooms, resolveHotelPhones } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +21,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function RoomDetailPage({ params }: Props) {
   const room = await getRoom((await params).id);
   if (!room) notFound();
+  const phones = resolveHotelPhones(await getHotel());
   return (
     <div>
       <section className="relative h-[55vh] min-h-[320px] w-full overflow-hidden md:h-[65vh]">
@@ -45,6 +46,12 @@ export default async function RoomDetailPage({ params }: Props) {
           <p className="text-xs uppercase tracking-[0.16em] text-[var(--ag-muted)]">From</p>
           <p className="font-display text-4xl text-[var(--ag-ink)]">{formatINR(room.pricePerNight)}<span className="text-base text-[var(--ag-muted)]"> / night</span></p>
           <Link href={`/book?room=${room.id}`} className="mt-6 inline-flex h-11 w-full items-center justify-center bg-[var(--ag-red)] text-white hover:bg-[var(--ag-maroon)]">Book this room</Link>
+          <p className="mt-4 text-center text-sm text-[var(--ag-muted)]">
+            Or call rooms desk{" "}
+            <a href={`tel:${phones.rooms}`} className="font-semibold text-[var(--ag-red)]">
+              {phones.rooms}
+            </a>
+          </p>
           <Link href="/rooms" className="mt-4 block text-center text-sm text-[var(--ag-red)] underline-offset-4 hover:underline">Back to rooms</Link>
         </aside>
       </section>

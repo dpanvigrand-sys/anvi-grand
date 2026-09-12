@@ -16,9 +16,14 @@ import type { Buffet } from "@/lib/types";
 
 type Props = {
   buffets: Buffet[];
+  contactPhone?: string;
 };
 
-export function BuffetBookingForm({ buffets }: Props) {
+export function BuffetBookingForm({
+  buffets,
+  contactPhone = "7569494949",
+}: Props) {
+  const desk = contactPhone.trim() || "7569494949";
   const [buffetId, setBuffetId] = useState(buffets[0]?.id || "");
   const [guestName, setGuestName] = useState("");
   const [phone, setPhone] = useState("");
@@ -59,7 +64,11 @@ export function BuffetBookingForm({ buffets }: Props) {
   if (!buffets.length) {
     return (
       <p className="border border-[var(--ag-line)] bg-white px-5 py-8 text-[var(--ag-muted)]">
-        Buffet dates will open soon. Call 7569494949.
+        Buffet dates will open soon. Call{" "}
+        <a href={`tel:${desk}`} className="font-semibold text-[var(--ag-red)]">
+          {desk}
+        </a>
+        .
       </p>
     );
   }

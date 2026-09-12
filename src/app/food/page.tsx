@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { FoodOrderForm } from "@/components/anvi/food-order-form";
-import { getHotel, getMenu } from "@/lib/store";
+import { getHotel, getMenu, resolveHotelPhones } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
@@ -9,6 +9,7 @@ export const metadata: Metadata = { title: "CHIGURU Dining" };
 
 export default async function FoodPage() {
   const [hotel, menu] = await Promise.all([getHotel(), getMenu()]);
+  const phones = resolveHotelPhones(hotel);
 
   return (
     <div className="mx-auto max-w-6xl px-5 py-12 md:px-8">
@@ -29,14 +30,14 @@ export default async function FoodPage() {
         board.
       </p>
       <p className="mt-2 text-sm text-[var(--ag-chocolate)]">
-        Call{" "}
-        <a href="tel:7569494949" className="font-medium text-[var(--ag-red)]">
-          7569494949
+        Call food desk{" "}
+        <a href={`tel:${phones.food}`} className="font-medium text-[var(--ag-red)]">
+          {phones.food}
         </a>{" "}
         for banquet catering.
       </p>
       <div className="mt-10">
-        <FoodOrderForm menu={menu} variant="page" />
+        <FoodOrderForm menu={menu} variant="page" contactPhone={phones.food} />
       </div>
     </div>
   );

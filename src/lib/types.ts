@@ -2,12 +2,19 @@ export type HotelInfo = {
   name: string;
   tagline: string;
   address: string;
+  /** Legacy / fallback main desk number */
   phone: string;
   email: string;
   foodBrand: string;
   heroImage?: string;
   logo?: string;
   foodLogo?: string;
+  /** Rooms booking line — shown on /rooms */
+  roomsPhone?: string;
+  /** Food / CHIGURU booking line — shown on /food */
+  foodPhone?: string;
+  /** Reception / front desk — header, footer, contact */
+  receptionPhone?: string;
 };
 
 export type Room = {

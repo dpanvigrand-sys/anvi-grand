@@ -78,6 +78,17 @@ export async function getHotel() {
   return (await getCatalog()).hotel;
 }
 
+/** Role phones with fallback to legacy hotel.phone */
+export function resolveHotelPhones(hotel: HotelInfo) {
+  const fallback = hotel.phone?.trim() || "7569494949";
+  return {
+    rooms: hotel.roomsPhone?.trim() || fallback,
+    food: hotel.foodPhone?.trim() || fallback,
+    reception: hotel.receptionPhone?.trim() || fallback,
+    main: fallback,
+  };
+}
+
 export async function getRooms() {
   return (await getCatalog()).rooms;
 }

@@ -2,20 +2,28 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { formatINR } from "@/lib/format";
-import { getRooms } from "@/lib/store";
+import { getHotel, getRooms, resolveHotelPhones } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "Rooms" };
 
 export default async function RoomsPage() {
-  const rooms = await getRooms();
+  const [rooms, hotel] = await Promise.all([getRooms(), getHotel()]);
+  const phones = resolveHotelPhones(hotel);
   return (
     <div className="pt-8">
       <section className="mx-auto max-w-6xl px-5 pb-10 md:px-8">
         <p className="text-xs uppercase tracking-[0.2em] text-[var(--ag-red)]">Stay</p>
         <h1 className="mt-3 font-display text-5xl text-[var(--ag-ink)]">Rooms & suites</h1>
-        <p className="mt-4 max-w-2xl text-[var(--ag-muted)]">Four room types with AC, Wi-Fi, and Eluru Road convenience.</p>
+        <p className="mt-4 max-w-2xl text-[var(--ag-muted)]">
+          Four room types with AC, Wi-Fi, and Eluru Road convenience. Book online
+          or call rooms desk{" "}
+          <a href={`tel:${phones.rooms}`} className="font-semibold text-[var(--ag-red)]">
+            {phones.rooms}
+          </a>
+          .
+        </p>
       </section>
       <section className="mx-auto max-w-6xl px-5 pb-24 md:px-8">
         {rooms.length === 0 ? (

@@ -2,19 +2,26 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import { BuffetBookingForm } from "@/components/anvi/buffet-booking-form";
 import { formatINR } from "@/lib/format";
-import { getBuffets } from "@/lib/store";
+import { getBuffets, getHotel, resolveHotelPhones } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "Buffet Booking" };
 
 export default async function BuffetPage() {
-  const buffets = await getBuffets();
+  const [buffets, hotel] = await Promise.all([getBuffets(), getHotel()]);
+  const phones = resolveHotelPhones(hotel);
   return (
     <div className="mx-auto max-w-6xl px-5 py-12 md:px-8">
       <p className="text-xs uppercase tracking-[0.2em] text-[var(--ag-red)]">CHIGURU Buffet</p>
       <h1 className="mt-3 font-display text-5xl text-[var(--ag-ink)]">Book your table</h1>
-      <p className="mt-4 max-w-2xl text-[var(--ag-muted)]">Weekend Andhra lunch and executive dinner buffets.</p>
+      <p className="mt-4 max-w-2xl text-[var(--ag-muted)]">
+        Weekend Andhra lunch and executive dinner buffets. Call food desk{" "}
+        <a href={`tel:${phones.food}`} className="font-semibold text-[var(--ag-red)]">
+          {phones.food}
+        </a>
+        .
+      </p>
       <div className="mt-10 grid gap-8 md:grid-cols-2">
         {buffets.map((b) => (
           <article key={b.id} className="border border-[var(--ag-line)] bg-white/80">
@@ -31,7 +38,9 @@ export default async function BuffetPage() {
       </div>
       <div className="mt-12 border border-[var(--ag-line)] bg-white/80 p-5 md:p-8">
         <h2 className="font-display text-3xl text-[var(--ag-ink)]">Reserve seats</h2>
-        <div className="mt-6"><BuffetBookingForm buffets={buffets} /></div>
+        <div className="mt-6">
+          <BuffetBookingForm buffets={buffets} contactPhone={phones.food} />
+        </div>
       </div>
     </div>
   );

@@ -19,9 +19,15 @@ import type { Room } from "@/lib/types";
 type Props = {
   rooms: Room[];
   defaultRoomId?: string;
+  contactPhone?: string;
 };
 
-export function RoomBookingForm({ rooms, defaultRoomId }: Props) {
+export function RoomBookingForm({
+  rooms,
+  defaultRoomId,
+  contactPhone = "7569494949",
+}: Props) {
+  const desk = contactPhone.trim() || "7569494949";
   const router = useRouter();
   const available = rooms.filter((r) => r.available);
   const [roomId, setRoomId] = useState(defaultRoomId || available[0]?.id || "");
@@ -74,7 +80,11 @@ export function RoomBookingForm({ rooms, defaultRoomId }: Props) {
   if (!available.length) {
     return (
       <p className="border border-[var(--ag-line)] bg-white px-5 py-8 text-[var(--ag-muted)]">
-        No rooms available right now. Please call 7569494949.
+        No rooms available right now. Please call{" "}
+        <a href={`tel:${desk}`} className="font-semibold text-[var(--ag-red)]">
+          {desk}
+        </a>
+        .
       </p>
     );
   }

@@ -22,10 +22,13 @@ const links = [
   { href: "/gallery", label: "Gallery" },
 ];
 
-export function SiteHeader() {
+type Props = { receptionPhone?: string };
+
+export function SiteHeader({ receptionPhone = "7569494949" }: Props) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const isOps = pathname.startsWith("/ops");
+  const phone = receptionPhone.trim() || "7569494949";
 
   if (isOps) return null;
 
@@ -64,6 +67,12 @@ export function SiteHeader() {
           >
             Book Now
           </Button>
+          <a
+            href={`tel:${phone}`}
+            className="text-sm font-medium text-[var(--ag-gold-soft)] transition hover:text-white"
+          >
+            {phone}
+          </a>
         </nav>
 
         <div className="flex items-center gap-2 lg:hidden">
@@ -95,10 +104,10 @@ export function SiteHeader() {
               </SheetHeader>
               <nav className="flex flex-col gap-1 px-4 pb-6">
                 <a
-                  href="tel:7569494949"
+                  href={`tel:${phone}`}
                   className="py-3 font-medium text-[var(--ag-red)]"
                 >
-                  Call 7569494949
+                  Call {phone}
                 </a>
                 {links.map((l) => (
                   <Link

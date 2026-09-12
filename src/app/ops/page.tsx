@@ -11,6 +11,7 @@ const cards = [
   { href: "/ops/admin/venues", title: "Venues", desc: "Banquet & party hall ₹ + capacity", tone: "bg-[var(--ag-maroon)]" },
   { href: "/ops/admin/food", title: "Food", desc: "CHIGURU menu & buffet ₹ prices", tone: "bg-[var(--ag-maroon)]" },
   { href: "/ops/admin/photos", title: "Photos", desc: "Add / delete gallery & website images", tone: "bg-[var(--ag-maroon)]" },
+  { href: "/ops/admin/contacts", title: "Contacts", desc: "Rooms / food / reception phone lines", tone: "bg-[var(--ag-maroon)]" },
   { href: "/ops/accounts", title: "Accounts", desc: "Income / expense ledger", tone: "bg-[var(--ag-red-deep)]" },
   { href: "/ops/inward", title: "Inward", desc: "Stock receipts from vendors", tone: "bg-[var(--ag-maroon)]" },
   { href: "/ops/outward", title: "Outward", desc: "Issues to kitchen & departments", tone: "bg-[var(--ag-red)]" },

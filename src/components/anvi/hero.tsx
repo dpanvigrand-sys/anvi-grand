@@ -1,5 +1,12 @@
-export function Hero({ imageSrc }: { imageSrc?: string }) {
+export function Hero({
+  imageSrc,
+  receptionPhone = "7569494949",
+}: {
+  imageSrc?: string;
+  receptionPhone?: string;
+}) {
   const src = imageSrc?.trim() || "/images/anvi-entrance.jpg";
+  const phone = receptionPhone.trim() || "7569494949";
 
   return (
     <section className="relative min-h-[72svh] overflow-hidden md:min-h-[82svh]">
@@ -50,11 +57,11 @@ export function Hero({ imageSrc }: { imageSrc?: string }) {
         >
           Near Benz Circle, Eluru Road, Vijayawada · Call{" "}
           <a
-            href="tel:7569494949"
+            href={`tel:${phone}`}
             className="text-white underline decoration-[var(--ag-gold)] underline-offset-4"
             style={{ fontWeight: 400 }}
           >
-            7569494949
+            {phone}
           </a>
         </p>
       </div>

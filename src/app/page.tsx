@@ -3,7 +3,7 @@ import Link from "next/link";
 import { FoodOrderForm } from "@/components/anvi/food-order-form";
 import { Hero } from "@/components/anvi/hero";
 import { formatINR } from "@/lib/format";
-import { getHotel, getMenu, getRooms, getVenues } from "@/lib/store";
+import { getHotel, getMenu, getRooms, getVenues, resolveHotelPhones } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +14,7 @@ export default async function HomePage() {
     getVenues(),
     getMenu(),
   ]);
+  const phones = resolveHotelPhones(hotel);
 
   const stayRoom =
     rooms.find((r) => r.id === "executive-red-suite") || rooms[0];
@@ -23,7 +24,7 @@ export default async function HomePage() {
 
   return (
     <>
-      <Hero imageSrc={hotel.heroImage} />
+      <Hero imageSrc={hotel.heroImage} receptionPhone={phones.reception} />
 
       <section className="bg-[var(--ag-soft)] py-14 md:py-20">
         <div className="mx-auto grid w-full max-w-6xl gap-6 px-5 md:grid-cols-3 md:px-8">
@@ -113,7 +114,7 @@ export default async function HomePage() {
             Anvi Grand checkout — tickets land on the kitchen board instantly.
           </p>
           <div className="mt-8">
-            <FoodOrderForm menu={menu} variant="home" />
+            <FoodOrderForm menu={menu} variant="home" contactPhone={phones.food} />
           </div>
           <p className="mt-6 text-sm text-[var(--ag-muted)]">
             Full menu on{" "}

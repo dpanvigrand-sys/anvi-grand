@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Outfit } from "next/font/google";
 import { SiteFooter } from "@/components/anvi/site-footer";
 import { SiteHeader } from "@/components/anvi/site-header";
+import { getHotel, resolveHotelPhones } from "@/lib/store";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -27,20 +28,29 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const hotel = await getHotel();
+  const phones = resolveHotelPhones(hotel);
+
   return (
     <html
       lang="en"
       className={`${fraunces.variable} ${outfit.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col font-sans">
-        <SiteHeader />
+        <SiteHeader receptionPhone={phones.reception} />
         <main className="flex-1">{children}</main>
-        <SiteFooter />
+        <SiteFooter
+          receptionPhone={phones.reception}
+          roomsPhone={phones.rooms}
+          foodPhone={phones.food}
+          email={hotel.email}
+          address={hotel.address}
+        />
       </body>
     </html>
   );
