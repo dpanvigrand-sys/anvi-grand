@@ -5,7 +5,11 @@
   "scripts": {
     "dev": "next dev --port 3947 --webpack",
     "build": "next build",
-    "start": "next start --port 3947",
+    "start": "next start --hostname 0.0.0.0 --port 3947",
+    "live": "bash scripts/live-open.sh open",
+    "live:ensure": "bash scripts/live-open.sh ensure",
+    "live:refresh": "bash scripts/live-open.sh refresh",
+    "live:restart": "bash scripts/live-open.sh restart",
     "lint": "eslint"
   },
   "dependencies": {

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=ANVI Live (open + refresh)
+Comment=Ensure production server on :3947 and open/refresh Chrome to the site
+Exec=/bin/bash /workspace/scripts/live-open.sh open
+Icon=web-browser
+Terminal=false
+Categories=Network;Development;
+StartupNotify=true
+Path=/workspace
