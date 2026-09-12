@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=ANVI GRAND — Cursor Agent
+Comment=Open the ANVI GRAND cloud agent in Cursor
+Exec=xdg-open https://cursor.com/agents/bc-baa28d27-c756-590c-992b-4ea67ca256e9
+Icon=applications-internet
+Terminal=false
+Categories=Network;WebBrowser;
+StartupNotify=true
