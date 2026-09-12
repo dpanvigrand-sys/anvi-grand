@@ -201,7 +201,16 @@ export type StockMove = {
   item: string;
   quantity: number;
   unit: string;
+  /** Vendor (inward) or department / party (outward) */
   vendorOrDept: string;
+  /** Line amount in ₹ */
+  amount: number;
+  /** Amount paid / settled up front */
+  advance: number;
+  /** Remaining dues — typically amount − advance */
+  balance: number;
+  /** Business date YYYY-MM-DD (defaults to created day) */
+  date?: string;
   notes?: string;
   createdAt: string;
 };

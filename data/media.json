@@ -1,6 +1,14 @@
 {
   "items": [
     {
+      "id": "media-mtyc45f76iba",
+      "src": "/uploads/media-mtyc45f76iba-whatsapp-image-2026-09-12-at-5.21.07-pm-1-.jpeg",
+      "label": "WhatsApp Image 2026-09-12 at 5.21.07 PM (1).jpeg",
+      "group": "Website",
+      "createdAt": "2026-09-12T12:01:36.883Z",
+      "managedFile": true
+    },
+    {
       "id": "site-hero-entrance",
       "src": "/images/anvi-entrance.jpg",
       "label": "Night entrance · ANVI GRAND",

@@ -259,8 +259,94 @@
       "createdAt": "2026-09-11T20:00:38.299Z"
     }
   ],
-  "inward": [],
-  "outward": [],
+  "inward": [
+    {
+      "id": "in-demo-today",
+      "direction": "inward",
+      "item": "Basmati rice",
+      "quantity": 50,
+      "unit": "kg",
+      "vendorOrDept": "Sri Venkateswara Traders",
+      "amount": 4500,
+      "advance": 2000,
+      "balance": 2500,
+      "date": "2026-09-12",
+      "notes": "Kitchen weekly stock",
+      "createdAt": "2026-09-12T07:30:00.000Z"
+    },
+    {
+      "id": "in-demo-month",
+      "direction": "inward",
+      "item": "Sunflower oil",
+      "quantity": 20,
+      "unit": "L",
+      "vendorOrDept": "Godavari Oils",
+      "amount": 2800,
+      "advance": 2800,
+      "balance": 0,
+      "date": "2026-09-05",
+      "notes": "Paid in full",
+      "createdAt": "2026-09-05T11:00:00.000Z"
+    },
+    {
+      "id": "in-demo-veg",
+      "direction": "inward",
+      "item": "Fresh vegetables mix",
+      "quantity": 30,
+      "unit": "kg",
+      "vendorOrDept": "Rythu Bazaar",
+      "amount": 1800,
+      "advance": 500,
+      "balance": 1300,
+      "date": "2026-09-12",
+      "notes": "CHIGURU produce",
+      "createdAt": "2026-09-12T08:00:00.000Z"
+    }
+  ],
+  "outward": [
+    {
+      "id": "out-demo-today",
+      "direction": "outward",
+      "item": "Basmati rice",
+      "quantity": 10,
+      "unit": "kg",
+      "vendorOrDept": "CHIGURU kitchen",
+      "amount": 900,
+      "advance": 0,
+      "balance": 900,
+      "date": "2026-09-12",
+      "notes": "Lunch prep issue",
+      "createdAt": "2026-09-12T09:00:00.000Z"
+    },
+    {
+      "id": "out-demo-month",
+      "direction": "outward",
+      "item": "Cleaning supplies",
+      "quantity": 5,
+      "unit": "pack",
+      "vendorOrDept": "Housekeeping",
+      "amount": 750,
+      "advance": 750,
+      "balance": 0,
+      "date": "2026-09-08",
+      "notes": "Floor stock",
+      "createdAt": "2026-09-08T14:00:00.000Z"
+    },
+    {
+      "id": "out-demo-oil",
+      "direction": "outward",
+      "item": "Sunflower oil",
+      "quantity": 4,
+      "unit": "L",
+      "vendorOrDept": "CHIGURU kitchen",
+      "amount": 560,
+      "advance": 0,
+      "balance": 560,
+      "date": "2026-09-12",
+      "notes": "Dinner fryers",
+      "createdAt": "2026-09-12T16:00:00.000Z"
+    }
+  ],
   "guests": [
     {
       "id": "gst-mtxdusnehe3w",

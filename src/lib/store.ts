@@ -500,17 +500,103 @@ export async function addLedgerEntry(input: Omit<LedgerEntry, "id" | "createdAt"
   return { entry };
 }
 
-export async function addStockMove(input: Omit<StockMove, "id" | "createdAt">) {
+export async function addStockMove(
+  input: Omit<StockMove, "id" | "createdAt" | "amount" | "advance" | "balance"> & {
+    amount?: number;
+    advance?: number;
+    balance?: number;
+    date?: string;
+  },
+) {
+  const createdAt = new Date().toISOString();
+  const amount = Math.max(0, Number(input.amount) || 0);
+  const advance = Math.max(0, Math.min(amount, Number(input.advance) || 0));
+  const balance =
+    input.balance !== undefined
+      ? Math.max(0, Number(input.balance) || 0)
+      : Math.max(0, amount - advance);
   const move: StockMove = {
-    ...input,
+    direction: input.direction,
+    item: input.item.trim(),
+    quantity: Number(input.quantity) || 0,
+    unit: input.unit.trim() || "pcs",
+    vendorOrDept: input.vendorOrDept.trim(),
+    amount,
+    advance,
+    balance,
+    date: (input.date || createdAt).slice(0, 10),
+    notes: input.notes?.trim() || undefined,
     id: uid(input.direction === "inward" ? "in" : "out"),
-    createdAt: new Date().toISOString(),
+    createdAt,
   };
   const ops = await getOpsStore();
   if (input.direction === "inward") ops.inward.unshift(move);
   else ops.outward.unshift(move);
   await saveOps(ops);
   return { move };
+}
+
+export async function updateStockMove(
+  id: string,
+  patch: Partial<
+    Pick<
+      StockMove,
+      | "item"
+      | "quantity"
+      | "unit"
+      | "vendorOrDept"
+      | "amount"
+      | "advance"
+      | "balance"
+      | "date"
+      | "notes"
+    >
+  >,
+): Promise<{ move?: StockMove; error?: string }> {
+  const ops = await getOpsStore();
+  const lists = [
+    { key: "inward" as const, list: ops.inward },
+    { key: "outward" as const, list: ops.outward },
+  ];
+  for (const { key, list } of lists) {
+    const i = list.findIndex((m) => m.id === id);
+    if (i < 0) continue;
+    const cur = list[i];
+    const amount =
+      patch.amount !== undefined
+        ? Math.max(0, Number(patch.amount) || 0)
+        : (cur.amount ?? 0);
+    const advance =
+      patch.advance !== undefined
+        ? Math.max(0, Number(patch.advance) || 0)
+        : (cur.advance ?? 0);
+    const balance =
+      patch.balance !== undefined
+        ? Math.max(0, Number(patch.balance) || 0)
+        : Math.max(0, amount - advance);
+    const next: StockMove = {
+      ...cur,
+      item: patch.item?.trim() || cur.item,
+      quantity:
+        patch.quantity !== undefined
+          ? Number(patch.quantity) || 0
+          : cur.quantity,
+      unit: patch.unit?.trim() || cur.unit,
+      vendorOrDept: patch.vendorOrDept?.trim() || cur.vendorOrDept,
+      amount,
+      advance,
+      balance,
+      date: patch.date ? patch.date.slice(0, 10) : cur.date || cur.createdAt.slice(0, 10),
+      notes:
+        patch.notes !== undefined
+          ? patch.notes.trim() || undefined
+          : cur.notes,
+    };
+    ops[key][i] = next;
+    await saveOps(ops);
+    return { move: next };
+  }
+  return { error: "Stock move not found." };
 }
 
 export async function getRoomBooking(id: string) {

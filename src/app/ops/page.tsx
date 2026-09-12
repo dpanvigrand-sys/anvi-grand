@@ -13,9 +13,10 @@ const cards = [
   { href: "/ops/admin/photos", title: "Photos", desc: "Add / delete gallery & website images", tone: "bg-[var(--ag-maroon)]" },
   { href: "/ops/admin/contacts", title: "Contacts", desc: "Rooms / food / reception phone lines", tone: "bg-[var(--ag-maroon)]" },
   { href: "/ops/admin/bookings", title: "Bookings", desc: "Rooms & food reports · Excel / Print / JPG", tone: "bg-[var(--ag-maroon)]" },
+  { href: "/ops/admin/stock-reports", title: "Stock reports", desc: "Inward & outward · day / month · Excel / A4 / JPG", tone: "bg-[var(--ag-maroon)]" },
   { href: "/ops/accounts", title: "Accounts", desc: "Income / expense ledger", tone: "bg-[var(--ag-red-deep)]" },
-  { href: "/ops/inward", title: "Inward", desc: "Stock receipts from vendors", tone: "bg-[var(--ag-maroon)]" },
-  { href: "/ops/outward", title: "Outward", desc: "Issues to kitchen & departments", tone: "bg-[var(--ag-red)]" },
+  { href: "/ops/inward", title: "Inward", desc: "Stock receipts from vendors + reports", tone: "bg-[var(--ag-maroon)]" },
+  { href: "/ops/outward", title: "Outward", desc: "Issues to kitchen & departments + reports", tone: "bg-[var(--ag-red)]" },
 ];
 
 export default async function OpsHomePage() {

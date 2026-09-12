@@ -18,6 +18,17 @@ Staff password: **`anviops2026`**
 
 Inline **Edit / Save** on any row updates ops.json live.
 
+## Inward & outward stock reports
+
+- **Entry points:** `/ops/inward`, `/ops/outward`, and combined `/ops/admin/stock-reports`
+- **Fields:** item, supplier/party (`vendorOrDept`), qty + unit, amount ₹, advance, balance, date, notes
+- **Views:** Daily · Monthly · Date range (Inward / Outward / both on combined page)
+- **Exports:** Download Excel (CSV) · Print A4 · Export JPG
+- **Create / edit:** Forms on inward & outward pages; inline Edit on report tables
+- **Storage:** `data/ops.json` → `inward[]` / `outward[]`
+- **API:** `POST|PATCH /api/ops/stock`
+- **UI:** `src/components/ops/stock-reports-admin.tsx`, `stock-form.tsx`
+
 ## Contacts (three booking lines)
 
 - **Admin UI:** `/ops/admin/contacts` (ops nav **Contacts**, Admin hub)
