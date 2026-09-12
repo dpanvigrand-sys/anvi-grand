@@ -11,6 +11,18 @@ Staff password: **`anviops2026`**
 
 Inline **Save ₹**, full **Edit**, **+ Add room**, **Delete**.
 
+
+## Banquet / Venues (price & capacity)
+
+- **Admin UI:** `/ops/admin/venues` (ops nav **Venues**, Admin hub card)
+- **Royal Grand Ballroom:** open `/ops/admin/venues` (row id `#venue-royal-grand-ballroom`) — edit ₹/day (`priceFrom`) and guest **capacity**
+- **Public:** `/banquet` (banquet type) and `/party-hall` (party-hall type)
+- **Storage:** `data/catalog.json` → `venues[].priceFrom`, `venues[].capacity`
+- **API:** `POST /api/ops/catalog` `{ "section": "venues", "action": "upsert"|"delete", ... }`
+- **UI:** `src/components/ops/venues-admin.tsx` · page `src/app/ops/admin/venues/page.tsx`
+
+Inline **Save ₹ + capacity**, full **Edit** (name, type, tagline, description, image, amenities), **+ Add venue**, **Delete**.
+
 ## Food (CHIGURU menu & buffets) — full item edit
 
 - **Admin UI:** `/ops/admin/food` (ops nav **Food**, Admin hub card)

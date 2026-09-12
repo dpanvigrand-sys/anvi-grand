@@ -5,6 +5,7 @@ import { formatINR } from "@/lib/format";
 import { getVenues } from "@/lib/store";
 
 export const metadata: Metadata = { title: "Banquet" };
+export const dynamic = "force-dynamic";
 
 export default async function BanquetPage() {
   const venues = await getVenues("banquet");

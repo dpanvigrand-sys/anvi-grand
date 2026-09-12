@@ -35,6 +35,20 @@ export default async function AdminPage() {
           </p>
         </Link>
         <Link
+          href="/ops/admin/venues"
+          className="border border-[var(--ag-line)] bg-white p-5 transition hover:border-[var(--ag-red)]"
+        >
+          <p className="text-xs uppercase tracking-[0.14em] text-[var(--ag-red)]">
+            CMS
+          </p>
+          <p className="mt-2 font-display text-2xl text-[var(--ag-ink)]">
+            Banquet / Venues
+          </p>
+          <p className="mt-1 text-sm text-[var(--ag-muted)]">
+            Royal Grand Ballroom · ₹/day · capacity
+          </p>
+        </Link>
+        <Link
           href="/ops/admin/food"
           className="border border-[var(--ag-line)] bg-white p-5 transition hover:border-[var(--ag-red)]"
         >
