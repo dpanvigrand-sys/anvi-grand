@@ -10,6 +10,34 @@ const STORAGE_KEY = "anvi-ops-auth";
 /** Demo password for staff ops — documented in README */
 export const OPS_DEMO_PASSWORD = "anviops2026";
 
+function readAuth(): boolean {
+  try {
+    // localStorage so multiple Chrome windows share unlock on Try Live
+    if (window.localStorage.getItem(STORAGE_KEY) === "1") return true;
+    if (window.sessionStorage.getItem(STORAGE_KEY) === "1") {
+      window.localStorage.setItem(STORAGE_KEY, "1");
+      return true;
+    }
+  } catch {
+    /* ignore */
+  }
+  return false;
+}
+
+function writeAuth(on: boolean) {
+  try {
+    if (on) {
+      window.localStorage.setItem(STORAGE_KEY, "1");
+      window.sessionStorage.setItem(STORAGE_KEY, "1");
+    } else {
+      window.localStorage.removeItem(STORAGE_KEY);
+      window.sessionStorage.removeItem(STORAGE_KEY);
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 export function OpsGate({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -20,17 +48,27 @@ export function OpsGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     try {
-      setAuthed(window.sessionStorage.getItem(STORAGE_KEY) === "1");
+      const params = new URLSearchParams(window.location.search);
+      if (params.get("unlock") === OPS_DEMO_PASSWORD) {
+        writeAuth(true);
+        setAuthed(true);
+        // Clean URL without reload flicker
+        const clean = window.location.pathname;
+        window.history.replaceState({}, "", clean);
+        setReady(true);
+        return;
+      }
     } catch {
-      setAuthed(false);
+      /* ignore */
     }
+    setAuthed(readAuth());
     setReady(true);
   }, []);
 
   function unlock(e: React.FormEvent) {
     e.preventDefault();
     if (password.trim() === OPS_DEMO_PASSWORD) {
-      window.sessionStorage.setItem(STORAGE_KEY, "1");
+      writeAuth(true);
       setAuthed(true);
       setError("");
       return;
@@ -39,7 +77,7 @@ export function OpsGate({ children }: { children: React.ReactNode }) {
   }
 
   function lock() {
-    window.sessionStorage.removeItem(STORAGE_KEY);
+    writeAuth(false);
     setAuthed(false);
     setPassword("");
     if (pathname !== "/ops") router.push("/ops");
