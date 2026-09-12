@@ -18,10 +18,12 @@ export async function POST(request: Request) {
     const result = await createFoodOrder({
       guestName: String(body.guestName || ""),
       phone: String(body.phone || ""),
+      address: body.address ? String(body.address) : undefined,
       roomNumber: body.roomNumber ? String(body.roomNumber) : undefined,
       tableId: body.tableId ? String(body.tableId) : undefined,
       source: body.source || "online",
       items,
+      advance: body.advance !== undefined ? Number(body.advance) : 0,
     });
     if (result.error || !result.order) {
       return NextResponse.json({ error: result.error || "Failed" }, { status: 400 });

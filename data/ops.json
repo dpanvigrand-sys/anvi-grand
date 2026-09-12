@@ -1,6 +1,45 @@
 {
   "roomBookings": [
     {
+      "id": "ag-demo-room-month",
+      "type": "room",
+      "roomId": "executive-suite",
+      "roomName": "Executive Suite",
+      "guestName": "Arjun Reddy",
+      "email": "arjun@example.com",
+      "phone": "9988776655",
+      "address": "Plot 8, Auto Nagar, Vijayawada",
+      "checkIn": "2026-09-05",
+      "checkOut": "2026-09-07",
+      "guests": 2,
+      "nights": 2,
+      "total": 10400,
+      "advance": 5000,
+      "balance": 5400,
+      "status": "checked-out",
+      "createdAt": "2026-09-05T10:00:00.000Z"
+    },
+    {
+      "id": "ag-demo-room-today",
+      "type": "room",
+      "roomId": "deluxe-king",
+      "roomName": "Deluxe King",
+      "guestName": "Lakshmi Devi",
+      "email": "lakshmi@example.com",
+      "phone": "9876501234",
+      "address": "12 MG Road, Benz Circle, Vijayawada",
+      "checkIn": "2026-09-12",
+      "checkOut": "2026-09-14",
+      "guests": 2,
+      "nights": 2,
+      "total": 6400,
+      "advance": 2000,
+      "balance": 4400,
+      "notes": "Demo rooms booking",
+      "status": "confirmed",
+      "createdAt": "2026-09-12T08:15:00.000Z"
+    },
+    {
       "id": "ag-mtxdusnd0ar9",
       "type": "room",
       "roomId": "executive-suite",
@@ -14,7 +53,10 @@
       "nights": 2,
       "total": 10400,
       "status": "confirmed",
-      "createdAt": "2026-09-11T20:02:33.481Z"
+      "createdAt": "2026-09-11T20:02:33.481Z",
+      "address": "",
+      "advance": 0,
+      "balance": 10400
     },
     {
       "id": "ag-mtxdtn0a3v05",
@@ -30,7 +72,10 @@
       "nights": 2,
       "total": 6400,
       "status": "confirmed",
-      "createdAt": "2026-09-11T20:01:39.514Z"
+      "createdAt": "2026-09-11T20:01:39.514Z",
+      "address": "",
+      "advance": 0,
+      "balance": 6400
     },
     {
       "id": "ag-mtxdsbrvw8fx",
@@ -47,11 +92,57 @@
       "total": 6400,
       "notes": "smoke",
       "status": "confirmed",
-      "createdAt": "2026-09-11T20:00:38.299Z"
+      "createdAt": "2026-09-11T20:00:38.299Z",
+      "address": "",
+      "advance": 0,
+      "balance": 6400
     }
   ],
   "venueBookings": [],
   "foodOrders": [
+    {
+      "id": "fo-demo-food-month",
+      "type": "food",
+      "guestName": "Kiran Babu",
+      "phone": "9001122334",
+      "address": "Eluru Road, opp. Benz Circle",
+      "items": [
+        {
+          "menuId": "gongura-mutton",
+          "name": "Gongura Mutton",
+          "qty": 1,
+          "price": 420
+        }
+      ],
+      "total": 420,
+      "advance": 420,
+      "balance": 0,
+      "status": "served",
+      "source": "online",
+      "createdAt": "2026-09-08T19:00:00.000Z"
+    },
+    {
+      "id": "fo-demo-food-today",
+      "type": "food",
+      "guestName": "Priya Sharma",
+      "phone": "9123456780",
+      "address": "Room 204, Anvi Grand",
+      "roomNumber": "204",
+      "items": [
+        {
+          "menuId": "gongura-mutton",
+          "name": "Gongura Mutton",
+          "qty": 2,
+          "price": 420
+        }
+      ],
+      "total": 840,
+      "advance": 400,
+      "balance": 440,
+      "status": "placed",
+      "source": "room-service",
+      "createdAt": "2026-09-12T09:30:00.000Z"
+    },
     {
       "id": "fo-mtxdtn0ljek6",
       "type": "food",
@@ -68,7 +159,10 @@
       "total": 420,
       "status": "placed",
       "source": "online",
-      "createdAt": "2026-09-11T20:01:39.525Z"
+      "createdAt": "2026-09-11T20:01:39.525Z",
+      "address": "",
+      "advance": 0,
+      "balance": 420
     }
   ],
   "buffetBookings": [],
@@ -132,7 +226,7 @@
       "id": "led-mtxdusnedx8z",
       "kind": "income",
       "category": "room",
-      "description": "Executive Suite · Smoke Test",
+      "description": "Executive Suite \u00b7 Smoke Test",
       "amount": 10400,
       "refId": "ag-mtxdusnd0ar9",
       "createdAt": "2026-09-11T20:02:33.481Z"
@@ -141,7 +235,7 @@
       "id": "led-mtxdtn0m0x0f",
       "kind": "income",
       "category": "food",
-      "description": "CHIGURU · Sita",
+      "description": "CHIGURU \u00b7 Sita",
       "amount": 420,
       "refId": "fo-mtxdtn0ljek6",
       "createdAt": "2026-09-11T20:01:39.525Z"
@@ -150,7 +244,7 @@
       "id": "led-mtxdtn0bw2et",
       "kind": "income",
       "category": "room",
-      "description": "Deluxe King · Ravi Kumar",
+      "description": "Deluxe King \u00b7 Ravi Kumar",
       "amount": 6400,
       "refId": "ag-mtxdtn0a3v05",
       "createdAt": "2026-09-11T20:01:39.514Z"
@@ -159,7 +253,7 @@
       "id": "led-mtxdsbrw1h7r",
       "kind": "income",
       "category": "room",
-      "description": "Deluxe King · Test Guest",
+      "description": "Deluxe King \u00b7 Test Guest",
       "amount": 6400,
       "refId": "ag-mtxdsbrvw8fx",
       "createdAt": "2026-09-11T20:00:38.299Z"

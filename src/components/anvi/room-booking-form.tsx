@@ -34,6 +34,8 @@ export function RoomBookingForm({
   const [guestName, setGuestName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
+  const [advance, setAdvance] = useState(0);
   const [checkIn, setCheckIn] = useState("");
   const [checkOut, setCheckOut] = useState("");
   const [guests, setGuests] = useState(1);
@@ -58,6 +60,8 @@ export function RoomBookingForm({
           guestName,
           email,
           phone,
+          address,
+          advance,
           checkIn,
           checkOut,
           guests,
@@ -142,6 +146,19 @@ export function RoomBookingForm({
         />
       </div>
 
+      <div className="space-y-2">
+        <Label htmlFor="address">Address</Label>
+        <Textarea
+          id="address"
+          required
+          value={address}
+          onChange={(e) => setAddress(e.target.value)}
+          className="rounded-none"
+          rows={2}
+          placeholder="Street, area, city"
+        />
+      </div>
+
       <div className="grid gap-4 sm:grid-cols-3">
         <div className="space-y-2">
           <Label htmlFor="checkIn">Check-in</Label>
@@ -180,6 +197,29 @@ export function RoomBookingForm({
         </div>
       </div>
 
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="advance">Advance paid (₹)</Label>
+          <Input
+            id="advance"
+            type="number"
+            min={0}
+            step={100}
+            value={advance}
+            onChange={(e) => setAdvance(Number(e.target.value) || 0)}
+            className="rounded-none"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Balance due</Label>
+          <p className="flex h-9 items-center border border-[var(--ag-line)] bg-[#fff8f7] px-3 text-sm text-[var(--ag-ink)]">
+            {nights > 0 && room
+              ? formatINR(Math.max(0, total - advance))
+              : "—"}
+          </p>
+        </div>
+      </div>
+
       <div className="space-y-2">
         <Label htmlFor="notes">Notes (optional)</Label>
         <Textarea
@@ -195,6 +235,13 @@ export function RoomBookingForm({
         <p className="text-sm text-[var(--ag-muted)]">
           {nights} night{nights === 1 ? "" : "s"} · estimated{" "}
           <span className="font-medium text-[var(--ag-chocolate)]">{formatINR(total)}</span>
+          {advance > 0 ? (
+            <>
+              {" "}
+              · advance {formatINR(advance)} · balance{" "}
+              {formatINR(Math.max(0, total - advance))}
+            </>
+          ) : null}
         </p>
       )}
 

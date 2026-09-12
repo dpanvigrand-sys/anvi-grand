@@ -127,10 +127,12 @@ export async function createRoomBooking(input: {
   guestName: string;
   email: string;
   phone: string;
+  address?: string;
   checkIn: string;
   checkOut: string;
   guests: number;
   notes?: string;
+  advance?: number;
 }): Promise<{ booking?: RoomBooking; error?: string }> {
   const room = await getRoom(input.roomId);
   if (!room) return { error: "Room not found." };
@@ -144,6 +146,8 @@ export async function createRoomBooking(input: {
     return { error: `Guests must be 1–${room.capacity}.` };
   }
 
+  const total = nights * room.pricePerNight;
+  const advance = Math.max(0, Math.min(total, Number(input.advance) || 0));
   const booking: RoomBooking = {
     id: uid("ag"),
     type: "room",
@@ -152,11 +156,14 @@ export async function createRoomBooking(input: {
     guestName: input.guestName.trim(),
     email: input.email.trim().toLowerCase(),
     phone: input.phone.trim(),
+    address: input.address?.trim() || undefined,
     checkIn: input.checkIn,
     checkOut: input.checkOut,
     guests: input.guests,
     nights,
-    total: nights * room.pricePerNight,
+    total,
+    advance,
+    balance: Math.max(0, total - advance),
     notes: input.notes?.trim() || undefined,
     status: "confirmed",
     createdAt: new Date().toISOString(),
@@ -236,10 +243,12 @@ export async function createVenueBooking(input: {
 export async function createFoodOrder(input: {
   guestName: string;
   phone: string;
+  address?: string;
   roomNumber?: string;
   tableId?: string;
   source?: FoodOrder["source"];
   items: { menuId: string; qty: number }[];
+  advance?: number;
 }): Promise<{ order?: FoodOrder; error?: string }> {
   if (!input.guestName?.trim() || !input.phone?.trim()) {
     return { error: "Name and phone are required." };
@@ -256,15 +265,19 @@ export async function createFoodOrder(input: {
   if (!lines.length) return { error: "No valid menu items." };
 
   const total = lines.reduce((s, l) => s + l.price * l.qty, 0);
+  const advance = Math.max(0, Math.min(total, Number(input.advance) || 0));
   const createdAt = new Date().toISOString();
   const order: FoodOrder = {
     id: uid("fo"),
     type: "food",
     guestName: input.guestName.trim(),
     phone: input.phone.trim(),
+    address: input.address?.trim() || undefined,
     roomNumber: input.roomNumber?.trim() || undefined,
     items: lines,
     total,
+    advance,
+    balance: Math.max(0, total - advance),
     status: "placed",
     source: input.source ?? "online",
     tableId: input.tableId,
@@ -377,6 +390,73 @@ export async function updateRoomBookingStatus(id: string, status: RoomBooking["s
   ops.roomBookings[i] = { ...ops.roomBookings[i], status };
   await saveOps(ops);
   return { booking: ops.roomBookings[i] };
+}
+
+/** Patch guest / payment fields on a room booking or food order. */
+export async function updateBookingRecord(
+  id: string,
+  patch: {
+    address?: string;
+    phone?: string;
+    guestName?: string;
+    advance?: number;
+    balance?: number;
+  },
+): Promise<{ booking?: RoomBooking; order?: FoodOrder; error?: string }> {
+  const ops = await getOpsStore();
+  const ri = ops.roomBookings.findIndex((b) => b.id === id);
+  if (ri >= 0) {
+    const cur = ops.roomBookings[ri];
+    const advance =
+      patch.advance !== undefined
+        ? Math.max(0, Number(patch.advance) || 0)
+        : (cur.advance ?? 0);
+    const balance =
+      patch.balance !== undefined
+        ? Math.max(0, Number(patch.balance) || 0)
+        : Math.max(0, cur.total - advance);
+    const next: RoomBooking = {
+      ...cur,
+      guestName: patch.guestName?.trim() || cur.guestName,
+      phone: patch.phone?.trim() || cur.phone,
+      address:
+        patch.address !== undefined
+          ? patch.address.trim() || undefined
+          : cur.address,
+      advance,
+      balance,
+    };
+    ops.roomBookings[ri] = next;
+    await saveOps(ops);
+    return { booking: next };
+  }
+  const fi = ops.foodOrders.findIndex((o) => o.id === id);
+  if (fi >= 0) {
+    const cur = ops.foodOrders[fi];
+    const advance =
+      patch.advance !== undefined
+        ? Math.max(0, Number(patch.advance) || 0)
+        : (cur.advance ?? 0);
+    const balance =
+      patch.balance !== undefined
+        ? Math.max(0, Number(patch.balance) || 0)
+        : Math.max(0, cur.total - advance);
+    const next: FoodOrder = {
+      ...cur,
+      guestName: patch.guestName?.trim() || cur.guestName,
+      phone: patch.phone?.trim() || cur.phone,
+      address:
+        patch.address !== undefined
+          ? patch.address.trim() || undefined
+          : cur.address,
+      advance,
+      balance,
+    };
+    ops.foodOrders[fi] = next;
+    await saveOps(ops);
+    return { order: next };
+  }
+  return { error: "Record not found." };
 }
 
 export async function updateTableStatus(id: string, status: DiningTable["status"]) {

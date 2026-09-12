@@ -1,6 +1,22 @@
-# Admin CMS (rooms, food, venues, photos & contacts)
+# Admin CMS (rooms, food, venues, photos, contacts & booking reports)
 
 Staff password: **`anviops2026`**
+
+## Booking reports (rooms + food)
+
+- **Admin UI:** `/ops/admin/bookings` (ops nav **Bookings**, Admin hub, Ops hub card)
+- **Fields:** person name, address, phone, advance, balance (+ link to room booking / food order)
+- **Views:** Daily · Monthly · Date range (filter Rooms / Food / both)
+- **Exports:**
+  1. **Download Excel** — UTF-8 CSV Excel opens cleanly
+  2. **Print A4** — print stylesheet (`@page A4`)
+  3. **Export JPG** — captures the report table (`html-to-image`)
+- **Storage:** `data/ops.json` → `roomBookings[]` / `foodOrders[]` with `address`, `advance`, `balance`
+- **API:** `PATCH /api/ops/bookings/[id]` `{ guestName, address, phone, advance, balance }`
+- **UI:** `src/components/ops/bookings-admin.tsx` · page `src/app/ops/admin/bookings/page.tsx`
+- **Guest forms:** room book + CHIGURU order collect address + advance (balance = total − advance)
+
+Inline **Edit / Save** on any row updates ops.json live.
 
 ## Contacts (three booking lines)
 

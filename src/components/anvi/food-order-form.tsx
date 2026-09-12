@@ -24,7 +24,9 @@ export function FoodOrderForm({
   const [cart, setCart] = useState<Record<string, number>>({});
   const [guestName, setGuestName] = useState("");
   const [phone, setPhone] = useState("");
+  const [address, setAddress] = useState("");
   const [roomNumber, setRoomNumber] = useState("");
+  const [advance, setAdvance] = useState(0);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [pending, setPending] = useState(false);
@@ -69,7 +71,9 @@ export function FoodOrderForm({
         body: JSON.stringify({
           guestName,
           phone,
+          address: address || undefined,
           roomNumber: roomNumber || undefined,
+          advance,
           items,
           source: "online",
         }),
@@ -262,6 +266,17 @@ export function FoodOrderForm({
             />
           </div>
           <div className="space-y-2">
+            <Label htmlFor="address">Address</Label>
+            <Input
+              id="address"
+              required
+              value={address}
+              onChange={(e) => setAddress(e.target.value)}
+              className="rounded-md"
+              placeholder="Delivery / billing address"
+            />
+          </div>
+          <div className="space-y-2">
             <Label htmlFor="roomNumber">Room (optional)</Label>
             <Input
               id="roomNumber"
@@ -270,6 +285,26 @@ export function FoodOrderForm({
               className="rounded-md"
               placeholder="e.g. 204"
             />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="advance">Advance (₹)</Label>
+              <Input
+                id="advance"
+                type="number"
+                min={0}
+                step={50}
+                value={advance}
+                onChange={(e) => setAdvance(Number(e.target.value) || 0)}
+                className="rounded-md"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Balance</Label>
+              <p className="flex h-9 items-center rounded-md border border-[var(--ag-line)] px-3 text-sm">
+                {formatINR(Math.max(0, total - advance))}
+              </p>
+            </div>
           </div>
           {error && <p className="text-sm text-[var(--ag-red)]">{error}</p>}
           {success && <p className="text-sm text-emerald-700">{success}</p>}

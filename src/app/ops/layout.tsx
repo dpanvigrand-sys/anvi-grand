@@ -12,6 +12,7 @@ const links = [
   { href: "/ops/admin/food", label: "Food" },
   { href: "/ops/admin/photos", label: "Photos" },
   { href: "/ops/admin/contacts", label: "Contacts" },
+  { href: "/ops/admin/bookings", label: "Bookings" },
   { href: "/ops/accounts", label: "Accounts" },
   { href: "/ops/inward", label: "Inward" },
   { href: "/ops/outward", label: "Outward" },

@@ -77,6 +77,20 @@ export default async function AdminPage() {
           </p>
         </Link>
         <Link
+          href="/ops/admin/bookings"
+          className="border border-[var(--ag-line)] bg-white p-5 transition hover:border-[var(--ag-red)]"
+        >
+          <p className="text-xs uppercase tracking-[0.14em] text-[var(--ag-red)]">
+            Reports
+          </p>
+          <p className="mt-2 font-display text-2xl text-[var(--ag-ink)]">
+            Bookings
+          </p>
+          <p className="mt-1 text-sm text-[var(--ag-muted)]">
+            Rooms & food · day / month · Excel · Print A4 · JPG
+          </p>
+        </Link>
+        <Link
           href="/ops/admin/photos"
           className="border border-[var(--ag-line)] bg-white p-5 transition hover:border-[var(--ag-red)]"
         >

@@ -84,11 +84,17 @@ export type RoomBooking = {
   guestName: string;
   email: string;
   phone: string;
+  /** Guest postal / stay address */
+  address?: string;
   checkIn: string;
   checkOut: string;
   guests: number;
   nights: number;
   total: number;
+  /** Amount paid up front (₹) */
+  advance: number;
+  /** Remaining dues — typically total − advance */
+  balance: number;
   notes?: string;
   status: "pending" | "confirmed" | "checked-in" | "checked-out" | "cancelled";
   createdAt: string;
@@ -122,9 +128,15 @@ export type FoodOrder = {
   type: "food";
   guestName: string;
   phone: string;
+  /** Delivery / billing address */
+  address?: string;
   roomNumber?: string;
   items: FoodOrderItem[];
   total: number;
+  /** Amount paid up front (₹) */
+  advance: number;
+  /** Remaining dues — typically total − advance */
+  balance: number;
   status: "placed" | "preparing" | "ready" | "served" | "cancelled";
   source: "online" | "server" | "room-service";
   tableId?: string;
