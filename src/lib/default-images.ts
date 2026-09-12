@@ -6,7 +6,7 @@ export const DEFAULT_VENUE_IMAGES: Record<string, string> = {
   "royal-grand-ballroom":
     "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=1600&q=80",
   "imperial-ruby-mini":
-    "https://images.unsplash.com/photo-1478146896981-b80fe463b330?auto=format&fit=crop&w=1600&q=80",
+    "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=1600&q=80",
 };
 
 const FALLBACK_BANQUET =
