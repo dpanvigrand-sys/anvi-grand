@@ -24,9 +24,15 @@ export function Hero() {
             textShadow: "0 2px 16px rgba(0,0,0,0.55)",
           }}
         >
-          Welcome to
-          <br />
-          Anvi Grand
+          <span
+            className="block"
+            style={{ fontSize: "75%", fontWeight: 400 }}
+          >
+            Welcome to
+          </span>
+          <span className="block" style={{ fontWeight: 400 }}>
+            Anvi Grand
+          </span>
         </h1>
         <p
           className="mt-2 text-base text-[var(--ag-gold)] sm:text-lg md:text-xl"
