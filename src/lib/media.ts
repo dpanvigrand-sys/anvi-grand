@@ -3,6 +3,7 @@ import path from "path";
 import { uid } from "./format";
 import type { Catalog } from "./types";
 import type { MediaItem, MediaStore } from "./media-types";
+import { resolveVenueImage } from "./default-images";
 
 export type { MediaItem, MediaStore } from "./media-types";
 export { websitePlace } from "./media-place";
@@ -80,7 +81,13 @@ export async function writeCatalogImage(
   const list = catalog[listKey] as Array<{ id: string; image: string }>;
   const idx = list.findIndex((x) => x.id === id);
   if (idx < 0) return false;
-  list[idx] = { ...list[idx], image: src };
+  // Clearing a venue image restores the stock default so home cards never break
+  let nextSrc = src;
+  if (!nextSrc.trim() && kind === "venue") {
+    const { DEFAULT_VENUE_IMAGES } = await import("./default-images");
+    nextSrc = DEFAULT_VENUE_IMAGES[id] || nextSrc;
+  }
+  list[idx] = { ...list[idx], image: nextSrc };
   await saveCatalog(catalog);
   return true;
 }
@@ -118,10 +125,10 @@ export function inventorySiteImages(catalog: Catalog): MediaItem[] {
   }
 
   for (const venue of catalog.venues || []) {
-    if (!venue.image) continue;
+    const src = resolveVenueImage(venue.id, venue.image);
     out.push({
       id: `site-venue-${venue.id}`,
-      src: venue.image,
+      src,
       label: venue.name,
       group: "Venues",
       slot: "gallery",

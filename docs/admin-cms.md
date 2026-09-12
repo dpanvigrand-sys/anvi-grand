@@ -65,7 +65,11 @@ Inline **Save ₹**, full **Edit**, **+ Add room**, **Delete**.
 - **API:** `POST /api/ops/catalog` `{ "section": "venues", "action": "upsert"|"delete", ... }`
 - **UI:** `src/components/ops/venues-admin.tsx` · page `src/app/ops/admin/venues/page.tsx`
 
-Inline **Save ₹ + capacity**, full **Edit** (name, type, tagline, description, image, amenities), **+ Add venue**, **Delete**.
+Inline **Save ₹ + capacity**, full **Edit** (name, type, tagline, description, **image URL or `/uploads/…`**, amenities), **+ Add venue**, **Delete**.
+
+**Home banquet cards** (`/`): first two banquet/party-hall venues. Images come from `venues[].image`. If empty or a missing `/uploads/` file, stock defaults are used (`src/lib/default-images.ts`) so cards never show broken images.
+
+**Photo place mapping:** Admin Photos → website place `venue:royal-grand-ballroom` / `venue:imperial-ruby-mini` write-through updates the same field (and home cards) live.
 
 ## Food (CHIGURU menu & buffets) — full item edit
 

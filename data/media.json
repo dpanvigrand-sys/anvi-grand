@@ -2,11 +2,11 @@
   "items": [
     {
       "id": "site-hero-entrance",
-      "src": "/uploads/media-mtycvalbxgd9-post-start-whatsapp-proof.jpg",
-      "label": "Post-start hero proof",
-      "group": "Website",
+      "src": "/uploads/media-mtyn80wn8hd0-whatsapp-image-2026-09-12-at-5.21.07-pm-1-.jpeg",
+      "label": "WhatsApp Image 2026-09-12 at 5.21.07 PM (1).jpeg",
+      "group": "Rooms",
       "slot": "hero",
-      "createdAt": "2026-09-12T12:22:43.302Z",
+      "createdAt": "2026-09-12T17:12:33.434Z",
       "managedFile": true,
       "catalogKey": "hotel:hero"
     },
@@ -15,20 +15,9 @@
       "src": "/uploads/media-mtycs4k8xbgg-whatsapp-image-proof-room.jpg",
       "label": "Proof room photo",
       "group": "Rooms",
-      "slot": "room",
       "createdAt": "2026-09-12T12:20:15.515Z",
       "managedFile": true,
       "catalogKey": "room:executive-red-suite"
-    },
-    {
-      "id": "site-room-executive-suite",
-      "src": "https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=1600&q=80",
-      "label": "Executive Suite",
-      "group": "Rooms",
-      "createdAt": "2026-09-12T10:19:57.951Z",
-      "managedFile": false,
-      "slot": "gallery",
-      "catalogKey": "room:executive-suite"
     },
     {
       "id": "site-room-family-twin",
@@ -37,8 +26,17 @@
       "group": "Rooms",
       "createdAt": "2026-09-12T10:19:57.951Z",
       "managedFile": false,
-      "slot": "gallery",
+      "slot": "room",
       "catalogKey": "room:family-twin"
+    },
+    {
+      "id": "site-room-executive-suite",
+      "src": "https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=1600&q=80",
+      "label": "Executive Suite",
+      "group": "Rooms",
+      "createdAt": "2026-09-12T10:19:57.951Z",
+      "managedFile": false,
+      "catalogKey": "room:executive-suite"
     },
     {
       "id": "site-room-grand-presidential",
@@ -51,24 +49,22 @@
       "catalogKey": "room:grand-presidential"
     },
     {
-      "id": "site-venue-royal-grand-ballroom",
-      "src": "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=1600&q=80",
-      "label": "Royal Grand Ballroom",
-      "group": "Venues",
-      "createdAt": "2026-09-12T10:19:57.951Z",
-      "managedFile": false,
-      "slot": "gallery",
-      "catalogKey": "venue:royal-grand-ballroom"
-    },
-    {
       "id": "site-venue-imperial-ruby-mini",
       "src": "https://images.unsplash.com/photo-1478146896981-b80fe463b330?auto=format&fit=crop&w=1600&q=80",
       "label": "Imperial Ruby Mini Hall",
       "group": "Venues",
-      "createdAt": "2026-09-12T10:19:57.951Z",
+      "createdAt": "2026-09-12T17:11:58.498Z",
       "managedFile": false,
-      "slot": "gallery",
       "catalogKey": "venue:imperial-ruby-mini"
+    },
+    {
+      "id": "site-venue-royal-grand-ballroom",
+      "src": "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=1600&q=80",
+      "label": "Royal Grand Ballroom",
+      "group": "Venues",
+      "createdAt": "2026-09-12T17:11:58.479Z",
+      "managedFile": false,
+      "catalogKey": "venue:royal-grand-ballroom"
     },
     {
       "id": "site-menu-chiguru-handi-biryani",
@@ -78,16 +74,6 @@
       "slot": "food",
       "createdAt": "2026-09-12T12:20:15.531Z",
       "managedFile": true,
-      "catalogKey": "menu:chiguru-handi-biryani"
-    },
-    {
-      "id": "site-food-chiguru-handi-biryani",
-      "src": "/uploads/media-mtycs4kqnso7-whatsapp-image-proof-food.jpg",
-      "label": "Handi Biryani — Staff Edit Demo",
-      "group": "Food",
-      "slot": "gallery",
-      "createdAt": "2026-09-12T12:22:31.236Z",
-      "managedFile": false,
       "catalogKey": "menu:chiguru-handi-biryani"
     },
     {
@@ -211,5 +197,7 @@
       "catalogKey": "facility:parking"
     }
   ],
-  "removedIds": []
+  "removedIds": [
+    "site-food-chiguru-handi-biryani"
+  ]
 }

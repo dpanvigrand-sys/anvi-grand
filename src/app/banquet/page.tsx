@@ -16,7 +16,15 @@ export default async function BanquetPage() {
   return (
     <div>
       <section className="relative h-[45vh] min-h-[280px] overflow-hidden">
-        <Image src={venue.image} alt={venue.name} fill priority className="object-cover" sizes="100vw" />
+        <Image
+          src={venue.image}
+          alt={venue.name}
+          fill
+          priority
+          className="object-cover"
+          sizes="100vw"
+          unoptimized={venue.image.startsWith("/uploads/")}
+        />
         <div className="absolute inset-0 bg-[linear-gradient(160deg,rgba(227,27,35,0.72),rgba(74,28,22,0.65))]" />
         <div className="absolute inset-x-0 bottom-0 mx-auto max-w-6xl px-5 pb-10 md:px-8">
           <p className="text-xs uppercase tracking-[0.2em] text-white/70">Banquet</p>

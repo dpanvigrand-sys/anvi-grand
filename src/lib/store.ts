@@ -98,7 +98,11 @@ export async function getRoom(id: string) {
 }
 
 export async function getVenues(type?: "banquet" | "party-hall") {
-  const all = (await getCatalog()).venues;
+  const { resolveVenueImage } = await import("./default-images");
+  const all = (await getCatalog()).venues.map((v) => ({
+    ...v,
+    image: resolveVenueImage(v.id, v.image),
+  }));
   return type ? all.filter((v) => v.type === type) : all;
 }
 
