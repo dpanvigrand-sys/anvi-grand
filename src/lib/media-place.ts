@@ -26,5 +26,11 @@ export function websitePlace(
   if (item.group === "Gallery" || item.slot === "gallery") {
     return "Gallery only (/gallery)";
   }
-  return `${item.group} · guest site`;
+  // Category alone does not place on guest pages — catalogKey is required.
+  return "Not on guest pages yet — assign a website place";
+}
+
+/** True when src is a staff upload under public/uploads (skip Next image optimizer). */
+export function isUploadSrc(src: string | undefined | null): boolean {
+  return Boolean(src?.startsWith("/uploads/"));
 }

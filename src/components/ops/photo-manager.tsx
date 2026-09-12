@@ -19,16 +19,24 @@ const GROUPS: MediaItem["group"][] = [
 
 type Props = { initialItems: MediaItem[] };
 
+function slotForPlace(key: string): string {
+  if (key === "hotel:hero") return "hero";
+  if (key.startsWith("room:")) return "room";
+  if (key.startsWith("menu:") || key.startsWith("buffet:")) return "food";
+  if (!key) return "";
+  return "gallery";
+}
+
 export function PhotoManager({ initialItems }: Props) {
   const router = useRouter();
   const [items, setItems] = useState(initialItems);
   const [filter, setFilter] = useState("All");
   const [label, setLabel] = useState("");
-  const [group, setGroup] = useState<MediaItem["group"]>("Gallery");
-  const [slot, setSlot] = useState("");
+  const [group, setGroup] = useState<MediaItem["group"]>("Website");
+  const [slot, setSlot] = useState("hero");
   const [url, setUrl] = useState("");
   const [file, setFile] = useState<File | null>(null);
-  const [catalogKey, setCatalogKey] = useState("");
+  const [catalogKey, setCatalogKey] = useState("hotel:hero");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -36,14 +44,17 @@ export function PhotoManager({ initialItems }: Props) {
   const [editLabel, setEditLabel] = useState("");
   const [editGroup, setEditGroup] = useState<MediaItem["group"]>("Gallery");
   const [editSrc, setEditSrc] = useState("");
+  const [editCatalogKey, setEditCatalogKey] = useState("");
 
   const placementOptions = useMemo(() => {
     const opts: { value: string; label: string }[] = [
-      { value: "", label: "Gallery only (extra photo)" },
+      { value: "", label: "Gallery only (extra photo on /gallery)" },
       { value: "hotel:hero", label: "Home hero (/)" },
     ];
+    const seen = new Set(["", "hotel:hero"]);
     for (const item of items) {
-      if (!item.catalogKey || item.catalogKey === "hotel:hero") continue;
+      if (!item.catalogKey || seen.has(item.catalogKey)) continue;
+      seen.add(item.catalogKey);
       opts.push({ value: item.catalogKey, label: websitePlace(item) });
     }
     return opts;
@@ -72,6 +83,12 @@ export function PhotoManager({ initialItems }: Props) {
       setError("Choose an image file or paste an image URL.");
       return;
     }
+    if (group !== "Gallery" && !catalogKey) {
+      setError(
+        "Pick a website place (e.g. Home hero) so the guest page updates. Or set category to Gallery for /gallery only.",
+      );
+      return;
+    }
     setBusy(true);
     setError("");
     setMessage("");
@@ -98,12 +115,10 @@ export function PhotoManager({ initialItems }: Props) {
       setLabel("");
       setFile(null);
       setUrl("");
-      setCatalogKey("");
-      setSlot("");
       setMessage(
         saved.catalogKey
-          ? `Saved — live on ${websitePlace(saved)}.`
-          : "Photo added to the library / gallery.",
+          ? `Saved — live on ${websitePlace(saved)}. Hard-refresh guest pages to confirm.`
+          : "Photo added to the gallery library (/gallery).",
       );
       router.refresh();
     } catch (err) {
@@ -171,6 +186,12 @@ export function PhotoManager({ initialItems }: Props) {
       setError("Image URL cannot be empty.");
       return;
     }
+    if (editGroup !== "Gallery" && !editCatalogKey) {
+      setError(
+        "Pick a website place so guests see this photo, or set category to Gallery.",
+      );
+      return;
+    }
     setBusy(true);
     setError("");
     setMessage("");
@@ -182,14 +203,28 @@ export function PhotoManager({ initialItems }: Props) {
           label: editLabel,
           group: editGroup,
           src: editSrc.trim(),
+          catalogKey: editCatalogKey,
+          slot: slotForPlace(editCatalogKey) || undefined,
         }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Update failed");
       const saved = data.item as MediaItem;
-      setItems((prev) => prev.map((i) => (i.id === id ? saved : i)));
+      setItems((prev) => {
+        const without = prev.filter(
+          (i) =>
+            i.id !== id &&
+            i.id !== saved.id &&
+            (!saved.catalogKey || i.catalogKey !== saved.catalogKey),
+        );
+        return [saved, ...without];
+      });
       setEditingId(null);
-      setMessage(`Updated — live on ${websitePlace(saved)}.`);
+      setMessage(
+        saved.catalogKey
+          ? `Updated — live on ${websitePlace(saved)}.`
+          : "Updated library photo (gallery only).",
+      );
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Update failed");
@@ -202,9 +237,10 @@ export function PhotoManager({ initialItems }: Props) {
     <div className="space-y-10">
       <div className="flex flex-wrap items-center gap-3 border border-[var(--ag-line)] bg-white p-4">
         <p className="flex-1 text-sm text-[var(--ag-muted)]">
-          Every public photo place is listed below (hero, rooms, CHIGURU food,
-          banquet/venues, facilities, gallery). Edit changes the guest page
-          immediately.
+          Choose a <strong>website place</strong> (Home hero, room, CHIGURU dish,
+          …) when uploading — category alone does not update guest pages. Files
+          save under <code>/uploads/</code> and appear after hard refresh, no
+          restart.
         </p>
         <Button
           type="button"
@@ -225,8 +261,8 @@ export function PhotoManager({ initialItems }: Props) {
             Add photo
           </p>
           <p className="mt-1 text-sm text-[var(--ag-muted)]">
-            Upload a file <em>or</em> paste an image URL. Assign a website place
-            to replace that slot on the public site.
+            Upload a WhatsApp JPEG (or any image) <em>or</em> paste a URL. Assign
+            a website place to replace that slot on the public site immediately.
           </p>
         </div>
         <div className="grid gap-2">
@@ -264,7 +300,17 @@ export function PhotoManager({ initialItems }: Props) {
           <select
             id="photo-group"
             value={group}
-            onChange={(e) => setGroup(e.target.value as MediaItem["group"])}
+            onChange={(e) => {
+              const g = e.target.value as MediaItem["group"];
+              setGroup(g);
+              if (g === "Gallery") {
+                setCatalogKey("");
+                setSlot("");
+              } else if (!catalogKey) {
+                setCatalogKey("hotel:hero");
+                setSlot("hero");
+              }
+            }}
             className="h-9 border border-input bg-transparent px-2 text-sm"
           >
             {GROUPS.map((g) => (
@@ -275,19 +321,16 @@ export function PhotoManager({ initialItems }: Props) {
           </select>
         </div>
         <div className="grid gap-2 md:col-span-2">
-          <Label htmlFor="photo-place">Website place</Label>
+          <Label htmlFor="photo-place">Website place (required for guest pages)</Label>
           <select
             id="photo-place"
             value={catalogKey}
             onChange={(e) => {
               const v = e.target.value;
               setCatalogKey(v);
-              if (v === "hotel:hero") setSlot("hero");
-              else if (v.startsWith("room:")) setSlot("room");
-              else if (v.startsWith("menu:") || v.startsWith("buffet:"))
-                setSlot("food");
-              else if (!v) setSlot("");
-              else setSlot("gallery");
+              setSlot(slotForPlace(v));
+              if (!v) setGroup("Gallery");
+              else if (group === "Gallery") setGroup("Website");
             }}
             className="h-9 border border-input bg-transparent px-2 text-sm"
           >
@@ -400,6 +443,27 @@ export function PhotoManager({ initialItems }: Props) {
                                 </option>
                               ))}
                             </select>
+                            <select
+                              value={editCatalogKey}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setEditCatalogKey(v);
+                                if (!v) setEditGroup("Gallery");
+                                else if (editGroup === "Gallery")
+                                  setEditGroup("Website");
+                              }}
+                              className="h-9 w-full border border-input bg-transparent px-2 text-sm"
+                              aria-label="Website place"
+                            >
+                              {placementOptions.map((o) => (
+                                <option
+                                  key={o.value || "gallery-edit"}
+                                  value={o.value}
+                                >
+                                  {o.label}
+                                </option>
+                              ))}
+                            </select>
                             <div className="flex gap-2">
                               <Button
                                 type="button"
@@ -425,7 +489,13 @@ export function PhotoManager({ initialItems }: Props) {
                             <p className="font-medium text-[var(--ag-ink)]">
                               {item.label}
                             </p>
-                            <p className="text-xs font-semibold text-[var(--ag-maroon)]">
+                            <p
+                              className={`text-xs font-semibold ${
+                                item.catalogKey
+                                  ? "text-[var(--ag-maroon)]"
+                                  : "text-amber-800"
+                              }`}
+                            >
                               Shows on: {websitePlace(item)}
                             </p>
                             <p className="break-all text-xs text-[var(--ag-muted)]">
@@ -442,6 +512,7 @@ export function PhotoManager({ initialItems }: Props) {
                                   setEditLabel(item.label);
                                   setEditGroup(item.group);
                                   setEditSrc(item.src);
+                                  setEditCatalogKey(item.catalogKey || "");
                                 }}
                                 className="h-9 flex-1 rounded-none"
                               >

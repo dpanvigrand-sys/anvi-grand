@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { formatINR } from "@/lib/format";
+import { isUploadSrc } from "@/lib/media-place";
 import type { MenuItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -128,6 +129,7 @@ export function FoodOrderForm({
                     fill
                     className="object-cover"
                     sizes="(max-width:768px) 100vw, 280px"
+                    unoptimized={isUploadSrc(m.image)}
                   />
                 </div>
                 <div className="p-4">
@@ -170,6 +172,7 @@ export function FoodOrderForm({
                           fill
                           className="object-cover"
                           sizes="(max-width:768px) 100vw, 40vw"
+                          unoptimized={isUploadSrc(m.image)}
                         />
                       </div>
                       <div className="p-4">

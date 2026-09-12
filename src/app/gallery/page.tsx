@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import { getMedia } from "@/lib/media";
-import { getFacilities, getRooms, getVenues } from "@/lib/store";
+import { isUploadSrc } from "@/lib/media-place";
+import { getFacilities, getHotel, getRooms, getVenues } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = { title: "Gallery" };
 
 export default async function GalleryPage() {
-  const [rooms, venues, facilities, media] = await Promise.all([
+  const [hotel, rooms, venues, facilities, media] = await Promise.all([
+    getHotel(),
     getRooms(),
     getVenues(),
     getFacilities(),
@@ -17,8 +19,8 @@ export default async function GalleryPage() {
 
   const catalogShots = [
     {
-      src: "/images/anvi-entrance.jpg",
-      label: "Night entrance · HOTEL ANVI GRAND",
+      src: hotel.heroImage?.trim() || "/images/anvi-entrance.jpg",
+      label: `Night entrance · ${hotel.name}`,
       group: "Hotel",
     },
     ...rooms
@@ -78,7 +80,7 @@ export default async function GalleryPage() {
                 fill
                 className="object-cover"
                 sizes="(max-width:768px) 100vw, 33vw"
-                unoptimized={shot.src.startsWith("/uploads/")}
+                unoptimized={isUploadSrc(shot.src)}
               />
             </div>
             <figcaption className="px-4 py-3">

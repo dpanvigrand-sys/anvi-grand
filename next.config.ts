@@ -17,6 +17,16 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Route /uploads/* through a dynamic handler so files added after `next start`
+  // are visible immediately (static public/ map is fixed at process boot).
+  async rewrites() {
+    return [
+      {
+        source: "/uploads/:path*",
+        destination: "/api/uploads/:path*",
+      },
+    ];
+  },
 };
 
 export default nextConfig;

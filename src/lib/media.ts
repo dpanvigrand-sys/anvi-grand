@@ -243,6 +243,8 @@ export async function syncSiteMedia(opts?: {
 export async function getMedia(opts?: {
   sync?: boolean;
 }): Promise<MediaItem[]> {
+  const { unstable_noStore: noStore } = await import("next/cache");
+  noStore();
   if (opts?.sync) {
     const { items } = await syncSiteMedia();
     return items;
@@ -344,13 +346,15 @@ export async function addMedia(input: {
 
 export async function updateMedia(
   id: string,
-  patch: Partial<Pick<MediaItem, "label" | "group" | "slot" | "src">>,
+  patch: Partial<
+    Pick<MediaItem, "label" | "group" | "slot" | "src" | "catalogKey">
+  >,
 ): Promise<MediaItem | null> {
   const store = await readStore();
-  const idx = store.items.findIndex((i) => i.id === id);
-  if (idx < 0) return null;
+  const existing = store.items.find((i) => i.id === id);
+  if (!existing) return null;
 
-  const next = { ...store.items[idx] };
+  const next: MediaItem = { ...existing };
   if (typeof patch.label === "string") next.label = patch.label.trim() || next.label;
   if (patch.group) next.group = patch.group;
   if (typeof patch.src === "string" && patch.src.trim()) {
@@ -362,19 +366,60 @@ export async function updateMedia(
     next.slot = patch.slot;
   }
 
+  const catalogKeyChanged = "catalogKey" in patch;
+  if (catalogKeyChanged) {
+    const raw =
+      typeof patch.catalogKey === "string" ? patch.catalogKey.trim() : "";
+    next.catalogKey = raw || undefined;
+    if (next.catalogKey === "hotel:hero") {
+      next.slot = "hero";
+      next.id = "site-hero-entrance";
+      if (next.group === "Gallery") next.group = "Website";
+    } else if (next.catalogKey) {
+      next.id = `site-${next.catalogKey.replace(":", "-")}`;
+      if (next.catalogKey.startsWith("room:")) {
+        next.slot = "room";
+        if (next.group === "Gallery") next.group = "Rooms";
+      } else if (
+        next.catalogKey.startsWith("menu:") ||
+        next.catalogKey.startsWith("buffet:")
+      ) {
+        next.slot = "food";
+        if (next.group === "Gallery") next.group = "Food";
+      } else if (next.catalogKey.startsWith("venue:")) {
+        next.slot = "gallery";
+        if (next.group === "Gallery") next.group = "Venues";
+      } else if (next.catalogKey.startsWith("facility:")) {
+        next.slot = "gallery";
+        if (next.group === "Gallery") next.group = "Facilities";
+      } else {
+        next.slot = next.slot || "gallery";
+      }
+    }
+  }
+
+  // Drop the edited row + any other row for the same placement, then insert `next`
+  store.items = store.items.filter(
+    (i) =>
+      i.id !== id &&
+      i.id !== next.id &&
+      (!next.catalogKey || i.catalogKey !== next.catalogKey),
+  );
+
   if (next.slot === "hero" || next.slot === "room" || next.slot === "food") {
-    store.items = store.items.map((i, j) =>
-      j !== idx && i.slot === next.slot ? { ...i, slot: undefined } : i,
+    store.items = store.items.map((i) =>
+      i.slot === next.slot ? { ...i, slot: undefined } : i,
     );
   }
 
-  store.items[idx] = next;
+  store.items.unshift(next);
   await writeStore(store);
 
-  // Write-through to catalog so guest pages update immediately
-  if (next.catalogKey && typeof patch.src === "string" && patch.src.trim()) {
+  // Write-through when place is set/changed or src changes for a placed photo
+  const srcChanged = typeof patch.src === "string" && Boolean(patch.src.trim());
+  if (next.catalogKey && (catalogKeyChanged || srcChanged)) {
     await writeCatalogImage(next.catalogKey, next.src);
-  } else if (next.slot === "hero" && (patch.src || patch.slot === "hero")) {
+  } else if (next.slot === "hero" && (srcChanged || patch.slot === "hero")) {
     await writeCatalogImage("hotel:hero", next.src);
   }
 

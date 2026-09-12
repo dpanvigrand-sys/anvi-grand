@@ -3,6 +3,7 @@ import Link from "next/link";
 import { FoodOrderForm } from "@/components/anvi/food-order-form";
 import { Hero } from "@/components/anvi/hero";
 import { formatINR } from "@/lib/format";
+import { isUploadSrc } from "@/lib/media-place";
 import { getHotel, getMenu, getRooms, getVenues, resolveHotelPhones } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
@@ -38,6 +39,7 @@ export default async function HomePage() {
                   className="object-cover"
                   sizes="(max-width:768px) 100vw, 33vw"
                   priority
+                  unoptimized={isUploadSrc(stayRoom.image)}
                 />
               </div>
               <div className="p-5">
@@ -76,6 +78,7 @@ export default async function HomePage() {
                   fill
                   className="object-cover"
                   sizes="(max-width:768px) 100vw, 33vw"
+                  unoptimized={isUploadSrc(venue.image)}
                 />
               </div>
               <div className="p-5">

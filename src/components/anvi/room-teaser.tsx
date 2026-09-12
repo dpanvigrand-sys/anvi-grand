@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { formatINR } from "@/lib/format";
+import { isUploadSrc } from "@/lib/media-place";
 import type { Room } from "@/lib/types";
 
 export function RoomTeaser({ room }: { room: Room }) {
@@ -13,6 +14,7 @@ export function RoomTeaser({ room }: { room: Room }) {
           fill
           sizes="(max-width: 768px) 100vw, 33vw"
           className="object-cover transition duration-700 group-hover:scale-105"
+          unoptimized={isUploadSrc(room.image)}
         />
       </div>
       <div className="mt-4">

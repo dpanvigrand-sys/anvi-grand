@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { formatINR } from "@/lib/format";
+import { isUploadSrc } from "@/lib/media-place";
 import { getHotel, getRooms, resolveHotelPhones } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
@@ -33,7 +34,7 @@ export default async function RoomsPage() {
             {rooms.map((room) => (
               <article key={room.id}>
                 <Link href={`/rooms/${room.id}`} className="relative block aspect-[4/3] overflow-hidden">
-                  <Image src={room.image} alt={room.name} fill className="object-cover" sizes="(max-width:768px) 100vw, 50vw" />
+                  <Image src={room.image} alt={room.name} fill className="object-cover" sizes="(max-width:768px) 100vw, 50vw" unoptimized={isUploadSrc(room.image)} />
                 </Link>
                 <div className="mt-4 flex items-baseline justify-between gap-3">
                   <h2 className="font-display text-3xl text-[var(--ag-ink)]"><Link href={`/rooms/${room.id}`}>{room.name}</Link></h2>

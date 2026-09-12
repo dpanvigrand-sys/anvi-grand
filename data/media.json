@@ -1,31 +1,23 @@
 {
   "items": [
     {
-      "id": "media-mtyc45f76iba",
-      "src": "/uploads/media-mtyc45f76iba-whatsapp-image-2026-09-12-at-5.21.07-pm-1-.jpeg",
-      "label": "WhatsApp Image 2026-09-12 at 5.21.07 PM (1).jpeg",
-      "group": "Website",
-      "createdAt": "2026-09-12T12:01:36.883Z",
-      "managedFile": true
-    },
-    {
       "id": "site-hero-entrance",
-      "src": "/images/anvi-entrance.jpg",
-      "label": "Night entrance · ANVI GRAND",
+      "src": "/uploads/media-mtycvalbxgd9-post-start-whatsapp-proof.jpg",
+      "label": "Post-start hero proof",
       "group": "Website",
-      "createdAt": "2026-09-12T10:19:57.951Z",
-      "managedFile": false,
       "slot": "hero",
+      "createdAt": "2026-09-12T12:22:43.302Z",
+      "managedFile": true,
       "catalogKey": "hotel:hero"
     },
     {
       "id": "site-room-executive-red-suite",
-      "src": "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=1200&q=80",
-      "label": "Anvi Executive Red Suite",
+      "src": "/uploads/media-mtycs4k8xbgg-whatsapp-image-proof-room.jpg",
+      "label": "Proof room photo",
       "group": "Rooms",
-      "createdAt": "2026-09-12T10:19:57.951Z",
-      "managedFile": false,
-      "slot": "gallery",
+      "slot": "room",
+      "createdAt": "2026-09-12T12:20:15.515Z",
+      "managedFile": true,
       "catalogKey": "room:executive-red-suite"
     },
     {
@@ -79,6 +71,26 @@
       "catalogKey": "venue:imperial-ruby-mini"
     },
     {
+      "id": "site-menu-chiguru-handi-biryani",
+      "src": "/uploads/media-mtycs4kqnso7-whatsapp-image-proof-food.jpg",
+      "label": "Proof food photo",
+      "group": "Food",
+      "slot": "food",
+      "createdAt": "2026-09-12T12:20:15.531Z",
+      "managedFile": true,
+      "catalogKey": "menu:chiguru-handi-biryani"
+    },
+    {
+      "id": "site-food-chiguru-handi-biryani",
+      "src": "/uploads/media-mtycs4kqnso7-whatsapp-image-proof-food.jpg",
+      "label": "Handi Biryani — Staff Edit Demo",
+      "group": "Food",
+      "slot": "gallery",
+      "createdAt": "2026-09-12T12:22:31.236Z",
+      "managedFile": false,
+      "catalogKey": "menu:chiguru-handi-biryani"
+    },
+    {
       "id": "site-food-panasa-pottu",
       "src": "https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=800&q=80",
       "label": "Panasa Pottu Biryani",
@@ -87,16 +99,6 @@
       "createdAt": "2026-09-12T11:11:35.760Z",
       "managedFile": false,
       "catalogKey": "menu:panasa-pottu"
-    },
-    {
-      "id": "site-food-chiguru-handi-biryani",
-      "src": "https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=800&q=80",
-      "label": "Handi Biryani — Staff Edit Demo",
-      "group": "Food",
-      "createdAt": "2026-09-12T10:19:57.951Z",
-      "managedFile": false,
-      "slot": "gallery",
-      "catalogKey": "menu:chiguru-handi-biryani"
     },
     {
       "id": "site-food-gongura-mutton",

@@ -3,15 +3,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { formatINR } from "@/lib/format";
-import { getHotel, getRoom, getRooms, resolveHotelPhones } from "@/lib/store";
+import { isUploadSrc } from "@/lib/media-place";
+import { getHotel, getRoom, resolveHotelPhones } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ id: string }> };
-
-export async function generateStaticParams() {
-  return (await getRooms()).map((r) => ({ id: r.id }));
-}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const room = await getRoom((await params).id);
@@ -25,7 +22,15 @@ export default async function RoomDetailPage({ params }: Props) {
   return (
     <div>
       <section className="relative h-[55vh] min-h-[320px] w-full overflow-hidden md:h-[65vh]">
-        <Image src={room.image} alt={room.name} fill priority className="object-cover" sizes="100vw" />
+        <Image
+          src={room.image}
+          alt={room.name}
+          fill
+          priority
+          className="object-cover"
+          sizes="100vw"
+          unoptimized={isUploadSrc(room.image)}
+        />
         <div className="absolute inset-0 bg-gradient-to-t from-[var(--ag-chocolate)]/75 via-transparent to-[var(--ag-chocolate)]/30" />
         <div className="absolute inset-x-0 bottom-0 mx-auto max-w-6xl px-5 pb-10 md:px-8">
           <p className="text-xs uppercase tracking-[0.2em] text-white/70">{formatINR(room.pricePerNight)} / night</p>
