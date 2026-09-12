@@ -1,10 +1,11 @@
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=ANVI GRAND — Local Site
-Comment=Open ANVI GRAND hotel site on this VM (port 3947)
+Name=ANVI GRAND Local
+GenericName=Local Hotel Site
+Comment=Open http://127.0.0.1:3947/
 Exec=xdg-open http://127.0.0.1:3947/
-Icon=applications-internet
+Icon=web-browser
 Terminal=false
-Categories=Network;WebBrowser;
+Categories=Network;
 StartupNotify=true
