@@ -97,8 +97,9 @@ export function OpsGate({ children }: { children: React.ReactNode }) {
         <p className="text-xs uppercase tracking-[0.2em] text-[var(--ag-red)]">Staff only</p>
         <h1 className="mt-3 font-display text-4xl text-[var(--ag-ink)]">ANVI OPS</h1>
         <p className="mt-3 text-sm text-[var(--ag-muted)]">
-          Enter the demo password to open reception, server, kitchen, admin,
-          accounts, inward, and outward from one desk.
+          Enter the demo password to open all 9 client stations — reception,
+          server, kitchen, restaurant manager, store, accounts, admin,
+          housekeeping, and banquet.
         </p>
         <form onSubmit={unlock} className="mt-8 grid gap-4 border border-[var(--ag-line)] bg-white p-6">
           <div className="grid gap-2">

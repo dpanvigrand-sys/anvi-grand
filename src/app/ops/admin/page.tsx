@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { StationHome } from "@/components/ops/station-home";
 import { formatINR } from "@/lib/format";
 import { getMenu, getOps, getRooms } from "@/lib/store";
 
@@ -15,131 +16,73 @@ export default async function AdminPage() {
     .reduce((s, l) => s + l.amount, 0);
 
   return (
-    <div>
-      <h1 className="font-display text-4xl text-[var(--ag-ink)]">Admin</h1>
-      <p className="mt-2 text-[var(--ag-muted)]">Property snapshot and CMS.</p>
-
-      <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Link
-          href="/ops/admin/rooms"
-          className="border border-[var(--ag-line)] bg-white p-5 transition hover:border-[var(--ag-red)]"
-        >
-          <p className="text-xs uppercase tracking-[0.14em] text-[var(--ag-red)]">
-            CMS
-          </p>
-          <p className="mt-2 font-display text-2xl text-[var(--ag-ink)]">
-            Rooms & prices
-          </p>
-          <p className="mt-1 text-sm text-[var(--ag-muted)]">
-            Edit ₹ rates · add / delete rooms
-          </p>
-        </Link>
-        <Link
-          href="/ops/admin/venues"
-          className="border border-[var(--ag-line)] bg-white p-5 transition hover:border-[var(--ag-red)]"
-        >
-          <p className="text-xs uppercase tracking-[0.14em] text-[var(--ag-red)]">
-            CMS
-          </p>
-          <p className="mt-2 font-display text-2xl text-[var(--ag-ink)]">
-            Banquet / Venues
-          </p>
-          <p className="mt-1 text-sm text-[var(--ag-muted)]">
-            Royal Grand Ballroom · ₹/day · capacity
-          </p>
-        </Link>
-        <Link
-          href="/ops/admin/food"
-          className="border border-[var(--ag-line)] bg-white p-5 transition hover:border-[var(--ag-red)]"
-        >
-          <p className="text-xs uppercase tracking-[0.14em] text-[var(--ag-red)]">
-            CMS
-          </p>
-          <p className="mt-2 font-display text-2xl text-[var(--ag-ink)]">
-            Food & prices
-          </p>
-          <p className="mt-1 text-sm text-[var(--ag-muted)]">
-            CHIGURU menu · buffet ₹ rates
-          </p>
-        </Link>
-        <Link
-          href="/ops/admin/contacts"
-          className="border border-[var(--ag-line)] bg-white p-5 transition hover:border-[var(--ag-red)]"
-        >
-          <p className="text-xs uppercase tracking-[0.14em] text-[var(--ag-red)]">
-            CMS
-          </p>
-          <p className="mt-2 font-display text-2xl text-[var(--ag-ink)]">
-            Contacts
-          </p>
-          <p className="mt-1 text-sm text-[var(--ag-muted)]">
-            Rooms · food · reception phones
-          </p>
-        </Link>
-        <Link
-          href="/ops/admin/bookings"
-          className="border border-[var(--ag-line)] bg-white p-5 transition hover:border-[var(--ag-red)]"
-        >
-          <p className="text-xs uppercase tracking-[0.14em] text-[var(--ag-red)]">
-            Reports
-          </p>
-          <p className="mt-2 font-display text-2xl text-[var(--ag-ink)]">
-            Bookings
-          </p>
-          <p className="mt-1 text-sm text-[var(--ag-muted)]">
-            Rooms & food · day / month · Excel · Print A4 · JPG
-          </p>
-        </Link>
-        <Link
-          href="/ops/admin/stock-reports"
-          className="border border-[var(--ag-line)] bg-white p-5 transition hover:border-[var(--ag-red)]"
-        >
-          <p className="text-xs uppercase tracking-[0.14em] text-[var(--ag-red)]">
-            Reports
-          </p>
-          <p className="mt-2 font-display text-2xl text-[var(--ag-ink)]">
-            Stock reports
-          </p>
-          <p className="mt-1 text-sm text-[var(--ag-muted)]">
-            Inward & outward · Excel · Print A4 · JPG
-          </p>
-        </Link>
-        <Link
-          href="/ops/admin/photos"
-          className="border border-[var(--ag-line)] bg-white p-5 transition hover:border-[var(--ag-red)]"
-        >
-          <p className="text-xs uppercase tracking-[0.14em] text-[var(--ag-red)]">
-            CMS
-          </p>
-          <p className="mt-2 font-display text-2xl text-[var(--ag-ink)]">
-            Photos
-          </p>
-          <p className="mt-1 text-sm text-[var(--ag-muted)]">
-            Gallery & website images
-          </p>
-        </Link>
-      </div>
-
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="border border-[var(--ag-line)] bg-white p-5">
-          <p className="text-xs uppercase text-[var(--ag-muted)]">Rooms booked</p>
-          <p className="font-display text-3xl">{ops.roomBookings.length}</p>
-        </div>
-        <div className="border border-[var(--ag-line)] bg-white p-5">
-          <p className="text-xs uppercase text-[var(--ag-muted)]">Venue events</p>
-          <p className="font-display text-3xl">{ops.venueBookings.length}</p>
-        </div>
-        <div className="border border-[var(--ag-line)] bg-white p-5">
-          <p className="text-xs uppercase text-[var(--ag-muted)]">Food orders</p>
-          <p className="font-display text-3xl">{ops.foodOrders.length}</p>
-        </div>
-        <div className="border border-[var(--ag-line)] bg-white p-5">
-          <p className="text-xs uppercase text-[var(--ag-muted)]">Income booked</p>
-          <p className="font-display text-3xl">{formatINR(revenue)}</p>
-        </div>
-      </div>
-
-      <h2 className="mt-10 font-display text-2xl">Current room rates</h2>
+    <StationHome
+      stationId="admin"
+      ops={ops}
+      stats={[
+        { label: "Room bookings", value: ops.roomBookings.length },
+        { label: "Venue events", value: ops.venueBookings.length },
+        { label: "Food orders", value: ops.foodOrders.length },
+        { label: "Income booked", value: formatINR(revenue) },
+      ]}
+      actions={[
+        {
+          href: "/ops/admin/rooms",
+          title: "Rooms & prices",
+          te: "రూమ్స్",
+          desc: "Edit ₹ rates · add / delete rooms",
+        },
+        {
+          href: "/ops/admin/food",
+          title: "Food & prices",
+          te: "ఫుడ్",
+          desc: "CHIGURU menu · buffet ₹ rates",
+        },
+        {
+          href: "/ops/admin/venues",
+          title: "Banquet / venues",
+          te: "వేదికలు",
+          desc: "Hall ₹/day · capacity",
+        },
+        {
+          href: "/ops/admin/venue-bookings",
+          title: "Venue bookings",
+          te: "వేదిక బుకింగ్స్",
+          desc: "Enter / list banquet & party hall bookings",
+        },
+        {
+          href: "/ops/admin/photos",
+          title: "Photos",
+          te: "ఫోటోలు",
+          desc: "Gallery & website images",
+        },
+        {
+          href: "/ops/admin/contacts",
+          title: "Contacts",
+          te: "ఫోన్లు",
+          desc: "Rooms · food · reception phone lines",
+        },
+        {
+          href: "/ops/admin/bookings",
+          title: "Rooms & food reports",
+          te: "బుకింగ్ రిపోర్ట్స్",
+          desc: "Excel · Print A4 · JPG",
+        },
+        {
+          href: "/ops/admin/stock-reports",
+          title: "Stock reports",
+          te: "స్టాక్",
+          desc: "Inward & outward reports",
+        },
+        {
+          href: "/ops/admin/settings",
+          title: "Ops settings",
+          te: "సెట్టింగ్స్",
+          desc: "Alert thresholds · station labels · name lines",
+        },
+      ]}
+    >
+      <h2 className="font-display text-2xl">Current room rates</h2>
       <div className="mt-4 overflow-x-auto border border-[var(--ag-line)] bg-white">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-[var(--ag-line)] bg-[var(--ag-soft)] text-xs uppercase tracking-[0.12em] text-[var(--ag-muted)]">
@@ -155,10 +98,7 @@ export default async function AdminPage() {
                 <td className="px-4 py-3 font-medium">{room.name}</td>
                 <td className="px-4 py-3">{formatINR(room.pricePerNight)}</td>
                 <td className="px-4 py-3 text-right">
-                  <Link
-                    href="/ops/admin/rooms"
-                    className="text-[var(--ag-red)] underline"
-                  >
+                  <Link href="/ops/admin/rooms" className="text-[var(--ag-red)] underline">
                     Edit
                   </Link>
                 </td>
@@ -168,7 +108,7 @@ export default async function AdminPage() {
         </table>
       </div>
 
-      <h2 className="mt-10 font-display text-2xl">CHIGURU menu prices</h2>
+      <h2 className="mt-10 font-display text-2xl">CHIGURU menu (sample)</h2>
       <div className="mt-4 overflow-x-auto border border-[var(--ag-line)] bg-white">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-[var(--ag-line)] bg-[var(--ag-soft)] text-xs uppercase tracking-[0.12em] text-[var(--ag-muted)]">
@@ -179,15 +119,12 @@ export default async function AdminPage() {
             </tr>
           </thead>
           <tbody>
-            {menu.slice(0, 8).map((dish) => (
+            {menu.slice(0, 6).map((dish) => (
               <tr key={dish.id} className="border-b border-[var(--ag-line)]">
                 <td className="px-4 py-3 font-medium">{dish.name}</td>
                 <td className="px-4 py-3">{formatINR(dish.price)}</td>
                 <td className="px-4 py-3 text-right">
-                  <Link
-                    href="/ops/admin/food"
-                    className="text-[var(--ag-red)] underline"
-                  >
+                  <Link href="/ops/admin/food" className="text-[var(--ag-red)] underline">
                     Edit
                   </Link>
                 </td>
@@ -196,24 +133,6 @@ export default async function AdminPage() {
           </tbody>
         </table>
       </div>
-
-      <h2 className="mt-10 font-display text-2xl">Recent messages</h2>
-      <div className="mt-4 space-y-3">
-        {ops.messages.slice(0, 5).map((m) => (
-          <div
-            key={m.id}
-            className="border border-[var(--ag-line)] bg-white px-4 py-3 text-sm"
-          >
-            <p className="font-medium">{m.subject}</p>
-            <p className="text-[var(--ag-muted)]">
-              {m.name} · {m.email}
-            </p>
-          </div>
-        ))}
-        {ops.messages.length === 0 ? (
-          <p className="text-[var(--ag-muted)]">No concierge messages.</p>
-        ) : null}
-      </div>
-    </div>
+    </StationHome>
   );
 }

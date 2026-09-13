@@ -3,39 +3,36 @@ import { OpsGate } from "@/components/ops/ops-gate";
 
 const links = [
   { href: "/ops", label: "Hub" },
-  { href: "/ops/reception", label: "Reception" },
-  { href: "/ops/server", label: "Server" },
-  { href: "/ops/kitchen", label: "KT Kitchen" },
-  { href: "/ops/admin", label: "Admin" },
-  { href: "/ops/admin/rooms", label: "Rooms" },
-  { href: "/ops/admin/venues", label: "Venues" },
-  { href: "/ops/admin/food", label: "Food" },
-  { href: "/ops/admin/photos", label: "Photos" },
-  { href: "/ops/admin/contacts", label: "Contacts" },
-  { href: "/ops/admin/bookings", label: "Bookings" },
-  { href: "/ops/admin/stock-reports", label: "Stock reports" },
-  { href: "/ops/accounts", label: "Accounts" },
-  { href: "/ops/accounts/day-book", label: "Day book" },
-  { href: "/ops/accounts/purchases", label: "Purchases" },
-  { href: "/ops/inward", label: "Inward" },
-  { href: "/ops/outward", label: "Outward" },
+  { href: "/ops/reception", label: "Reception.1" },
+  { href: "/ops/server", label: "Server.1" },
+  { href: "/ops/kitchen", label: "Kitchen.1" },
+  { href: "/ops/manager", label: "Manager.1" },
+  { href: "/ops/store", label: "Store.1" },
+  { href: "/ops/accounts", label: "Accounts.1" },
+  { href: "/ops/admin", label: "Admin.1" },
+  { href: "/ops/housekeeping", label: "HK.1" },
+  { href: "/ops/banquet", label: "Banquet.1" },
+  { href: "/ops/admin/settings", label: "Settings" },
 ];
 
 export default function OpsLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen bg-[#fff5f4]">
+    <div className="min-h-screen bg-[linear-gradient(180deg,#fff8f7_0%,#f7f3f1_40%,#ffffff_100%)]">
       <OpsGate>
-        <header className="border-b-4 border-[var(--ag-red)] bg-[linear-gradient(90deg,#b3141a_0%,#e31b23_55%,#8a1218_100%)] text-white">
+        <header className="border-b-4 border-[var(--ag-red)] bg-[linear-gradient(90deg,#6b0000_0%,#8b0000_45%,#990000_100%)] text-white">
           <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-5 py-4 md:px-8">
             <div>
               <Link href="/ops" className="font-display text-2xl tracking-[0.04em]">
                 ANVI OPS
               </Link>
               <p className="text-xs text-white/80">
-                One desk · reception · server · kitchen · admin · accounts · stock
+                9 client stations · hotel + CHIGURU + banquet
               </p>
             </div>
-            <Link href="/" className="rounded-none bg-white px-3 py-1.5 text-sm font-semibold text-[var(--ag-red)] hover:bg-white/90">
+            <Link
+              href="/"
+              className="rounded-none bg-white px-3 py-1.5 text-sm font-semibold text-[var(--ag-red)] hover:bg-white/90"
+            >
               ← Guest site
             </Link>
           </div>

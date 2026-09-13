@@ -1,46 +1,54 @@
 import Image from "next/image";
 import Link from "next/link";
+import { OpsAlerts } from "@/components/ops/ops-alerts";
+import { buildOpsAlerts } from "@/lib/ops-alerts";
+import { OPS_STATIONS, resolveStationLabel } from "@/lib/ops-stations";
 import { getOps } from "@/lib/store";
 
-const cards = [
-  { href: "/ops/reception", title: "Reception", desc: "Room bookings, check-in / check-out", tone: "bg-[var(--ag-red)]" },
-  { href: "/ops/server", title: "Server", desc: "Floor tables and dine-in orders", tone: "bg-[var(--ag-red-deep)]" },
-  { href: "/ops/kitchen", title: "KT Kitchen", desc: "Ticket queue, cook, ready, bump", tone: "bg-[var(--ag-maroon)]" },
-  { href: "/ops/admin", title: "Admin", desc: "Occupancy and order overview", tone: "bg-[var(--ag-red)]" },
-  { href: "/ops/admin/rooms", title: "Rooms", desc: "Edit room names & ₹ prices", tone: "bg-[var(--ag-maroon)]" },
-  { href: "/ops/admin/venues", title: "Venues", desc: "Banquet & party hall ₹ + capacity", tone: "bg-[var(--ag-maroon)]" },
-  { href: "/ops/admin/food", title: "Food", desc: "CHIGURU menu & buffet ₹ prices", tone: "bg-[var(--ag-maroon)]" },
-  { href: "/ops/admin/photos", title: "Photos", desc: "Add / delete gallery & website images", tone: "bg-[var(--ag-maroon)]" },
-  { href: "/ops/admin/contacts", title: "Contacts", desc: "Rooms / food / reception phone lines", tone: "bg-[var(--ag-maroon)]" },
-  { href: "/ops/admin/bookings", title: "Bookings", desc: "Rooms & food reports · Excel / Print / JPG", tone: "bg-[var(--ag-maroon)]" },
-  { href: "/ops/admin/stock-reports", title: "Stock reports", desc: "Inward & outward · day / month · Excel / A4 / JPG", tone: "bg-[var(--ag-maroon)]" },
-  { href: "/ops/accounts", title: "Accounts", desc: "Day book · ledger · muster · salaries · purchases", tone: "bg-[var(--ag-red-deep)]" },
-  { href: "/ops/inward", title: "Inward", desc: "Stock receipts from vendors + reports", tone: "bg-[var(--ag-maroon)]" },
-  { href: "/ops/outward", title: "Outward", desc: "Issues to kitchen & departments + reports", tone: "bg-[var(--ag-red)]" },
-];
+export const dynamic = "force-dynamic";
 
 export default async function OpsHomePage() {
   const ops = await getOps();
+  const settings = ops.settings;
+  const alerts = buildOpsAlerts(ops, settings);
+
   return (
     <div>
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p className="text-xs uppercase tracking-[0.18em] text-[var(--ag-red)]">Password gate unlocked</p>
-          <h1 className="mt-2 font-display text-4xl text-[var(--ag-ink)]">Staff desk</h1>
-          <p className="mt-2 max-w-xl text-[var(--ag-muted)]">
-            All seven systems open from this screen. Live counts read from{" "}
-            <code className="text-[var(--ag-ink)]">data/ops.json</code>.
-          </p>
+      <div className="relative overflow-hidden border border-[var(--ag-line)] bg-[linear-gradient(135deg,#fff8f7_0%,#ffffff_45%,#f3ebe8_100%)]">
+        <div className="absolute inset-y-0 right-0 w-1/3 bg-[radial-gradient(circle_at_70%_30%,rgba(139,0,0,0.12),transparent_60%)]" />
+        <div className="relative flex flex-wrap items-end justify-between gap-4 px-5 py-8 md:px-8">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-[var(--ag-red)]">
+              Multi-client stations · 9 desks
+            </p>
+            <h1 className="mt-2 font-display text-4xl text-[var(--ag-ink)] md:text-5xl">
+              {settings.hotelNameLine} OPS
+            </h1>
+            <p className="mt-2 max-w-xl text-[var(--ag-muted)]">
+              Pick your client PC station. One job per card — easy for desk staff.
+              Restaurant brand: <strong className="text-[var(--ag-maroon)]">{settings.foodBrandLine}</strong>.
+            </p>
+          </div>
+          <Image
+            src="/logos/anvi-grand.svg"
+            alt="ANVI GRAND"
+            width={160}
+            height={40}
+            className="h-10 w-auto opacity-95"
+          />
         </div>
-        <Image src="/logos/anvi-grand.svg" alt="" width={140} height={36} className="h-9 w-auto opacity-90" />
       </div>
 
-      <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-6">
+        <OpsAlerts stationId="hub" initialAlerts={alerts} />
+      </div>
+
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
           ["Room bookings", ops.roomBookings.length],
-          ["Food orders", ops.foodOrders.length],
-          ["Kitchen tickets", ops.kitchenTickets.length],
-          ["Accounts entries", ops.dayBook.length + ops.purchases.length + ops.salaries.length],
+          ["Food / KT open", ops.kitchenTickets.filter((t) => t.status !== "bumped").length],
+          ["Venue events", ops.venueBookings.length],
+          ["HK dirty/clean", ops.housekeepingRooms.filter((r) => r.status === "dirty" || r.status === "cleaning").length],
         ].map(([label, n]) => (
           <div key={String(label)} className="border border-[var(--ag-line)] bg-white px-4 py-5">
             <p className="text-xs uppercase tracking-[0.14em] text-[var(--ag-muted)]">{label}</p>
@@ -49,22 +57,54 @@ export default async function OpsHomePage() {
         ))}
       </div>
 
-      <div className="mt-10 grid gap-4 md:grid-cols-2">
-        {cards.map((c) => (
-          <Link
-            key={c.href}
-            href={c.href}
-            className="group overflow-hidden border border-[var(--ag-line)] bg-white transition hover:border-[var(--ag-red)]"
-          >
-            <div className={`h-1.5 w-full ${c.tone}`} />
-            <div className="p-6">
-              <h2 className="font-display text-2xl text-[var(--ag-ink)] group-hover:text-[var(--ag-red)]">
-                {c.title}
-              </h2>
-              <p className="mt-2 text-sm text-[var(--ag-muted)]">{c.desc}</p>
-            </div>
-          </Link>
-        ))}
+      <h2 className="mt-10 font-display text-2xl text-[var(--ag-ink)]">
+        Stations · స్టేషన్లు
+      </h2>
+      <p className="mt-1 text-sm text-[var(--ag-muted)]">
+        Open each on its own Chrome window for client PCs (Reception.1 … Banquet.1).
+      </p>
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        {OPS_STATIONS.map((s) => {
+          const label = resolveStationLabel(s, settings);
+          return (
+            <Link
+              key={s.id}
+              href={s.href}
+              className="group flex min-h-[168px] flex-col overflow-hidden border border-[var(--ag-line)] bg-white transition hover:border-[var(--ag-red)] hover:shadow-[0_8px_24px_rgba(139,0,0,0.08)]"
+            >
+              <div className={`h-2 w-full ${s.tone}`} />
+              <div className="flex flex-1 flex-col p-5">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ag-maroon)]">
+                  {s.clientLabel}
+                </p>
+                <h3 className="mt-2 font-display text-2xl text-[var(--ag-ink)] group-hover:text-[var(--ag-red)]">
+                  {label.en}
+                </h3>
+                <p className="text-sm text-[var(--ag-red)]">{label.te}</p>
+                <p className="mt-3 text-sm leading-snug text-[var(--ag-muted)]">
+                  {label.job}
+                </p>
+                <p className="mt-auto pt-3 text-xs text-[var(--ag-maroon)]">{s.jobTe}</p>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+
+      <div className="mt-8 flex flex-wrap gap-3 border border-[var(--ag-line)] bg-white p-4 text-sm">
+        <Link href="/ops/admin/settings" className="text-[var(--ag-red)] underline">
+          Ops settings →
+        </Link>
+        <Link href="/ops/admin/venue-bookings" className="text-[var(--ag-red)] underline">
+          Venue bookings ledger →
+        </Link>
+        <Link href="/ops/inward" className="text-[var(--ag-red)] underline">
+          Inward →
+        </Link>
+        <Link href="/ops/outward" className="text-[var(--ag-red)] underline">
+          Outward →
+        </Link>
       </div>
     </div>
   );

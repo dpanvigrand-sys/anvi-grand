@@ -1,18 +1,64 @@
+import { StationHome } from "@/components/ops/station-home";
 import { StatusActions } from "@/components/ops/status-actions";
 import { getOps } from "@/lib/store";
 
+export const dynamic = "force-dynamic";
+
 export default async function ServerPage() {
   const ops = await getOps();
+  const ready = ops.kitchenTickets.filter((t) => t.status === "ready").length;
+  const openOrders = ops.foodOrders.filter(
+    (o) => o.status !== "served" && o.status !== "cancelled",
+  ).length;
+
   return (
-    <div>
-      <h1 className="font-display text-4xl text-[var(--ag-ink)]">Server / floor</h1>
-      <p className="mt-2 text-[var(--ag-muted)]">Table status for CHIGURU dining.</p>
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <StationHome
+      stationId="server"
+      ops={ops}
+      stats={[
+        { label: "Tables free", value: ops.tables.filter((t) => t.status === "free").length },
+        { label: "Occupied", value: ops.tables.filter((t) => t.status === "occupied").length },
+        { label: "KT ready", value: ready },
+        { label: "Open orders", value: openOrders },
+      ]}
+      actions={[
+        {
+          href: "/ops/kitchen",
+          title: "Send / watch kitchen",
+          te: "కిచెన్ టికెట్లు",
+          desc: "See queued tickets and ready-to-serve bumps",
+        },
+        {
+          href: "/ops/manager",
+          title: "Restaurant manager",
+          te: "మేనేజర్",
+          desc: "Menu prices and food booking overview",
+        },
+        {
+          href: "/food",
+          title: "CHIGURU menu (guest)",
+          te: "మెనూ",
+          desc: "Reference dishes and ₹ while taking orders",
+        },
+        {
+          href: "/ops/admin/food",
+          title: "Menu price CMS",
+          te: "ధరలు",
+          desc: "Confirm current rates with manager",
+        },
+      ]}
+    >
+      <h2 className="font-display text-2xl">Floor tables · టేబుల్స్</h2>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {ops.tables.map((t) => (
           <article key={t.id} className="border border-[var(--ag-line)] bg-white p-5">
-            <h2 className="font-display text-2xl">{t.label}</h2>
-            <p className="text-sm text-[var(--ag-muted)]">{t.section} · {t.seats} seats</p>
-            <p className="mt-2 text-sm uppercase tracking-wide text-[var(--ag-red)]">{t.status}</p>
+            <h3 className="font-display text-2xl">{t.label}</h3>
+            <p className="text-sm text-[var(--ag-muted)]">
+              {t.section} · {t.seats} seats
+            </p>
+            <p className="mt-2 text-sm uppercase tracking-wide text-[var(--ag-red)]">
+              {t.status}
+            </p>
             <div className="mt-4">
               <StatusActions
                 endpoint={`/api/ops/tables/${t.id}`}
@@ -27,6 +73,6 @@ export default async function ServerPage() {
           </article>
         ))}
       </div>
-    </div>
+    </StationHome>
   );
 }

@@ -108,12 +108,78 @@ export type VenueBooking = {
   guestName: string;
   email: string;
   phone: string;
+  /** Guest / billing address */
+  address?: string;
   eventDate: string;
   guests: number;
+  /** Function / event description */
+  functionDetails?: string;
+  /** Whether food package is included */
+  withFood?: boolean;
+  recommendPersonName?: string;
   total: number;
+  /** Amount paid up front (₹) */
+  advance: number;
+  /** Remaining dues — typically total − advance */
+  balance: number;
   notes?: string;
   status: "pending" | "confirmed" | "cancelled";
   createdAt: string;
+};
+
+export type HousekeepingRoomStatus =
+  | "dirty"
+  | "cleaning"
+  | "ready"
+  | "inspected"
+  | "occupied";
+
+export type HousekeepingRoom = {
+  id: string;
+  roomId: string;
+  roomName: string;
+  floor?: string;
+  status: HousekeepingRoomStatus;
+  notes?: string;
+  updatedAt: string;
+};
+
+export type LinenQueueStatus = "pending" | "washing" | "ready" | "delivered";
+
+export type LinenQueueItem = {
+  id: string;
+  item: string;
+  qty: number;
+  unit: string;
+  status: LinenQueueStatus;
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type OpsStationId =
+  | "reception"
+  | "server"
+  | "kitchen"
+  | "manager"
+  | "store"
+  | "accounts"
+  | "admin"
+  | "housekeeping"
+  | "banquet";
+
+export type OpsSettings = {
+  hotelNameLine: string;
+  foodBrandLine: string;
+  /** Shown in settings UI — password change is not live-editable in demo */
+  opsPasswordNote: string;
+  /** Alert when stock on-hand falls to this qty or below */
+  lowStockQty: number;
+  /** Hours ahead to remind about banquet events (also used for “tomorrow”) */
+  banquetReminderHours: number;
+  stationLabels: Partial<
+    Record<OpsStationId, { en: string; te: string; subtitle?: string }>
+  >;
 };
 
 export type FoodOrderItem = {
@@ -300,13 +366,20 @@ export type OpsStore = {
   inward: StockMove[];
   outward: StockMove[];
   guests: GuestRecord[];
+  housekeepingRooms: HousekeepingRoom[];
+  linenQueue: LinenQueueItem[];
+  settings: OpsSettings;
 };
 
 export type StaffRole =
   | "reception"
   | "server"
   | "kitchen"
+  | "manager"
+  | "store"
   | "admin"
   | "accounts"
+  | "housekeeping"
+  | "banquet"
   | "inward"
   | "outward";

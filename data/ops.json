@@ -1,6 +1,25 @@
 {
   "roomBookings": [
     {
+      "id": "ag-demo-occupied",
+      "type": "room",
+      "roomId": "family-twin",
+      "roomName": "Family Twin",
+      "guestName": "Venkatesh Naidu",
+      "email": "venkat@example.com",
+      "phone": "9887766554",
+      "address": "Governorpet, Vijayawada",
+      "checkIn": "2026-09-12",
+      "checkOut": "2026-09-15",
+      "guests": 3,
+      "nights": 3,
+      "total": 13497,
+      "advance": 5000,
+      "balance": 8497,
+      "status": "checked-in",
+      "createdAt": "2026-09-12T14:00:00.000Z"
+    },
+    {
       "id": "ag-demo-room-month",
       "type": "room",
       "roomId": "executive-suite",
@@ -28,15 +47,15 @@
       "email": "lakshmi@example.com",
       "phone": "9876501234",
       "address": "12 MG Road, Benz Circle, Vijayawada",
-      "checkIn": "2026-09-12",
-      "checkOut": "2026-09-14",
+      "checkIn": "2026-09-11",
+      "checkOut": "2026-09-13",
       "guests": 2,
       "nights": 2,
       "total": 6400,
       "advance": 2000,
       "balance": 4400,
       "notes": "Demo rooms booking",
-      "status": "confirmed",
+      "status": "checked-in",
       "createdAt": "2026-09-12T08:15:00.000Z"
     },
     {
@@ -98,7 +117,49 @@
       "balance": 6400
     }
   ],
-  "venueBookings": [],
+  "venueBookings": [
+    {
+      "id": "vn-demo-today",
+      "type": "banquet",
+      "venueId": "royal-grand-ballroom",
+      "venueName": "Royal Grand Ballroom",
+      "guestName": "Srinivas & Family",
+      "email": "srini@example.com",
+      "phone": "9012345678",
+      "address": "Benz Circle, Vijayawada",
+      "eventDate": "2026-09-13",
+      "guests": 220,
+      "functionDetails": "Wedding reception",
+      "withFood": true,
+      "recommendPersonName": "Ravi (CHIGURU)",
+      "total": 185000,
+      "advance": 75000,
+      "balance": 110000,
+      "notes": "Stage + buffet",
+      "status": "confirmed",
+      "createdAt": "2026-09-01T10:00:00.000Z"
+    },
+    {
+      "id": "vn-demo-tomorrow",
+      "type": "party-hall",
+      "venueId": "imperial-ruby-mini",
+      "venueName": "Imperial Ruby Mini Hall",
+      "guestName": "TechNova Pvt Ltd",
+      "email": "events@technova.in",
+      "phone": "9123001122",
+      "address": "Autonagar",
+      "eventDate": "2026-09-14",
+      "guests": 80,
+      "functionDetails": "Product launch dinner",
+      "withFood": true,
+      "recommendPersonName": "Padma",
+      "total": 65000,
+      "advance": 20000,
+      "balance": 45000,
+      "status": "confirmed",
+      "createdAt": "2026-09-05T12:00:00.000Z"
+    }
+  ],
   "foodOrders": [
     {
       "id": "fo-demo-food-month",
@@ -226,7 +287,7 @@
       "id": "led-mtxdusnedx8z",
       "kind": "income",
       "category": "room",
-      "description": "Executive Suite \u00b7 Smoke Test",
+      "description": "Executive Suite · Smoke Test",
       "amount": 10400,
       "refId": "ag-mtxdusnd0ar9",
       "createdAt": "2026-09-11T20:02:33.481Z"
@@ -235,7 +296,7 @@
       "id": "led-mtxdtn0m0x0f",
       "kind": "income",
       "category": "food",
-      "description": "CHIGURU \u00b7 Sita",
+      "description": "CHIGURU · Sita",
       "amount": 420,
       "refId": "fo-mtxdtn0ljek6",
       "createdAt": "2026-09-11T20:01:39.525Z"
@@ -244,7 +305,7 @@
       "id": "led-mtxdtn0bw2et",
       "kind": "income",
       "category": "room",
-      "description": "Deluxe King \u00b7 Ravi Kumar",
+      "description": "Deluxe King · Ravi Kumar",
       "amount": 6400,
       "refId": "ag-mtxdtn0a3v05",
       "createdAt": "2026-09-11T20:01:39.514Z"
@@ -253,7 +314,7 @@
       "id": "led-mtxdsbrw1h7r",
       "kind": "income",
       "category": "room",
-      "description": "Deluxe King \u00b7 Test Guest",
+      "description": "Deluxe King · Test Guest",
       "amount": 6400,
       "refId": "ag-mtxdsbrvw8fx",
       "createdAt": "2026-09-11T20:00:38.299Z"
@@ -466,6 +527,19 @@
       "date": "2026-09-12",
       "notes": "CHIGURU produce",
       "createdAt": "2026-09-12T08:00:00.000Z"
+    },
+    {
+      "id": "in-demo-clean",
+      "direction": "inward",
+      "item": "Cleaning supplies",
+      "quantity": 8,
+      "unit": "pack",
+      "vendorOrDept": "CleanCare Supplies",
+      "amount": 1200,
+      "advance": 1200,
+      "balance": 0,
+      "date": "2026-09-08",
+      "createdAt": "2026-09-08T10:00:00.000Z"
     }
   ],
   "outward": [
@@ -510,6 +584,20 @@
       "date": "2026-09-12",
       "notes": "Dinner fryers",
       "createdAt": "2026-09-12T16:00:00.000Z"
+    },
+    {
+      "id": "out-demo-oil-low",
+      "direction": "outward",
+      "item": "Sunflower oil",
+      "quantity": 14,
+      "unit": "L",
+      "vendorOrDept": "CHIGURU kitchen",
+      "amount": 1960,
+      "advance": 0,
+      "balance": 1960,
+      "date": "2026-09-13",
+      "notes": "Fryer top-up — leaves low stock",
+      "createdAt": "2026-09-13T07:00:00.000Z"
     }
   ],
   "guests": [
@@ -534,5 +622,80 @@
       "roomId": "deluxe-king",
       "status": "booked"
     }
-  ]
+  ],
+  "housekeepingRooms": [
+    {
+      "id": "hk-exec-red",
+      "roomId": "executive-red-suite",
+      "roomName": "Anvi Executive Red Suite",
+      "floor": "2F",
+      "status": "dirty",
+      "notes": "Checkout turn-down",
+      "updatedAt": "2026-09-13T06:00:00.000Z"
+    },
+    {
+      "id": "hk-exec",
+      "roomId": "executive-suite",
+      "roomName": "Executive Suite",
+      "floor": "3F",
+      "status": "cleaning",
+      "updatedAt": "2026-09-13T06:30:00.000Z"
+    },
+    {
+      "id": "hk-family",
+      "roomId": "family-twin",
+      "roomName": "Family Twin",
+      "floor": "2F",
+      "status": "occupied",
+      "notes": "Guest in-house",
+      "updatedAt": "2026-09-13T07:00:00.000Z"
+    },
+    {
+      "id": "hk-pres",
+      "roomId": "grand-presidential",
+      "roomName": "Grand Presidential",
+      "floor": "4F",
+      "status": "ready",
+      "updatedAt": "2026-09-13T05:00:00.000Z"
+    }
+  ],
+  "linenQueue": [
+    {
+      "id": "ln-demo-1",
+      "item": "Bed sheets (queen)",
+      "qty": 24,
+      "unit": "pcs",
+      "status": "pending",
+      "notes": "Floor 2 turn-down",
+      "createdAt": "2026-09-13T05:30:00.000Z",
+      "updatedAt": "2026-09-13T05:30:00.000Z"
+    },
+    {
+      "id": "ln-demo-2",
+      "item": "Bath towels",
+      "qty": 40,
+      "unit": "pcs",
+      "status": "washing",
+      "notes": "City Dhobi",
+      "createdAt": "2026-09-12T18:00:00.000Z",
+      "updatedAt": "2026-09-13T06:00:00.000Z"
+    },
+    {
+      "id": "ln-demo-3",
+      "item": "Staff uniforms",
+      "qty": 8,
+      "unit": "pcs",
+      "status": "ready",
+      "createdAt": "2026-09-11T10:00:00.000Z",
+      "updatedAt": "2026-09-12T16:00:00.000Z"
+    }
+  ],
+  "settings": {
+    "hotelNameLine": "ANVI GRAND",
+    "foodBrandLine": "CHIGURU",
+    "opsPasswordNote": "Demo password: anviops2026 (change only via code / deploy secrets)",
+    "lowStockQty": 15,
+    "banquetReminderHours": 36,
+    "stationLabels": {}
+  }
 }

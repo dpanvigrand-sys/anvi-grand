@@ -57,12 +57,12 @@ export function AccountsHub({ counts }: Props) {
   return (
     <div>
       <p className="text-xs uppercase tracking-[0.18em] text-[var(--ag-red)]">
-        Accountancy · అకౌంట్స్
+        Accounts.1 · అకౌంట్స్
       </p>
       <h1 className="mt-2 font-display text-4xl text-[var(--ag-ink)]">Accounts</h1>
       <p className="mt-2 max-w-2xl text-[var(--ag-muted)]">
-        Hotel day book, ledger, muster, salaries and purchase books. Stock inward /
-        outward stay under Stock reports.
+        Day book, ledger, muster, salaries and purchase books. Stock inward /
+        outward stay under Store.1 / stock reports.
       </p>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">

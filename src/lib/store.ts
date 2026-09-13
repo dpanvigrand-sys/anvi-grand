@@ -2,6 +2,7 @@ import { promises as fs } from "fs";
 import { unstable_noStore as noStore } from "next/cache";
 import path from "path";
 import { nightsBetween, uid } from "./format";
+import { DEFAULT_OPS_SETTINGS } from "./ops-stations";
 import type {
   BuffetBooking,
   HotelInfo,
@@ -11,9 +12,14 @@ import type {
   DiningTable,
   FoodOrder,
   FoodOrderItem,
+  HousekeepingRoom,
+  HousekeepingRoomStatus,
   KitchenTicket,
   LedgerEntry,
+  LinenQueueItem,
+  LinenQueueStatus,
   MusterEntry,
+  OpsSettings,
   OpsStore,
   PurchaseEntry,
   PurchaseType,
@@ -41,6 +47,9 @@ const emptyOps: OpsStore = {
   inward: [],
   outward: [],
   guests: [],
+  housekeepingRooms: [],
+  linenQueue: [],
+  settings: { ...DEFAULT_OPS_SETTINGS },
 };
 
 async function readJson<T>(file: string, fallback: T): Promise<T> {
@@ -62,7 +71,11 @@ async function getOpsStore(): Promise<OpsStore> {
     ...emptyOps,
     ...raw,
     roomBookings: raw.roomBookings ?? [],
-    venueBookings: raw.venueBookings ?? [],
+    venueBookings: (raw.venueBookings ?? []).map((b) => ({
+      ...b,
+      advance: b.advance ?? 0,
+      balance: b.balance ?? Math.max(0, (b.total ?? 0) - (b.advance ?? 0)),
+    })),
     foodOrders: raw.foodOrders ?? [],
     buffetBookings: raw.buffetBookings ?? [],
     messages: raw.messages ?? [],
@@ -76,6 +89,9 @@ async function getOpsStore(): Promise<OpsStore> {
     inward: raw.inward ?? [],
     outward: raw.outward ?? [],
     guests: raw.guests ?? [],
+    housekeepingRooms: raw.housekeepingRooms ?? [],
+    linenQueue: raw.linenQueue ?? [],
+    settings: { ...DEFAULT_OPS_SETTINGS, ...(raw.settings || {}) },
   };
 }
 
@@ -231,6 +247,12 @@ export async function createVenueBooking(input: {
   eventDate: string;
   guests: number;
   notes?: string;
+  address?: string;
+  functionDetails?: string;
+  withFood?: boolean;
+  recommendPersonName?: string;
+  total?: number;
+  advance?: number;
 }): Promise<{ booking?: VenueBooking; error?: string }> {
   const venue = await getVenue(input.venueId);
   if (!venue) return { error: "Venue not found." };
@@ -241,6 +263,13 @@ export async function createVenueBooking(input: {
     return { error: `Guests must be 1–${venue.capacity}.` };
   }
 
+  const total =
+    typeof input.total === "number" && input.total > 0
+      ? input.total
+      : venue.priceFrom;
+  const advance = Math.max(0, Number(input.advance) || 0);
+  const balance = Math.max(0, total - advance);
+
   const booking: VenueBooking = {
     id: uid("vn"),
     type: venue.type,
@@ -249,9 +278,15 @@ export async function createVenueBooking(input: {
     guestName: input.guestName.trim(),
     email: (input.email || "").trim().toLowerCase(),
     phone: input.phone.trim(),
+    address: input.address?.trim() || undefined,
     eventDate: input.eventDate,
     guests: input.guests,
-    total: venue.priceFrom,
+    functionDetails: input.functionDetails?.trim() || undefined,
+    withFood: Boolean(input.withFood),
+    recommendPersonName: input.recommendPersonName?.trim() || undefined,
+    total,
+    advance,
+    balance,
     notes: input.notes?.trim() || undefined,
     status: "confirmed",
     createdAt: new Date().toISOString(),
@@ -270,6 +305,114 @@ export async function createVenueBooking(input: {
   });
   await saveOps(ops);
   return { booking };
+}
+
+export async function updateVenueBooking(
+  id: string,
+  patch: Partial<VenueBooking>,
+): Promise<{ booking?: VenueBooking; error?: string }> {
+  const ops = await getOpsStore();
+  const idx = ops.venueBookings.findIndex((b) => b.id === id);
+  if (idx < 0) return { error: "Venue booking not found." };
+  const prev = ops.venueBookings[idx];
+  const total =
+    typeof patch.total === "number" ? patch.total : prev.total;
+  const advance =
+    typeof patch.advance === "number" ? patch.advance : prev.advance ?? 0;
+  const next: VenueBooking = {
+    ...prev,
+    ...patch,
+    total,
+    advance,
+    balance:
+      typeof patch.balance === "number"
+        ? patch.balance
+        : Math.max(0, total - advance),
+  };
+  ops.venueBookings[idx] = next;
+  await saveOps(ops);
+  return { booking: next };
+}
+
+export async function getOpsSettings(): Promise<OpsSettings> {
+  return (await getOpsStore()).settings;
+}
+
+export async function updateOpsSettings(
+  patch: Partial<OpsSettings>,
+): Promise<OpsSettings> {
+  const ops = await getOpsStore();
+  ops.settings = {
+    ...DEFAULT_OPS_SETTINGS,
+    ...ops.settings,
+    ...patch,
+    stationLabels: {
+      ...(ops.settings?.stationLabels || {}),
+      ...(patch.stationLabels || {}),
+    },
+  };
+  await saveOps(ops);
+  return ops.settings;
+}
+
+export async function updateHousekeepingRoom(
+  id: string,
+  status: HousekeepingRoomStatus,
+  notes?: string,
+): Promise<{ room?: HousekeepingRoom; error?: string }> {
+  const ops = await getOpsStore();
+  const idx = ops.housekeepingRooms.findIndex((r) => r.id === id);
+  if (idx < 0) return { error: "Room not found in housekeeping board." };
+  ops.housekeepingRooms[idx] = {
+    ...ops.housekeepingRooms[idx],
+    status,
+    notes: notes?.trim() || ops.housekeepingRooms[idx].notes,
+    updatedAt: new Date().toISOString(),
+  };
+  await saveOps(ops);
+  return { room: ops.housekeepingRooms[idx] };
+}
+
+export async function updateLinenQueueItem(
+  id: string,
+  status: LinenQueueStatus,
+): Promise<{ item?: LinenQueueItem; error?: string }> {
+  const ops = await getOpsStore();
+  const idx = ops.linenQueue.findIndex((r) => r.id === id);
+  if (idx < 0) return { error: "Linen item not found." };
+  ops.linenQueue[idx] = {
+    ...ops.linenQueue[idx],
+    status,
+    updatedAt: new Date().toISOString(),
+  };
+  await saveOps(ops);
+  return { item: ops.linenQueue[idx] };
+}
+
+export async function addLinenQueueItem(input: {
+  item: string;
+  qty: number;
+  unit?: string;
+  notes?: string;
+}): Promise<{ item?: LinenQueueItem; error?: string }> {
+  if (!input.item?.trim() || !(input.qty > 0)) {
+    return { error: "Item and quantity required." };
+  }
+  const now = new Date().toISOString();
+  const row: LinenQueueItem = {
+    id: uid("ln"),
+    item: input.item.trim(),
+    qty: input.qty,
+    unit: input.unit?.trim() || "pcs",
+    status: "pending",
+    notes: input.notes?.trim() || undefined,
+    createdAt: now,
+    updatedAt: now,
+  };
+  const ops = await getOpsStore();
+  ops.linenQueue.unshift(row);
+  await saveOps(ops);
+  return { item: row };
 }
 
 export async function createFoodOrder(input: {
