@@ -7,13 +7,18 @@ import type {
   HotelInfo,
   Catalog,
   ContactMessage,
+  DayBookEntry,
   DiningTable,
   FoodOrder,
   FoodOrderItem,
   KitchenTicket,
   LedgerEntry,
+  MusterEntry,
   OpsStore,
+  PurchaseEntry,
+  PurchaseType,
   RoomBooking,
+  SalaryEntry,
   StockMove,
   VenueBooking,
 } from "./types";
@@ -29,6 +34,10 @@ const emptyOps: OpsStore = {
   tables: [],
   kitchenTickets: [],
   ledger: [],
+  dayBook: [],
+  muster: [],
+  salaries: [],
+  purchases: [],
   inward: [],
   outward: [],
   guests: [],
@@ -48,7 +57,26 @@ async function writeJson<T>(file: string, data: T): Promise<void> {
 }
 
 async function getOpsStore(): Promise<OpsStore> {
-  return readJson("ops.json", emptyOps);
+  const raw = await readJson<Partial<OpsStore>>("ops.json", emptyOps);
+  return {
+    ...emptyOps,
+    ...raw,
+    roomBookings: raw.roomBookings ?? [],
+    venueBookings: raw.venueBookings ?? [],
+    foodOrders: raw.foodOrders ?? [],
+    buffetBookings: raw.buffetBookings ?? [],
+    messages: raw.messages ?? [],
+    tables: raw.tables ?? [],
+    kitchenTickets: raw.kitchenTickets ?? [],
+    ledger: raw.ledger ?? [],
+    dayBook: raw.dayBook ?? [],
+    muster: raw.muster ?? [],
+    salaries: raw.salaries ?? [],
+    purchases: raw.purchases ?? [],
+    inward: raw.inward ?? [],
+    outward: raw.outward ?? [],
+    guests: raw.guests ?? [],
+  };
 }
 
 async function saveOps(ops: OpsStore): Promise<void> {
@@ -502,6 +530,291 @@ export async function addLedgerEntry(input: Omit<LedgerEntry, "id" | "createdAt"
   ops.ledger.unshift(entry);
   await saveOps(ops);
   return { entry };
+}
+
+export async function updateLedgerEntry(
+  id: string,
+  patch: Partial<Pick<LedgerEntry, "kind" | "category" | "description" | "amount" | "refId">>,
+): Promise<{ entry?: LedgerEntry; error?: string }> {
+  const ops = await getOpsStore();
+  const i = ops.ledger.findIndex((e) => e.id === id);
+  if (i < 0) return { error: "Not found" };
+  const cur = ops.ledger[i];
+  const next: LedgerEntry = {
+    ...cur,
+    kind: patch.kind === "income" || patch.kind === "expense" ? patch.kind : cur.kind,
+    category: patch.category?.trim() || cur.category,
+    description: patch.description?.trim() || cur.description,
+    amount: patch.amount !== undefined ? Math.max(0, Number(patch.amount) || 0) : cur.amount,
+    refId: patch.refId !== undefined ? patch.refId || undefined : cur.refId,
+  };
+  ops.ledger[i] = next;
+  await saveOps(ops);
+  return { entry: next };
+}
+
+export async function deleteLedgerEntry(id: string): Promise<{ ok?: boolean; error?: string }> {
+  const ops = await getOpsStore();
+  const before = ops.ledger.length;
+  ops.ledger = ops.ledger.filter((e) => e.id !== id);
+  if (ops.ledger.length === before) return { error: "Not found" };
+  await saveOps(ops);
+  return { ok: true };
+}
+
+function numMoney(v: unknown, fallback = 0) {
+  return Math.max(0, Number(v) || fallback);
+}
+
+export async function addDayBookEntry(
+  input: Omit<DayBookEntry, "id" | "createdAt" | "balance" | "date"> & {
+    date?: string;
+    balance?: number;
+  },
+) {
+  const createdAt = new Date().toISOString();
+  const debit = numMoney(input.debit);
+  const credit = numMoney(input.credit);
+  const entry: DayBookEntry = {
+    date: (input.date || createdAt).slice(0, 10),
+    voucherNo: String(input.voucherNo || "").trim() || `DB-${Date.now().toString(36).toUpperCase()}`,
+    particular: String(input.particular || "").trim(),
+    debit,
+    credit,
+    balance: input.balance !== undefined ? numMoney(input.balance) : Math.max(0, debit - credit),
+    category: String(input.category || "Cash").trim() || "Cash",
+    notes: input.notes?.trim() || undefined,
+    id: uid("db"),
+    createdAt,
+  };
+  const ops = await getOpsStore();
+  ops.dayBook.unshift(entry);
+  await saveOps(ops);
+  return { entry };
+}
+
+export async function updateDayBookEntry(
+  id: string,
+  patch: Partial<
+    Pick<DayBookEntry, "date" | "voucherNo" | "particular" | "debit" | "credit" | "balance" | "category" | "notes">
+  >,
+): Promise<{ entry?: DayBookEntry; error?: string }> {
+  const ops = await getOpsStore();
+  const i = ops.dayBook.findIndex((e) => e.id === id);
+  if (i < 0) return { error: "Not found" };
+  const cur = ops.dayBook[i];
+  const debit = patch.debit !== undefined ? numMoney(patch.debit) : cur.debit;
+  const credit = patch.credit !== undefined ? numMoney(patch.credit) : cur.credit;
+  const next: DayBookEntry = {
+    ...cur,
+    date: patch.date ? patch.date.slice(0, 10) : cur.date,
+    voucherNo: patch.voucherNo?.trim() || cur.voucherNo,
+    particular: patch.particular?.trim() || cur.particular,
+    debit,
+    credit,
+    balance:
+      patch.balance !== undefined ? numMoney(patch.balance) : Math.max(0, debit - credit),
+    category: patch.category?.trim() || cur.category,
+    notes: patch.notes !== undefined ? patch.notes.trim() || undefined : cur.notes,
+  };
+  ops.dayBook[i] = next;
+  await saveOps(ops);
+  return { entry: next };
+}
+
+export async function deleteDayBookEntry(id: string): Promise<{ ok?: boolean; error?: string }> {
+  const ops = await getOpsStore();
+  const before = ops.dayBook.length;
+  ops.dayBook = ops.dayBook.filter((e) => e.id !== id);
+  if (ops.dayBook.length === before) return { error: "Not found" };
+  await saveOps(ops);
+  return { ok: true };
+}
+
+export async function addMusterEntry(
+  input: Omit<MusterEntry, "id" | "createdAt">,
+) {
+  const createdAt = new Date().toISOString();
+  const status =
+    input.status === "absent" || input.status === "half" ? input.status : "present";
+  const entry: MusterEntry = {
+    date: (input.date || createdAt).slice(0, 10),
+    staffName: String(input.staffName || "").trim(),
+    status,
+    notes: input.notes?.trim() || undefined,
+    id: uid("mus"),
+    createdAt,
+  };
+  const ops = await getOpsStore();
+  ops.muster.unshift(entry);
+  await saveOps(ops);
+  return { entry };
+}
+
+export async function updateMusterEntry(
+  id: string,
+  patch: Partial<Pick<MusterEntry, "date" | "staffName" | "status" | "notes">>,
+): Promise<{ entry?: MusterEntry; error?: string }> {
+  const ops = await getOpsStore();
+  const i = ops.muster.findIndex((e) => e.id === id);
+  if (i < 0) return { error: "Not found" };
+  const cur = ops.muster[i];
+  const status =
+    patch.status === "present" || patch.status === "absent" || patch.status === "half"
+      ? patch.status
+      : cur.status;
+  const next: MusterEntry = {
+    ...cur,
+    date: patch.date ? patch.date.slice(0, 10) : cur.date,
+    staffName: patch.staffName?.trim() || cur.staffName,
+    status,
+    notes: patch.notes !== undefined ? patch.notes.trim() || undefined : cur.notes,
+  };
+  ops.muster[i] = next;
+  await saveOps(ops);
+  return { entry: next };
+}
+
+export async function deleteMusterEntry(id: string): Promise<{ ok?: boolean; error?: string }> {
+  const ops = await getOpsStore();
+  const before = ops.muster.length;
+  ops.muster = ops.muster.filter((e) => e.id !== id);
+  if (ops.muster.length === before) return { error: "Not found" };
+  await saveOps(ops);
+  return { ok: true };
+}
+
+export async function addSalaryEntry(
+  input: Omit<SalaryEntry, "id" | "createdAt" | "net"> & { net?: number },
+) {
+  const createdAt = new Date().toISOString();
+  const basic = numMoney(input.basic);
+  const deductions = numMoney(input.deductions);
+  const entry: SalaryEntry = {
+    month: (input.month || createdAt).slice(0, 7),
+    staffName: String(input.staffName || "").trim(),
+    basic,
+    deductions,
+    net: input.net !== undefined ? numMoney(input.net) : Math.max(0, basic - deductions),
+    status: input.status === "paid" ? "paid" : "pending",
+    notes: input.notes?.trim() || undefined,
+    id: uid("sal"),
+    createdAt,
+  };
+  const ops = await getOpsStore();
+  ops.salaries.unshift(entry);
+  await saveOps(ops);
+  return { entry };
+}
+
+export async function updateSalaryEntry(
+  id: string,
+  patch: Partial<
+    Pick<SalaryEntry, "month" | "staffName" | "basic" | "deductions" | "net" | "status" | "notes">
+  >,
+): Promise<{ entry?: SalaryEntry; error?: string }> {
+  const ops = await getOpsStore();
+  const i = ops.salaries.findIndex((e) => e.id === id);
+  if (i < 0) return { error: "Not found" };
+  const cur = ops.salaries[i];
+  const basic = patch.basic !== undefined ? numMoney(patch.basic) : cur.basic;
+  const deductions = patch.deductions !== undefined ? numMoney(patch.deductions) : cur.deductions;
+  const next: SalaryEntry = {
+    ...cur,
+    month: patch.month ? patch.month.slice(0, 7) : cur.month,
+    staffName: patch.staffName?.trim() || cur.staffName,
+    basic,
+    deductions,
+    net:
+      patch.net !== undefined
+        ? numMoney(patch.net)
+        : Math.max(0, basic - deductions),
+    status: patch.status === "paid" || patch.status === "pending" ? patch.status : cur.status,
+    notes: patch.notes !== undefined ? patch.notes.trim() || undefined : cur.notes,
+  };
+  ops.salaries[i] = next;
+  await saveOps(ops);
+  return { entry: next };
+}
+
+export async function deleteSalaryEntry(id: string): Promise<{ ok?: boolean; error?: string }> {
+  const ops = await getOpsStore();
+  const before = ops.salaries.length;
+  ops.salaries = ops.salaries.filter((e) => e.id !== id);
+  if (ops.salaries.length === before) return { error: "Not found" };
+  await saveOps(ops);
+  return { ok: true };
+}
+
+const PURCHASE_TYPES: PurchaseType[] = [
+  "groceries",
+  "ingredients",
+  "dhobi",
+  "clothes",
+  "housekeeping",
+  "other",
+];
+
+function asPurchaseType(v: unknown): PurchaseType {
+  const s = String(v || "");
+  return PURCHASE_TYPES.includes(s as PurchaseType) ? (s as PurchaseType) : "other";
+}
+
+export async function addPurchaseEntry(
+  input: Omit<PurchaseEntry, "id" | "createdAt">,
+) {
+  const createdAt = new Date().toISOString();
+  const entry: PurchaseEntry = {
+    date: (input.date || createdAt).slice(0, 10),
+    type: asPurchaseType(input.type),
+    item: String(input.item || "").trim(),
+    vendor: String(input.vendor || "").trim(),
+    qty: Math.max(0, Number(input.qty) || 0),
+    unit: String(input.unit || "pcs").trim() || "pcs",
+    amount: numMoney(input.amount),
+    notes: input.notes?.trim() || undefined,
+    id: uid("pur"),
+    createdAt,
+  };
+  const ops = await getOpsStore();
+  ops.purchases.unshift(entry);
+  await saveOps(ops);
+  return { entry };
+}
+
+export async function updatePurchaseEntry(
+  id: string,
+  patch: Partial<
+    Pick<PurchaseEntry, "date" | "type" | "item" | "vendor" | "qty" | "unit" | "amount" | "notes">
+  >,
+): Promise<{ entry?: PurchaseEntry; error?: string }> {
+  const ops = await getOpsStore();
+  const i = ops.purchases.findIndex((e) => e.id === id);
+  if (i < 0) return { error: "Not found" };
+  const cur = ops.purchases[i];
+  const next: PurchaseEntry = {
+    ...cur,
+    date: patch.date ? patch.date.slice(0, 10) : cur.date,
+    type: patch.type !== undefined ? asPurchaseType(patch.type) : cur.type,
+    item: patch.item?.trim() || cur.item,
+    vendor: patch.vendor?.trim() || cur.vendor,
+    qty: patch.qty !== undefined ? Math.max(0, Number(patch.qty) || 0) : cur.qty,
+    unit: patch.unit?.trim() || cur.unit,
+    amount: patch.amount !== undefined ? numMoney(patch.amount) : cur.amount,
+    notes: patch.notes !== undefined ? patch.notes.trim() || undefined : cur.notes,
+  };
+  ops.purchases[i] = next;
+  await saveOps(ops);
+  return { entry: next };
+}
+
+export async function deletePurchaseEntry(id: string): Promise<{ ok?: boolean; error?: string }> {
+  const ops = await getOpsStore();
+  const before = ops.purchases.length;
+  ops.purchases = ops.purchases.filter((e) => e.id !== id);
+  if (ops.purchases.length === before) return { error: "Not found" };
+  await saveOps(ops);
+  return { ok: true };
 }
 
 export async function addStockMove(

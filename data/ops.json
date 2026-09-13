@@ -259,6 +259,171 @@
       "createdAt": "2026-09-11T20:00:38.299Z"
     }
   ],
+  "dayBook": [
+    {
+      "id": "db-demo-1",
+      "date": "2026-09-13",
+      "voucherNo": "DB-001",
+      "particular": "Room advance — Lakshmi Devi",
+      "debit": 2000,
+      "credit": 0,
+      "balance": 2000,
+      "category": "Cash",
+      "notes": "Deluxe King advance",
+      "createdAt": "2026-09-13T08:00:00.000Z"
+    },
+    {
+      "id": "db-demo-2",
+      "date": "2026-09-13",
+      "voucherNo": "DB-002",
+      "particular": "Vegetable purchase — Rythu Bazaar",
+      "debit": 0,
+      "credit": 1800,
+      "balance": 200,
+      "category": "Groceries",
+      "notes": "CHIGURU produce",
+      "createdAt": "2026-09-13T09:15:00.000Z"
+    },
+    {
+      "id": "db-demo-3",
+      "date": "2026-09-12",
+      "voucherNo": "DB-003",
+      "particular": "Bank deposit — rooms collection",
+      "debit": 5000,
+      "credit": 0,
+      "balance": 5200,
+      "category": "Bank",
+      "createdAt": "2026-09-12T18:00:00.000Z"
+    }
+  ],
+  "muster": [
+    {
+      "id": "mus-demo-1",
+      "date": "2026-09-13",
+      "staffName": "Suresh Rao",
+      "status": "present",
+      "notes": "Reception morning",
+      "createdAt": "2026-09-13T07:00:00.000Z"
+    },
+    {
+      "id": "mus-demo-2",
+      "date": "2026-09-13",
+      "staffName": "Padma Kumari",
+      "status": "half",
+      "notes": "Housekeeping — left after lunch",
+      "createdAt": "2026-09-13T07:05:00.000Z"
+    },
+    {
+      "id": "mus-demo-3",
+      "date": "2026-09-13",
+      "staffName": "Ramesh KT",
+      "status": "present",
+      "notes": "CHIGURU kitchen",
+      "createdAt": "2026-09-13T07:10:00.000Z"
+    },
+    {
+      "id": "mus-demo-4",
+      "date": "2026-09-12",
+      "staffName": "Suresh Rao",
+      "status": "absent",
+      "notes": "Leave",
+      "createdAt": "2026-09-12T07:00:00.000Z"
+    }
+  ],
+  "salaries": [
+    {
+      "id": "sal-demo-1",
+      "month": "2026-09",
+      "staffName": "Suresh Rao",
+      "basic": 18000,
+      "deductions": 500,
+      "net": 17500,
+      "status": "pending",
+      "notes": "Reception",
+      "createdAt": "2026-09-01T10:00:00.000Z"
+    },
+    {
+      "id": "sal-demo-2",
+      "month": "2026-09",
+      "staffName": "Ramesh KT",
+      "basic": 22000,
+      "deductions": 1000,
+      "net": 21000,
+      "status": "paid",
+      "notes": "Kitchen head",
+      "createdAt": "2026-09-01T10:05:00.000Z"
+    },
+    {
+      "id": "sal-demo-3",
+      "month": "2026-08",
+      "staffName": "Padma Kumari",
+      "basic": 14000,
+      "deductions": 0,
+      "net": 14000,
+      "status": "paid",
+      "createdAt": "2026-08-01T10:00:00.000Z"
+    }
+  ],
+  "purchases": [
+    {
+      "id": "pur-demo-1",
+      "date": "2026-09-13",
+      "type": "groceries",
+      "item": "Toor dal",
+      "vendor": "Sri Venkateswara Traders",
+      "qty": 25,
+      "unit": "kg",
+      "amount": 3200,
+      "notes": "Weekly kirana",
+      "createdAt": "2026-09-13T08:30:00.000Z"
+    },
+    {
+      "id": "pur-demo-2",
+      "date": "2026-09-13",
+      "type": "ingredients",
+      "item": "Garam masala",
+      "vendor": "Spice Mart",
+      "qty": 5,
+      "unit": "kg",
+      "amount": 2500,
+      "notes": "CHIGURU kitchen",
+      "createdAt": "2026-09-13T09:00:00.000Z"
+    },
+    {
+      "id": "pur-demo-3",
+      "date": "2026-09-12",
+      "type": "dhobi",
+      "item": "Room linen wash",
+      "vendor": "City Dhobi Service",
+      "qty": 80,
+      "unit": "pcs",
+      "amount": 1600,
+      "createdAt": "2026-09-12T11:00:00.000Z"
+    },
+    {
+      "id": "pur-demo-4",
+      "date": "2026-09-11",
+      "type": "clothes",
+      "item": "Bath towels",
+      "vendor": "Hotel Linen Co",
+      "qty": 40,
+      "unit": "pcs",
+      "amount": 8000,
+      "createdAt": "2026-09-11T14:00:00.000Z"
+    },
+    {
+      "id": "pur-demo-5",
+      "date": "2026-09-10",
+      "type": "housekeeping",
+      "item": "Phenyl + floor cleaner",
+      "vendor": "CleanCare Supplies",
+      "qty": 12,
+      "unit": "L",
+      "amount": 1800,
+      "notes": "సామాను",
+      "createdAt": "2026-09-10T16:00:00.000Z"
+    }
+  ],
   "inward": [
     {
       "id": "in-demo-today",

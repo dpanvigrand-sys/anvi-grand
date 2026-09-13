@@ -15,6 +15,8 @@ const links = [
   { href: "/ops/admin/bookings", label: "Bookings" },
   { href: "/ops/admin/stock-reports", label: "Stock reports" },
   { href: "/ops/accounts", label: "Accounts" },
+  { href: "/ops/accounts/day-book", label: "Day book" },
+  { href: "/ops/accounts/purchases", label: "Purchases" },
   { href: "/ops/inward", label: "Inward" },
   { href: "/ops/outward", label: "Outward" },
 ];

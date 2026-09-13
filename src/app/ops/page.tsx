@@ -14,7 +14,7 @@ const cards = [
   { href: "/ops/admin/contacts", title: "Contacts", desc: "Rooms / food / reception phone lines", tone: "bg-[var(--ag-maroon)]" },
   { href: "/ops/admin/bookings", title: "Bookings", desc: "Rooms & food reports · Excel / Print / JPG", tone: "bg-[var(--ag-maroon)]" },
   { href: "/ops/admin/stock-reports", title: "Stock reports", desc: "Inward & outward · day / month · Excel / A4 / JPG", tone: "bg-[var(--ag-maroon)]" },
-  { href: "/ops/accounts", title: "Accounts", desc: "Income / expense ledger", tone: "bg-[var(--ag-red-deep)]" },
+  { href: "/ops/accounts", title: "Accounts", desc: "Day book · ledger · muster · salaries · purchases", tone: "bg-[var(--ag-red-deep)]" },
   { href: "/ops/inward", title: "Inward", desc: "Stock receipts from vendors + reports", tone: "bg-[var(--ag-maroon)]" },
   { href: "/ops/outward", title: "Outward", desc: "Issues to kitchen & departments + reports", tone: "bg-[var(--ag-red)]" },
 ];
@@ -40,7 +40,7 @@ export default async function OpsHomePage() {
           ["Room bookings", ops.roomBookings.length],
           ["Food orders", ops.foodOrders.length],
           ["Kitchen tickets", ops.kitchenTickets.length],
-          ["Ledger lines", ops.ledger.length],
+          ["Accounts entries", ops.dayBook.length + ops.purchases.length + ops.salaries.length],
         ].map(([label, n]) => (
           <div key={String(label)} className="border border-[var(--ag-line)] bg-white px-4 py-5">
             <p className="text-xs uppercase tracking-[0.14em] text-[var(--ag-muted)]">{label}</p>

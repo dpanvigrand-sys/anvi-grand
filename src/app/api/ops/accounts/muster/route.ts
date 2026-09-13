@@ -1,23 +1,23 @@
 import { NextResponse } from "next/server";
 import {
-  addLedgerEntry,
-  deleteLedgerEntry,
-  updateLedgerEntry,
+  addMusterEntry,
+  deleteMusterEntry,
+  updateMusterEntry,
 } from "@/lib/store";
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const kind = body.kind === "expense" ? "expense" : "income";
-    const result = await addLedgerEntry({
-      kind,
-      category: String(body.category || "general"),
-      description: String(body.description || ""),
-      amount: Number(body.amount) || 0,
-      refId: body.refId ? String(body.refId) : undefined,
+    const status =
+      body.status === "absent" || body.status === "half" ? body.status : "present";
+    const result = await addMusterEntry({
+      date: body.date ? String(body.date) : new Date().toISOString().slice(0, 10),
+      staffName: String(body.staffName || ""),
+      status,
+      notes: body.notes ? String(body.notes) : undefined,
     });
-    if (!result.entry.amount || !result.entry.description) {
-      return NextResponse.json({ error: "Amount and description required." }, { status: 400 });
+    if (!result.entry.staffName) {
+      return NextResponse.json({ error: "Staff name required." }, { status: 400 });
     }
     return NextResponse.json({ entry: result.entry }, { status: 201 });
   } catch {
@@ -30,12 +30,11 @@ export async function PATCH(request: Request) {
     const body = await request.json();
     const id = String(body.id || "");
     if (!id) return NextResponse.json({ error: "Missing id." }, { status: 400 });
-    const result = await updateLedgerEntry(id, {
-      kind: body.kind,
-      category: body.category !== undefined ? String(body.category) : undefined,
-      description: body.description !== undefined ? String(body.description) : undefined,
-      amount: body.amount !== undefined ? Number(body.amount) : undefined,
-      refId: body.refId !== undefined ? String(body.refId) : undefined,
+    const result = await updateMusterEntry(id, {
+      date: body.date !== undefined ? String(body.date) : undefined,
+      staffName: body.staffName !== undefined ? String(body.staffName) : undefined,
+      status: body.status,
+      notes: body.notes !== undefined ? String(body.notes) : undefined,
     });
     if (result.error || !result.entry) {
       return NextResponse.json({ error: result.error || "Not found" }, { status: 404 });
@@ -51,7 +50,7 @@ export async function DELETE(request: Request) {
     const body = await request.json();
     const id = String(body.id || "");
     if (!id) return NextResponse.json({ error: "Missing id." }, { status: 400 });
-    const result = await deleteLedgerEntry(id);
+    const result = await deleteMusterEntry(id);
     if (result.error) {
       return NextResponse.json({ error: result.error }, { status: 404 });
     }

@@ -195,6 +195,67 @@ export type LedgerEntry = {
   createdAt: string;
 };
 
+/** Day book cash/bank voucher line */
+export type DayBookEntry = {
+  id: string;
+  date: string;
+  voucherNo: string;
+  particular: string;
+  debit: number;
+  credit: number;
+  /** Manual / carried balance for print (also recomputed in UI) */
+  balance: number;
+  category: string;
+  notes?: string;
+  createdAt: string;
+};
+
+export type MusterStatus = "present" | "absent" | "half";
+
+export type MusterEntry = {
+  id: string;
+  date: string;
+  staffName: string;
+  status: MusterStatus;
+  notes?: string;
+  createdAt: string;
+};
+
+export type SalaryPayStatus = "paid" | "pending";
+
+export type SalaryEntry = {
+  id: string;
+  month: string;
+  staffName: string;
+  basic: number;
+  deductions: number;
+  net: number;
+  status: SalaryPayStatus;
+  notes?: string;
+  createdAt: string;
+};
+
+export type PurchaseType =
+  | "groceries"
+  | "ingredients"
+  | "dhobi"
+  | "clothes"
+  | "housekeeping"
+  | "other";
+
+export type PurchaseEntry = {
+  id: string;
+  date: string;
+  type: PurchaseType;
+  item: string;
+  vendor: string;
+  qty: number;
+  unit: string;
+  amount: number;
+  notes?: string;
+  createdAt: string;
+};
+
 export type StockMove = {
   id: string;
   direction: "inward" | "outward";
@@ -232,6 +293,10 @@ export type OpsStore = {
   tables: DiningTable[];
   kitchenTickets: KitchenTicket[];
   ledger: LedgerEntry[];
+  dayBook: DayBookEntry[];
+  muster: MusterEntry[];
+  salaries: SalaryEntry[];
+  purchases: PurchaseEntry[];
   inward: StockMove[];
   outward: StockMove[];
   guests: GuestRecord[];
