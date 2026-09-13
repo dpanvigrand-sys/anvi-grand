@@ -1,11 +1,15 @@
 #!/usr/bin/env bash
 # ANVI GRAND — one-command Try Live browser update after every UI change.
 #
-# STANDING RULE (Telugu preference): ఏ update చేసినా వెంటనే browser lo automatic.
-# User never presses refresh. Agent runs: npm run live:refresh
+# HARD RULE: After every update, Chrome MUST auto-show BOTH:
+#   1. Ops hub — /ops?unlock=anviops2026
+#   2. Frontend guest home — /
+# No waiting for “continue”/“next”. User never presses refresh.
+# Agent runs: npm run live:refresh
 #
 # Does: health-check → ensure Next on :3947 → open/focus Chrome on unlocked
-# public /ops (fallback local) → hard reload → write media/shot.jpg
+# ops + guest home (public preferred, local :3947 fallback) → hard reload
+# → write media/shot.jpg
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -13,10 +17,12 @@ PORT="${ANVI_PORT:-3947}"
 PASS="${ANVI_OPS_PASSWORD:-anviops2026}"
 STORE="/cursor/stores/bc-13006a34-b590-4fbf-bb2f-cf84b243b163"
 PUBLIC_URL_FILE="${ANVI_PUBLIC_URL_FILE:-$STORE/internal/public-url.txt}"
+PUBLIC_URL_DOC="${ANVI_PUBLIC_URL_DOC:-$STORE/docs/public-url.md}"
 PUBLIC_URL_FALLBACK_FILE="$ROOT/.anvi-public-url"
 SHOT="${ANVI_SHOT_PATH:-$STORE/media/shot.jpg}"
 LOCAL_BASE="http://127.0.0.1:${PORT}"
 LOCAL_OPS="${LOCAL_BASE}/ops?unlock=${PASS}"
+LOCAL_HOME="${LOCAL_BASE}/"
 export DISPLAY="${DISPLAY:-:1}"
 LOG=/tmp/anvi-live.log
 
@@ -41,6 +47,12 @@ public_base() {
   local u=""
   if [[ -f "$PUBLIC_URL_FILE" ]]; then
     u="$(grep -m1 -E '^https://' "$PUBLIC_URL_FILE" 2>/dev/null | tr -d '[:space:]' || true)"
+  fi
+  if [[ -z "$u" && -f "$PUBLIC_URL_DOC" ]]; then
+    u="$(grep -m1 -E 'https://[a-zA-Z0-9.-]+\.trycloudflare\.com' "$PUBLIC_URL_DOC" 2>/dev/null | grep -oE 'https://[a-zA-Z0-9.-]+\.trycloudflare\.com' | head -1 || true)"
+  fi
+  if [[ -z "$u" && -f "$ROOT/docs/public-url.md" ]]; then
+    u="$(grep -m1 -E 'https://[a-zA-Z0-9.-]+\.trycloudflare\.com' "$ROOT/docs/public-url.md" 2>/dev/null | grep -oE 'https://[a-zA-Z0-9.-]+\.trycloudflare\.com' | head -1 || true)"
   fi
   if [[ -z "$u" && -f "$PUBLIC_URL_FALLBACK_FILE" ]]; then
     u="$(grep -m1 -E '^https://' "$PUBLIC_URL_FALLBACK_FILE" 2>/dev/null | tr -d '[:space:]' || true)"
@@ -107,6 +119,50 @@ navigate_and_reload() {
   xdotool key --window "$wid" --clearmodifiers ctrl+shift+r 2>/dev/null || true
 }
 
+# Open/refocus a Chrome window on $url. Prefer an existing visible window
+# matching $name_hint; else open a new maximized window.
+open_window_on_url() {
+  local url="$1"
+  local name_hint="${2:-}"
+  local wid=""
+
+  if command -v xdotool >/dev/null 2>&1; then
+    if [[ -n "$name_hint" ]]; then
+      wid="$(xdotool search --onlyvisible --name "$name_hint" 2>/dev/null | tail -1 || true)"
+    fi
+    if [[ -z "${wid:-}" ]]; then
+      # Prefer a free Chrome window we can retarget; if none, open new.
+      wid=""
+    fi
+  fi
+
+  if [[ -n "${wid:-}" ]]; then
+    focus_maximize "$wid"
+    sleep 0.2
+    navigate_and_reload "$wid" "$url"
+    focus_maximize "$wid"
+    echo "[live:refresh] refreshed window → $url"
+    return 0
+  fi
+
+  resolve_chrome || return 1
+  nohup "$CHROME_BIN" \
+    --no-sandbox --test-type --disable-dev-shm-usage \
+    --use-gl=angle --use-angle=swiftshader-webgl \
+    --password-store=basic --no-first-run --no-default-browser-check \
+    --disable-session-crashed-bubble \
+    --user-data-dir=/home/ubuntu/.config/google-chrome \
+    --class=google-chrome --window-size=1400,900 --window-position=40,40 \
+    --start-maximized --new-window "$url" \
+    >>/tmp/chrome-anvi-live.log 2>&1 &
+  sleep 2.2
+  if command -v xdotool >/dev/null 2>&1; then
+    wid="$(xdotool search --onlyvisible --class google-chrome 2>/dev/null | tail -1 || true)"
+    focus_maximize "${wid:-}"
+  fi
+  echo "[live:refresh] opened window → $url"
+}
+
 capture_shot() {
   mkdir -p "$(dirname "$SHOT")"
   local tmp=/tmp/anvi-shot-raw.png
@@ -119,6 +175,7 @@ capture_shot() {
   fi
   if [[ ! -s "$tmp" ]]; then
     # Playwright fallback (headless chrome) — always works in cloud VM
+    # Prefer ops shot; ANVI_SHOT_URL can override.
     node -e "
 const { chromium } = require('playwright-core');
 (async () => {
@@ -128,7 +185,7 @@ const { chromium } = require('playwright-core');
     args: ['--no-sandbox','--disable-dev-shm-usage']
   });
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
-  const url = process.env.ANVI_SHOT_URL || '${LOCAL_OPS}';
+  const url = process.env.ANVI_SHOT_URL || '${OPS_URL}';
   await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
   await page.waitForTimeout(1500);
   await page.screenshot({ path: '/tmp/anvi-shot-raw.png', fullPage: false });
@@ -165,46 +222,68 @@ PY
   fi
 }
 
-open_or_refresh_chrome() {
-  resolve_chrome || return 1
-  local pub_base pub_ops target
+# Resolve ops + home targets (public preferred when healthy).
+resolve_targets() {
+  local pub_base
   pub_base="$(public_base || true)"
-  pub_ops=""
+  OPS_URL="$LOCAL_OPS"
+  HOME_URL="$LOCAL_HOME"
   if [[ -n "$pub_base" ]]; then
-    pub_ops="${pub_base}/ops?unlock=${PASS}"
-  fi
-  # Prefer public unlocked ops when healthy; else local unlocked ops
-  target="$LOCAL_OPS"
-  if [[ -n "$pub_ops" ]] && health_curl "$pub_ops"; then
-    target="$pub_ops"
+    local pub_ops="${pub_base}/ops?unlock=${PASS}"
+    local pub_home="${pub_base}/"
+    if health_curl "$pub_ops"; then
+      OPS_URL="$pub_ops"
+    else
+      health_curl "$LOCAL_OPS" || true
+    fi
+    if health_curl "$pub_home"; then
+      HOME_URL="$pub_home"
+    else
+      health_curl "$LOCAL_HOME" || true
+    fi
   else
     health_curl "$LOCAL_OPS" || true
+    health_curl "$LOCAL_HOME" || true
   fi
+  echo "[live:refresh] OPS_URL=$OPS_URL"
+  echo "[live:refresh] HOME_URL=$HOME_URL"
+}
+
+# Open BOTH screens: tab1/window1 = ops, tab2/window2 = guest home.
+# Prefer two tabs in one Chrome window when refreshing; two windows when launching fresh.
+open_or_refresh_chrome() {
+  resolve_chrome || return 1
+  resolve_targets
 
   if command -v xdotool >/dev/null 2>&1; then
     local wid
     wid="$(xdotool search --onlyvisible --class 'google-chrome|Google-chrome|chromium' 2>/dev/null | head -1 || true)"
     if [[ -z "${wid:-}" ]]; then
-      wid="$(xdotool search --onlyvisible --name 'ANVI|3947|ops|Chrome' 2>/dev/null | tail -1 || true)"
+      wid="$(xdotool search --onlyvisible --name 'ANVI|3947|ops|Chrome|trycloudflare' 2>/dev/null | tail -1 || true)"
     fi
     if [[ -n "${wid:-}" ]]; then
       focus_maximize "$wid"
+      # Tab 1 → ops (unlocked)
       xdotool key --window "$wid" --clearmodifiers ctrl+1 2>/dev/null || true
       sleep 0.2
-      navigate_and_reload "$wid" "$target"
-      if [[ -n "$pub_ops" && "$target" != "$pub_ops" ]]; then
-        sleep 0.3
-        xdotool key --window "$wid" --clearmodifiers ctrl+t 2>/dev/null || true
-        sleep 0.2
-        navigate_and_reload "$wid" "$pub_ops"
-        xdotool key --window "$wid" --clearmodifiers ctrl+1 2>/dev/null || true
-      fi
+      navigate_and_reload "$wid" "$OPS_URL"
+      # Tab 2 → guest home (create if needed)
+      sleep 0.3
+      xdotool key --window "$wid" --clearmodifiers ctrl+t 2>/dev/null || true
+      sleep 0.25
+      navigate_and_reload "$wid" "$HOME_URL"
+      # Leave ops frontmost so shot captures staff screen; both tabs stay open
+      sleep 0.2
+      xdotool key --window "$wid" --clearmodifiers ctrl+1 2>/dev/null || true
       focus_maximize "$wid"
-      echo "[live:refresh] refreshed Chrome → $target"
+      echo "[live:refresh] refreshed Chrome → ops + guest home"
+      echo "[live:refresh]   ops:  $OPS_URL"
+      echo "[live:refresh]   home: $HOME_URL"
       return 0
     fi
   fi
 
+  # Fresh launch: one window with BOTH urls as tabs (Chrome opens extras as tabs)
   local args=(
     --no-sandbox --test-type --disable-dev-shm-usage
     --use-gl=angle --use-angle=swiftshader-webgl
@@ -212,30 +291,33 @@ open_or_refresh_chrome() {
     --disable-session-crashed-bubble
     --user-data-dir=/home/ubuntu/.config/google-chrome
     --class=google-chrome --window-size=1820,1100 --window-position=50,50
-    --start-maximized --new-window "$target"
+    --start-maximized --new-window
+    "$OPS_URL"
+    "$HOME_URL"
   )
-  if [[ -n "$pub_ops" && "$target" != "$pub_ops" ]]; then
-    args+=("$pub_ops")
-  elif [[ "$target" != "$LOCAL_OPS" ]]; then
-    args+=("$LOCAL_OPS")
-  fi
   nohup "$CHROME_BIN" "${args[@]}" >>/tmp/chrome-anvi-live.log 2>&1 &
   sleep 2.8
   if command -v xdotool >/dev/null 2>&1; then
     local wid
     wid="$(xdotool search --onlyvisible --class google-chrome 2>/dev/null | head -1 || true)"
     focus_maximize "${wid:-}"
+    # Ensure tab 1 (ops) is frontmost for the screenshot
+    xdotool key --window "${wid:-}" --clearmodifiers ctrl+1 2>/dev/null || true
   fi
-  echo "[live:refresh] opened Chrome → $target"
+  echo "[live:refresh] opened Chrome → ops + guest home"
+  echo "[live:refresh]   ops:  $OPS_URL"
+  echo "[live:refresh]   home: $HOME_URL"
 }
+
+OPS_URL="$LOCAL_OPS"
+HOME_URL="$LOCAL_HOME"
 
 ensure_server
 open_or_refresh_chrome
 capture_shot
-echo "[live:refresh] DONE — user should see unlocked /ops without manual refresh"
+echo "[live:refresh] DONE — ops + guest home open (no manual refresh / continue)"
 echo "[live:refresh] shot=$SHOT"
-echo "[live:refresh] local=$LOCAL_OPS"
-pub="$(public_base || true)"
-if [[ -n "$pub" ]]; then
-  echo "[live:refresh] public=${pub}/ops?unlock=${PASS}"
-fi
+echo "[live:refresh] local_ops=$LOCAL_OPS"
+echo "[live:refresh] local_home=$LOCAL_HOME"
+echo "[live:refresh] ops=$OPS_URL"
+echo "[live:refresh] home=$HOME_URL"

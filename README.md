@@ -26,16 +26,19 @@ npm run build && npm start
 
 ## Standing rule — auto-open after every update
 
-**The user never opens the site / never presses refresh.** After every code/content change that affects the UI, the agent must:
+**Hard rule:** After any update, Chrome must auto-show **BOTH** ops and frontend (guest) — no waiting for “continue”/“next”. The user never presses refresh.
 
 1. Keep the app serving on `0.0.0.0:3947` (Next HMR via `npm run dev`, or production `npm start`)
 2. Run **`npm run live:refresh`** (`scripts/live-refresh.sh`)
-3. Leave Chrome **maximized + frontmost** on Try Live at unlocked `/ops?unlock=anviops2026` (public tunnel preferred; local fallback)
+3. Leave Chrome **maximized + frontmost** on Try Live with **both**:
+   - Ops hub: `/ops?unlock=anviops2026`
+   - Guest home: `/`
+   (public tunnel preferred; local `:3947` fallback)
 4. Update store `media/shot.jpg`
 
 | Script | What it does |
 |--------|----------------|
-| `npm run live` / **`live:refresh`** | Health-check, ensure server, open/refresh Chrome on unlocked `/ops`, write `media/shot.jpg` |
+| `npm run live` / **`live:refresh`** | Health-check, ensure server, open/refresh Chrome on unlocked `/ops` **and** guest `/`, write `media/shot.jpg` |
 | `npm run live:ensure` | Server only |
 | `npm run live:open` | Open/refresh Chrome (legacy helper) |
 | `npm run live:restart` | Restart server then full `live:refresh` |

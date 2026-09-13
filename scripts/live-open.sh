@@ -2,8 +2,8 @@
 # ANVI GRAND — always-on Try Live desktop helper.
 #
 # STANDING RULE: After EVERY code/content update, prefer: npm run live:refresh
-# (scripts/live-refresh.sh — unlocked /ops + shot.jpg). This script remains for
-# ensure/restart/open helpers.
+# (scripts/live-refresh.sh — unlocked /ops + guest / + shot.jpg). Both screens
+# required. This script remains for ensure/restart/open helpers.
 #
 # Usage: scripts/live-open.sh [open|ensure|refresh|restart [--rebuild]]
 set -euo pipefail
