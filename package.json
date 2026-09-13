@@ -6,10 +6,12 @@
     "dev": "next dev --port 3947 --webpack",
     "build": "next build",
     "start": "next start --hostname 0.0.0.0 --port 3947",
-    "live": "bash scripts/live-open.sh open",
+    "live": "bash scripts/live-refresh.sh",
     "live:ensure": "bash scripts/live-open.sh ensure",
-    "live:refresh": "bash scripts/live-open.sh refresh",
+    "live:refresh": "bash scripts/live-refresh.sh",
+    "live:open": "bash scripts/live-open.sh open",
     "live:restart": "bash scripts/live-open.sh restart",
+    "live:ops-windows": "bash scripts/ops-windows-public.sh",
     "lint": "eslint"
   },
   "dependencies": {

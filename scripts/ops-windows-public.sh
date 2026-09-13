@@ -4,11 +4,17 @@
 set -euo pipefail
 export DISPLAY="${DISPLAY:-:1}"
 
-BASE="${ANVI_PUBLIC_BASE:-https://menus-weblog-cyber-behavior.trycloudflare.com}"
+STORE="/cursor/stores/bc-13006a34-b590-4fbf-bb2f-cf84b243b163"
+PUBLIC_URL_FILE="${ANVI_PUBLIC_URL_FILE:-$STORE/internal/public-url.txt}"
+if [[ -z "${ANVI_PUBLIC_BASE:-}" && -f "$PUBLIC_URL_FILE" ]]; then
+  ANVI_PUBLIC_BASE="$(grep -m1 -E '^https://' "$PUBLIC_URL_FILE" 2>/dev/null | tr -d '[:space:]' || true)"
+fi
+BASE="${ANVI_PUBLIC_BASE:-https://href-achieve-mime-wellness.trycloudflare.com}"
+BASE="${BASE%/}"
 PASS="${ANVI_OPS_PASSWORD:-anviops2026}"
 PROFILE="${ANVI_OPS_PUBLIC_CHROME_PROFILE:-/tmp/chrome-anvi-ops-public}"
 CHROME_BIN="$(command -v google-chrome-stable || command -v google-chrome || command -v chromium-browser)"
-STORE_MEDIA="/cursor/stores/bc-13006a34-b590-4fbf-bb2f-cf84b243b163/media"
+STORE_MEDIA="$STORE/media"
 PROOF="${STORE_MEDIA}/ops-windows.jpg"
 
 mkdir -p "$PROFILE" "$STORE_MEDIA"

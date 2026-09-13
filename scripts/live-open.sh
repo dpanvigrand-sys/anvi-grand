@@ -1,15 +1,17 @@
 #!/usr/bin/env bash
 # ANVI GRAND — always-on Try Live desktop helper.
 #
-# STANDING RULE: After EVERY code/content update, run this (npm run live / live:refresh).
-# The user never opens the site. Agent opens/refreshes Chrome maximized + frontmost.
+# STANDING RULE: After EVERY code/content update, prefer: npm run live:refresh
+# (scripts/live-refresh.sh — unlocked /ops + shot.jpg). This script remains for
+# ensure/restart/open helpers.
 #
 # Usage: scripts/live-open.sh [open|ensure|refresh|restart [--rebuild]]
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PORT="${ANVI_PORT:-3947}"
-URL="http://127.0.0.1:${PORT}/"
+PASS="${ANVI_OPS_PASSWORD:-anviops2026}"
+URL="http://127.0.0.1:${PORT}/ops?unlock=${PASS}"
 export DISPLAY="${DISPLAY:-:1}"
 LOG=/tmp/anvi-live.log
 CHROME_BIN="${CHROME_BIN:-}"
@@ -168,7 +170,11 @@ case "$MODE" in
   ensure|server)
     ensure_server
     ;;
-  refresh|open|"")
+  refresh)
+    # Full path: health + unlocked /ops + media/shot.jpg
+    exec bash "$ROOT/scripts/live-refresh.sh"
+    ;;
+  open|"")
     ensure_server
     open_chrome
     ;;
@@ -179,8 +185,7 @@ case "$MODE" in
     if [[ "${2:-}" == "--rebuild" ]]; then
       npm run build >>"$LOG" 2>&1
     fi
-    ensure_server
-    open_chrome
+    exec bash "$ROOT/scripts/live-refresh.sh"
     ;;
   *)
     echo "Usage: $0 [open|ensure|refresh|restart [--rebuild]]"
