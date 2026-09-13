@@ -93,7 +93,8 @@ Inline **Save ₹ + capacity**, full **Edit** (name, type, tagline, description,
 
 ## Photos — every website place
 
-- **Admin UI:** `/ops/admin/photos` (ops nav **Photos**, Admin hub)
+- **Label everywhere:** **Photos — Add / Edit**
+- **Admin UI:** `/ops/admin/photos` — hub **Quick edit** (red-bordered primary card), Admin.1 first card, deep link `?unlock=anviops2026`
 - **Password:** `anviops2026`
 - **Storage:** `data/media.json` (library) + write-through to `data/catalog.json` image fields
 - **Sync:** `POST /api/ops/media/sync` (or **Sync from website**) pulls every public placement into the library
