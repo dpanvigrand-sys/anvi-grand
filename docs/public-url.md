@@ -4,7 +4,7 @@ Guest site + staff ops share one public base via Cloudflare quick tunnel → Nex
 
 **Current base (see store `docs/public-url.md` / `internal/public-url.txt` for live value):**
 
-https://enclosure-fixes-licensed-consequence.trycloudflare.com
+https://mutual-pointing-accommodation-starts.trycloudflare.com
 
 > Quick tunnels recycle when `cloudflared` restarts. If you see Cloudflare Error 1033/530, restart the tunnel and update the store public-url docs.
 
@@ -12,6 +12,10 @@ https://enclosure-fixes-licensed-consequence.trycloudflare.com
 
 - http://127.0.0.1:3947/
 - http://127.0.0.1:3947/ops?unlock=anviops2026
+
+## Language
+
+Ops web UI is **English only**.
 
 ## Auto browser refresh
 
