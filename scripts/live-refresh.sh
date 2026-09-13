@@ -111,9 +111,19 @@ focus_maximize() {
 
 navigate_and_reload() {
   local wid="$1" url="$2"
+  # Prefer clipboard paste (faster/more reliable than xdotool type for long URLs)
+  if command -v xclip >/dev/null 2>&1; then
+    printf '%s' "$url" | xclip -selection clipboard 2>/dev/null || true
+  elif command -v xsel >/dev/null 2>&1; then
+    printf '%s' "$url" | xsel --clipboard --input 2>/dev/null || true
+  fi
   xdotool key --window "$wid" --clearmodifiers ctrl+l 2>/dev/null || true
-  sleep 0.15
-  xdotool type --window "$wid" --delay 6 --clearmodifiers "$url" 2>/dev/null || true
+  sleep 0.12
+  if command -v xclip >/dev/null 2>&1 || command -v xsel >/dev/null 2>&1; then
+    xdotool key --window "$wid" --clearmodifiers ctrl+v 2>/dev/null || true
+  else
+    xdotool type --window "$wid" --delay 5 --clearmodifiers "$url" 2>/dev/null || true
+  fi
   xdotool key --window "$wid" --clearmodifiers Return 2>/dev/null || true
   sleep 1.2
   xdotool key --window "$wid" --clearmodifiers ctrl+shift+r 2>/dev/null || true
@@ -222,22 +232,23 @@ PY
   fi
 }
 
-# Resolve ops + home targets (public preferred when healthy).
+# Resolve ops + guest targets (public preferred when healthy).
+# Use GUEST_URL (never HOME) so a polluted $HOME env cannot break paths.
 resolve_targets() {
   local pub_base
   pub_base="$(public_base || true)"
   OPS_URL="$LOCAL_OPS"
-  HOME_URL="$LOCAL_HOME"
+  GUEST_URL="$LOCAL_HOME"
   if [[ -n "$pub_base" ]]; then
     local pub_ops="${pub_base}/ops?unlock=${PASS}"
-    local pub_home="${pub_base}/"
+    local pub_guest="${pub_base}/"
     if health_curl "$pub_ops"; then
       OPS_URL="$pub_ops"
     else
       health_curl "$LOCAL_OPS" || true
     fi
-    if health_curl "$pub_home"; then
-      HOME_URL="$pub_home"
+    if health_curl "$pub_guest"; then
+      GUEST_URL="$pub_guest"
     else
       health_curl "$LOCAL_HOME" || true
     fi
@@ -246,71 +257,75 @@ resolve_targets() {
     health_curl "$LOCAL_HOME" || true
   fi
   echo "[live:refresh] OPS_URL=$OPS_URL"
-  echo "[live:refresh] HOME_URL=$HOME_URL"
+  echo "[live:refresh] GUEST_URL=$GUEST_URL"
 }
 
-# Open BOTH screens: tab1/window1 = ops, tab2/window2 = guest home.
-# Prefer two tabs in one Chrome window when refreshing; two windows when launching fresh.
-open_or_refresh_chrome() {
-  resolve_chrome || return 1
-  resolve_targets
-
-  if command -v xdotool >/dev/null 2>&1; then
-    local wid
-    wid="$(xdotool search --onlyvisible --class 'google-chrome|Google-chrome|chromium' 2>/dev/null | head -1 || true)"
-    if [[ -z "${wid:-}" ]]; then
-      wid="$(xdotool search --onlyvisible --name 'ANVI|3947|ops|Chrome|trycloudflare' 2>/dev/null | tail -1 || true)"
-    fi
-    if [[ -n "${wid:-}" ]]; then
-      focus_maximize "$wid"
-      # Tab 1 → ops (unlocked)
-      xdotool key --window "$wid" --clearmodifiers ctrl+1 2>/dev/null || true
-      sleep 0.2
-      navigate_and_reload "$wid" "$OPS_URL"
-      # Tab 2 → guest home (create if needed)
-      sleep 0.3
-      xdotool key --window "$wid" --clearmodifiers ctrl+t 2>/dev/null || true
-      sleep 0.25
-      navigate_and_reload "$wid" "$HOME_URL"
-      # Leave ops frontmost so shot captures staff screen; both tabs stay open
-      sleep 0.2
-      xdotool key --window "$wid" --clearmodifiers ctrl+1 2>/dev/null || true
-      focus_maximize "$wid"
-      echo "[live:refresh] refreshed Chrome → ops + guest home"
-      echo "[live:refresh]   ops:  $OPS_URL"
-      echo "[live:refresh]   home: $HOME_URL"
-      return 0
-    fi
-  fi
-
-  # Fresh launch: one window with BOTH urls as tabs (Chrome opens extras as tabs)
-  local args=(
+chrome_common_args() {
+  CHROME_COMMON=(
     --no-sandbox --test-type --disable-dev-shm-usage
     --use-gl=angle --use-angle=swiftshader-webgl
     --password-store=basic --no-first-run --no-default-browser-check
     --disable-session-crashed-bubble
     --user-data-dir=/home/ubuntu/.config/google-chrome
-    --class=google-chrome --window-size=1820,1100 --window-position=50,50
-    --start-maximized --new-window
-    "$OPS_URL"
-    "$HOME_URL"
+    --class=google-chrome
   )
-  nohup "$CHROME_BIN" "${args[@]}" >>/tmp/chrome-anvi-live.log 2>&1 &
-  sleep 2.8
+}
+
+# Open BOTH screens as two Chrome windows (ops + guest). Always required.
+open_or_refresh_chrome() {
+  resolve_chrome || return 1
+  resolve_targets
+  chrome_common_args
+
+  # Launch/refocus TWO windows so both screens are visible without continue/next.
+  nohup "$CHROME_BIN" "${CHROME_COMMON[@]}" \
+    --window-size=1280,900 --window-position=20,40 \
+    --new-window "$OPS_URL" \
+    >>/tmp/chrome-anvi-live.log 2>&1 &
+  sleep 1.6
+  nohup "$CHROME_BIN" "${CHROME_COMMON[@]}" \
+    --window-size=1280,900 --window-position=340,80 \
+    --new-window "$GUEST_URL" \
+    >>/tmp/chrome-anvi-live.log 2>&1 &
+  sleep 2.4
+
   if command -v xdotool >/dev/null 2>&1; then
-    local wid
-    wid="$(xdotool search --onlyvisible --class google-chrome 2>/dev/null | head -1 || true)"
-    focus_maximize "${wid:-}"
-    # Ensure tab 1 (ops) is frontmost for the screenshot
-    xdotool key --window "${wid:-}" --clearmodifiers ctrl+1 2>/dev/null || true
+    local wids ops_wid guest_wid
+    mapfile -t wids < <(xdotool search --onlyvisible --class 'google-chrome|Google-chrome|chromium' 2>/dev/null || true)
+    # Navigate existing windows if Chrome reused a single process window
+    if [[ ${#wids[@]} -ge 1 ]]; then
+      ops_wid="${wids[0]}"
+      focus_maximize "$ops_wid"
+      navigate_and_reload "$ops_wid" "$OPS_URL"
+    fi
+    if [[ ${#wids[@]} -ge 2 ]]; then
+      guest_wid="${wids[1]}"
+      focus_maximize "$guest_wid"
+      navigate_and_reload "$guest_wid" "$GUEST_URL"
+      # Bring ops frontmost for shot.jpg
+      focus_maximize "$ops_wid"
+      navigate_and_reload "$ops_wid" "$OPS_URL"
+    elif [[ ${#wids[@]} -eq 1 ]]; then
+      # Single window: tab1 ops, tab2 guest
+      focus_maximize "$ops_wid"
+      xdotool key --window "$ops_wid" --clearmodifiers ctrl+1 2>/dev/null || true
+      sleep 0.15
+      navigate_and_reload "$ops_wid" "$OPS_URL"
+      xdotool key --window "$ops_wid" --clearmodifiers ctrl+t 2>/dev/null || true
+      sleep 0.2
+      navigate_and_reload "$ops_wid" "$GUEST_URL"
+      xdotool key --window "$ops_wid" --clearmodifiers ctrl+1 2>/dev/null || true
+      focus_maximize "$ops_wid"
+    fi
   fi
-  echo "[live:refresh] opened Chrome → ops + guest home"
-  echo "[live:refresh]   ops:  $OPS_URL"
-  echo "[live:refresh]   home: $HOME_URL"
+
+  echo "[live:refresh] opened Chrome → ops + guest home (both required)"
+  echo "[live:refresh]   ops:   $OPS_URL"
+  echo "[live:refresh]   guest: $GUEST_URL"
 }
 
 OPS_URL="$LOCAL_OPS"
-HOME_URL="$LOCAL_HOME"
+GUEST_URL="$LOCAL_HOME"
 
 ensure_server
 open_or_refresh_chrome
@@ -320,4 +335,4 @@ echo "[live:refresh] shot=$SHOT"
 echo "[live:refresh] local_ops=$LOCAL_OPS"
 echo "[live:refresh] local_home=$LOCAL_HOME"
 echo "[live:refresh] ops=$OPS_URL"
-echo "[live:refresh] home=$HOME_URL"
+echo "[live:refresh] guest=$GUEST_URL"
