@@ -1,10 +1,14 @@
 #!/usr/bin/env bash
 # ANVI GRAND — keep Next (:3947) + Cloudflare quick tunnel alive.
-# Survives idle / Error 1033 by restarting dead processes and rewriting public URL.
+# Survives idle / Error 1033 by restarting *dead* processes and rewriting public URL.
+#
+# IMPORTANT: Do NOT thrash-restart tunnels on curl/DNS false-negatives from the VM.
+# A tunnel is "healthy" if cloudflared is running AND the log shows a Registered
+# connection. External 200 checks are best-effort (DNS for *.trycloudflare.com can lag).
 #
 # Usage:
 #   bash scripts/ops-keep-alive.sh          # one-shot heal + print URL
-#   bash scripts/ops-keep-alive.sh loop     # forever health loop (default 30s)
+#   bash scripts/ops-keep-alive.sh loop     # forever health loop (default 60s)
 #   bash scripts/ops-keep-alive.sh status   # print status only
 set -euo pipefail
 
@@ -20,7 +24,7 @@ LOG_DIR="${ANVI_KEEPALIVE_LOG_DIR:-/tmp}"
 NEXT_LOG="${LOG_DIR}/anvi-keepalive-next.log"
 TUNNEL_LOG="${LOG_DIR}/anvi-keepalive-tunnel.log"
 PID_DIR="${LOG_DIR}/anvi-keepalive"
-INTERVAL="${ANVI_KEEPALIVE_INTERVAL:-30}"
+INTERVAL="${ANVI_KEEPALIVE_INTERVAL:-60}"
 export DISPLAY="${DISPLAY:-:1}"
 
 cd "$ROOT"
@@ -46,12 +50,30 @@ public_base_from_files() {
   printf '%s' "${u%/}"
 }
 
-public_ok() {
+public_http_ok() {
   local base="$1"
   [[ -z "$base" ]] && return 1
   local code
-  code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 8 "${base}/" || echo 000)
+  # Prefer IPv4; DNS for brand-new trycloudflare names can lag inside the VM.
+  code=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 "${base}/" 2>/dev/null || echo 000)
+  [[ "$code" == "200" ]] && return 0
+  code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${base}/" 2>/dev/null || echo 000)
   [[ "$code" == "200" ]]
+}
+
+tunnel_process_ok() {
+  pgrep -f 'cloudflared tunnel --url' >/dev/null 2>&1
+}
+
+tunnel_registered_ok() {
+  [[ -f "$TUNNEL_LOG" ]] || return 1
+  grep -q 'Registered tunnel connection' "$TUNNEL_LOG" 2>/dev/null
+}
+
+# Tunnel is considered alive if process is up AND registered — even if local DNS
+# cannot resolve the trycloudflare hostname yet (common false-negative).
+tunnel_ok() {
+  tunnel_process_ok && tunnel_registered_ok
 }
 
 ensure_cloudflared_bin() {
@@ -104,16 +126,16 @@ Guest site + staff ops share one public base via Cloudflare quick tunnel → Nex
 
 ${base}
 
-> Quick tunnels recycle when \`cloudflared\` restarts. Keep-alive (\`scripts/ops-keep-alive.sh\`) restarts tunnel + Next if dead and rewrites this file.
+> Quick tunnels recycle when \`cloudflared\` restarts. Keep-alive (\`scripts/ops-keep-alive.sh\`) only restarts when the tunnel **process** is dead — not on transient DNS/curl failures. Hostname may rotate after a real restart.
 
 ## Language
 
 Ops web UI is **English only** (no Telugu labels).
 
-## Local
+## Local (Try Live — always works)
 
-- http://127.0.0.1:${PORT}/
-- http://127.0.0.1:${PORT}/ops?unlock=${PASS}
+- http://localhost:${PORT}/
+- http://localhost:${PORT}/ops?unlock=${PASS}
 
 ## Public ops + guest
 
@@ -141,7 +163,6 @@ After every UI update: \`npm run live:refresh\` — opens unlocked \`/ops\` + gu
 bash scripts/ops-keep-alive.sh loop
 \`\`\`
 EOF
-  # Mirror into repo docs when present
   if [[ -d "$ROOT/docs" ]]; then
     cp -f "$PUBLIC_URL_DOC" "$REPO_PUBLIC_DOC" 2>/dev/null || true
   fi
@@ -160,20 +181,26 @@ start_tunnel() {
   nohup cloudflared tunnel --url "http://127.0.0.1:${PORT}" --no-autoupdate >>"$TUNNEL_LOG" 2>&1 &
   echo $! >"$PID_DIR/tunnel.pid"
   local url=""
-  for i in $(seq 1 40); do
+  for i in $(seq 1 45); do
     sleep 1
     url="$(grep -oE 'https://[a-zA-Z0-9.-]+\.trycloudflare\.com' "$TUNNEL_LOG" 2>/dev/null | tail -1 || true)"
-    if [[ -n "$url" ]]; then
-      # Wait until public responds
-      if public_ok "$url"; then
-        write_public_url "$url"
-        return 0
-      fi
+    if [[ -n "$url" ]] && tunnel_registered_ok; then
+      write_public_url "$url"
+      # Best-effort wait for HTTP 200 (may fail on VM DNS — do not treat as fatal)
+      for j in $(seq 1 15); do
+        if public_http_ok "$url"; then
+          echo "[keep-alive] public HTTP 200 confirmed"
+          return 0
+        fi
+        sleep 2
+      done
+      echo "[keep-alive] tunnel registered (HTTP check pending/DNS lag) — keeping URL $url"
+      return 0
     fi
   done
   if [[ -n "${url:-}" ]]; then
     write_public_url "$url"
-    echo "[keep-alive] WARN: tunnel URL written but not yet 200: $url" >&2
+    echo "[keep-alive] WARN: URL written, registration slow — see $TUNNEL_LOG" >&2
     return 0
   fi
   echo "[keep-alive] FAIL: no trycloudflare URL in $TUNNEL_LOG" >&2
@@ -189,11 +216,22 @@ heal_once() {
 
   local base
   base="$(public_base_from_files || true)"
-  if [[ -n "$base" ]] && public_ok "$base"; then
-    echo "[keep-alive] public OK $base"
+
+  # Prefer process+registration health over curl (avoids thrashing on DNS lag).
+  if tunnel_ok; then
+    if [[ -z "$base" ]]; then
+      base="$(grep -oE 'https://[a-zA-Z0-9.-]+\.trycloudflare\.com' "$TUNNEL_LOG" 2>/dev/null | tail -1 || true)"
+      [[ -n "$base" ]] && write_public_url "$base"
+    fi
+    if public_http_ok "${base:-}"; then
+      echo "[keep-alive] public OK $base"
+    else
+      echo "[keep-alive] tunnel process OK (curl/DNS not yet 200) $base"
+    fi
     return 0
   fi
-  echo "[keep-alive] public dead/missing — restarting tunnel"
+
+  echo "[keep-alive] tunnel process dead/unregistered — restarting"
   start_tunnel
 }
 
@@ -201,9 +239,10 @@ print_status() {
   local base
   base="$(public_base_from_files || true)"
   echo "local:  $(local_ok && echo OK || echo DOWN)  http://127.0.0.1:${PORT}/"
-  echo "ops:    http://127.0.0.1:${PORT}/ops?unlock=${PASS}"
+  echo "ops:    http://localhost:${PORT}/ops?unlock=${PASS}"
+  echo "tunnel: $(tunnel_ok && echo OK || echo DOWN)  (process+registered)"
   if [[ -n "$base" ]]; then
-    echo "public: $(public_ok "$base" && echo OK || echo DOWN)  $base"
+    echo "public: $(public_http_ok "$base" && echo HTTP200 || echo pending/DNS)  $base"
     echo "ops:    ${base}/ops?unlock=${PASS}"
   else
     echo "public: (none)"
@@ -217,7 +256,7 @@ case "$MODE" in
     print_status
     ;;
   loop|daemon)
-    echo "[keep-alive] loop every ${INTERVAL}s — Ctrl+C to stop"
+    echo "[keep-alive] loop every ${INTERVAL}s — only restarts dead processes (no DNS thrash)"
     while true; do
       heal_once || true
       print_status || true

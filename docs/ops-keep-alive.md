@@ -31,3 +31,7 @@ npm run ops:keep-alive:loop
 - Tunnel hostname changes after restart — open the **updated** URL from `docs/public-url.md`
 - Prefer longer-lived `ops:keep-alive:loop` over manual restarts
 - Still run `npm run live:refresh` after UI changes so Chrome auto-opens unlocked `/ops`
+
+## Anti-thrash
+
+Keep-alive treats the tunnel as healthy when `cloudflared` is running **and** the log shows `Registered tunnel connection`. It does **not** restart on transient DNS/curl failures from the VM (that was rotating hostnames every 30s).
