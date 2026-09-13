@@ -27,8 +27,8 @@ export default async function ManagerPage() {
       actions={[
         {
           href: "/ops/admin/food",
-          title: "Menu & buffet prices",
-          desc: "Edit CHIGURU dish and buffet ₹ rates",
+          title: "Menu (Food) — Add / Edit",
+          desc: "CHIGURU dishes, prices, buffets · add / edit / delete",
         },
         {
           href: "/ops/admin/bookings",
@@ -86,7 +86,7 @@ export default async function ManagerPage() {
       </div>
       <p className="mt-6 text-sm">
         <Link href="/ops/admin/food" className="text-[var(--ag-red)] underline">
-          Full menu CMS →
+          Menu (Food) — Add / Edit →
         </Link>
       </p>
     </StationHome>

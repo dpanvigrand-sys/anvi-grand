@@ -43,6 +43,51 @@ export default async function OpsHomePage() {
         <OpsAlerts stationId="hub" initialAlerts={alerts} />
       </div>
 
+      <section className="mt-8" aria-labelledby="ops-quick-edit">
+        <h2 id="ops-quick-edit" className="font-display text-2xl text-[var(--ag-ink)]">
+          Quick edit
+        </h2>
+        <p className="mt-1 text-sm text-[var(--ag-muted)]">
+          Primary CMS — add or edit website photos and the CHIGURU food menu from here.
+        </p>
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <Link
+            href="/ops/admin/photos"
+            className="group flex min-h-[140px] flex-col overflow-hidden border-2 border-[var(--ag-red)] bg-white transition hover:shadow-[0_8px_24px_rgba(139,0,0,0.12)]"
+          >
+            <div className="h-2 w-full bg-[var(--ag-red)]" />
+            <div className="flex flex-1 flex-col justify-center p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ag-maroon)]">
+                Admin CMS
+              </p>
+              <h3 className="mt-2 font-display text-2xl text-[var(--ag-ink)] group-hover:text-[var(--ag-red)] md:text-3xl">
+                Photos — Add / Edit
+              </h3>
+              <p className="mt-2 text-sm text-[var(--ag-muted)]">
+                Gallery, hero, rooms, food & banquet images · /ops/admin/photos
+              </p>
+            </div>
+          </Link>
+          <Link
+            href="/ops/admin/food"
+            className="group flex min-h-[140px] flex-col overflow-hidden border-2 border-[var(--ag-red)] bg-white transition hover:shadow-[0_8px_24px_rgba(139,0,0,0.12)]"
+          >
+            <div className="h-2 w-full bg-[var(--ag-maroon)]" />
+            <div className="flex flex-1 flex-col justify-center p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ag-maroon)]">
+                Admin CMS · CHIGURU
+              </p>
+              <h3 className="mt-2 font-display text-2xl text-[var(--ag-ink)] group-hover:text-[var(--ag-red)] md:text-3xl">
+                Menu (Food) — Add / Edit
+              </h3>
+              <p className="mt-2 text-sm text-[var(--ag-muted)]">
+                Dishes, prices, buffets · /ops/admin/food
+              </p>
+            </div>
+          </Link>
+        </div>
+      </section>
+
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
           ["Room bookings", ops.roomBookings.length],
@@ -91,6 +136,12 @@ export default async function OpsHomePage() {
       </div>
 
       <div className="mt-8 flex flex-wrap gap-3 border border-[var(--ag-line)] bg-white p-4 text-sm">
+        <Link href="/ops/admin/photos" className="font-semibold text-[var(--ag-red)] underline">
+          Photos — Add / Edit →
+        </Link>
+        <Link href="/ops/admin/food" className="font-semibold text-[var(--ag-red)] underline">
+          Menu (Food) — Add / Edit →
+        </Link>
         <Link href="/ops/admin/settings" className="text-[var(--ag-red)] underline">
           Ops settings →
         </Link>

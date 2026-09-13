@@ -27,14 +27,19 @@ export default async function AdminPage() {
       ]}
       actions={[
         {
-          href: "/ops/admin/rooms",
-          title: "Rooms & prices",
-          desc: "Edit ₹ rates · add / delete rooms",
+          href: "/ops/admin/photos",
+          title: "Photos — Add / Edit",
+          desc: "Gallery, hero, rooms, food & banquet images · primary CMS",
         },
         {
           href: "/ops/admin/food",
-          title: "Food & prices",
-          desc: "CHIGURU menu · buffet ₹ rates",
+          title: "Menu (Food) — Add / Edit",
+          desc: "CHIGURU dishes, prices, buffets · add / edit / delete",
+        },
+        {
+          href: "/ops/admin/rooms",
+          title: "Rooms & prices",
+          desc: "Edit ₹ rates · add / delete rooms",
         },
         {
           href: "/ops/admin/venues",
@@ -45,11 +50,6 @@ export default async function AdminPage() {
           href: "/ops/admin/venue-bookings",
           title: "Venue bookings",
           desc: "Enter / list banquet & party hall bookings",
-        },
-        {
-          href: "/ops/admin/photos",
-          title: "Photos",
-          desc: "Gallery & website images",
         },
         {
           href: "/ops/admin/contacts",

@@ -28,8 +28,9 @@ export default async function AdminFoodPage() {
         read <code>data/catalog.json</code> live.
       </p>
       <p className="mt-2 text-sm text-[var(--ag-muted)]">
-        Entry: <code>/ops</code> → unlock with <code>anviops2026</code> →{" "}
-        <strong>Food</strong>.
+        Entry: <code>/ops?unlock=anviops2026</code> →{" "}
+        <strong>Menu (Food) — Add / Edit</strong> (hub Quick edit, Admin.1, or
+        Restaurant Manager).
       </p>
       <div className="mt-8">
         <FoodAdmin initialMenu={menu} initialBuffets={buffets} />

@@ -73,7 +73,8 @@ Inline **Save ₹ + capacity**, full **Edit** (name, type, tagline, description,
 
 ## Food (CHIGURU menu & buffets) — full item edit
 
-- **Admin UI:** `/ops/admin/food` (ops nav **Food**, Admin hub card)
+- **Label everywhere:** **Menu (Food) — Add / Edit**
+- **Admin UI:** `/ops/admin/food` — hub **Quick edit**, Admin.1 first cards, Restaurant Manager.1, deep link `?unlock=anviops2026`
 - **Public:** `/food` (menu dishes) and `/buffet` (buffets)
 - **Storage:** `data/catalog.json` → `menu[]` and `buffets[]`
 - **API:** `POST /api/ops/catalog` `{ "section": "menu"|"buffets", "action": "upsert"|"delete", item|id }`
