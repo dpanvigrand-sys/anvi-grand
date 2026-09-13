@@ -25,30 +25,26 @@ export default async function KitchenPage() {
         {
           href: "/ops/server",
           title: "Server floor",
-          te: "సర్వర్",
           desc: "Table status for plating / serve",
         },
         {
           href: "/ops/store",
           title: "Store / ingredients",
-          te: "స్టోర్",
           desc: "Check outward issues when stock runs low",
         },
         {
           href: "/ops/manager",
           title: "Restaurant manager",
-          te: "మేనేజర్",
           desc: "Escalate food alerts and menu questions",
         },
         {
           href: "/ops/admin/food",
           title: "Menu CMS",
-          te: "మెనూ",
           desc: "Dish names and prep notes",
         },
       ]}
     >
-      <h2 className="font-display text-2xl">Ticket queue · టికెట్ క్యూ</h2>
+      <h2 className="font-display text-2xl">Ticket queue</h2>
       <div className="mt-4 space-y-4">
         {open.length === 0 ? (
           <p className="border border-[var(--ag-line)] bg-white px-5 py-10 text-[var(--ag-muted)]">

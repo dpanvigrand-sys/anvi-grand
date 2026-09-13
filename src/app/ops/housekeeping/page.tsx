@@ -29,37 +29,31 @@ export default async function HousekeepingPage() {
         {
           href: "/ops/reception",
           title: "Reception check-outs",
-          te: "రిసెప్షన్",
           desc: "See today’s checkouts that need turn-down",
         },
         {
           href: "/ops/accounts/purchases?type=housekeeping",
-          title: "HK సామాను purchases",
-          te: "సామాను",
+          title: "HK supplies purchases",
           desc: "Phenyl, cleaners, supplies purchase book",
         },
         {
           href: "/ops/accounts/purchases?type=dhobi",
           title: "Dhobi purchases",
-          te: "ధోబీ",
           desc: "Laundry vendor bills",
         },
         {
           href: "/ops/accounts/purchases?type=clothes",
           title: "Clothes / linen buy",
-          te: "బట్టలు",
           desc: "Towels, sheets purchase links",
         },
         {
           href: "/ops/store",
           title: "Store outward",
-          te: "స్టోర్",
           desc: "Issue cleaning stock to floors",
         },
         {
           href: "/ops/outward",
           title: "Outward entry",
-          te: "అవుట్‌వర్డ్",
           desc: "Record issues to housekeeping",
         },
       ]}

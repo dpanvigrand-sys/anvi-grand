@@ -25,30 +25,26 @@ export default async function ServerPage() {
         {
           href: "/ops/kitchen",
           title: "Send / watch kitchen",
-          te: "కిచెన్ టికెట్లు",
           desc: "See queued tickets and ready-to-serve bumps",
         },
         {
           href: "/ops/manager",
           title: "Restaurant manager",
-          te: "మేనేజర్",
           desc: "Menu prices and food booking overview",
         },
         {
           href: "/food",
           title: "CHIGURU menu (guest)",
-          te: "మెనూ",
           desc: "Reference dishes and ₹ while taking orders",
         },
         {
           href: "/ops/admin/food",
           title: "Menu price CMS",
-          te: "ధరలు",
           desc: "Confirm current rates with manager",
         },
       ]}
     >
-      <h2 className="font-display text-2xl">Floor tables · టేబుల్స్</h2>
+      <h2 className="font-display text-2xl">Floor tables</h2>
       <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {ops.tables.map((t) => (
           <article key={t.id} className="border border-[var(--ag-line)] bg-white p-5">

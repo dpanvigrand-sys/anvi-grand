@@ -83,7 +83,7 @@ export function MusterAdmin({ initialRows }: Props) {
             ← Accounts
           </Link>
           <h1 className="mt-1 font-display text-4xl text-[var(--ag-ink)]">Daily Muster</h1>
-          <p className="text-[var(--ag-muted)]">డైలీ మస్టర్ · staff attendance</p>
+          <p className="text-[var(--ag-muted)]">Staff attendance</p>
         </div>
         <Button type="button" variant="outline" className="rounded-none print:hidden" onClick={() => window.print()}>
           Print A4
@@ -106,9 +106,9 @@ export function MusterAdmin({ initialRows }: Props) {
             value={form.status}
             onChange={(e) => setForm({ ...form, status: e.target.value as MusterStatus })}
           >
-            <option value="present">Present · హాజరు</option>
-            <option value="absent">Absent · గైర్‌హాజరు</option>
-            <option value="half">Half · సగం రోజు</option>
+            <option value="present">Present</option>
+            <option value="absent">Absent</option>
+            <option value="half">Half day</option>
           </select>
         </div>
         <div className="grid gap-1">
@@ -163,7 +163,7 @@ export function MusterAdmin({ initialRows }: Props) {
                 <tr key={r.id} className="border-t border-[var(--ag-line)]">
                   <td className="px-3 py-2 font-medium">{r.staffName}</td>
                   <td className="px-3 py-2">
-                    {MUSTER_STATUS_LABELS[r.status].en} · {MUSTER_STATUS_LABELS[r.status].te}
+                    {MUSTER_STATUS_LABELS[r.status]}
                   </td>
                   <td className="px-3 py-2 text-[var(--ag-muted)]">{r.notes || "—"}</td>
                   <td className="px-3 py-2 print:hidden">

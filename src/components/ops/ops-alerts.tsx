@@ -121,7 +121,7 @@ export function OpsAlerts({ stationId, initialAlerts = [], popup = true }: Props
         <div className="mb-6 border border-[var(--ag-red)] bg-[linear-gradient(90deg,#fff5f4_0%,#ffffff_60%)]">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--ag-line)] px-4 py-2">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ag-red)]">
-              Alerts · అలర్ట్స్ ({visible.length})
+              Alerts ({visible.length})
             </p>
             <button
               type="button"
@@ -139,7 +139,6 @@ export function OpsAlerts({ stationId, initialAlerts = [], popup = true }: Props
               >
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-[var(--ag-ink)]">{a.title}</p>
-                  <p className="text-sm text-[var(--ag-red)]">{a.titleTe}</p>
                   <p className="mt-1 text-sm text-[var(--ag-muted)]">{a.detail}</p>
                 </div>
                 <div className="flex items-center gap-2">
@@ -179,7 +178,7 @@ export function OpsAlerts({ stationId, initialAlerts = [], popup = true }: Props
               <h2 id="ops-alert-modal-title" className="mt-1 font-display text-2xl">
                 Action needed
               </h2>
-              <p className="text-sm text-white/85">గమనించండి — కొన్ని అలర్ట్స్ ఉన్నాయి</p>
+              <p className="text-sm text-white/85">Please review the alerts below.</p>
             </div>
             <ul className="divide-y divide-[var(--ag-line)] p-2">
               {popupAlerts.map((a) => (
@@ -202,7 +201,7 @@ export function OpsAlerts({ stationId, initialAlerts = [], popup = true }: Props
                 onClick={() => setShowModal(false)}
                 className="border border-[var(--ag-line)] px-4 py-2 text-sm hover:border-[var(--ag-red)]"
               >
-                Keep bar · మూసివేయి
+                Keep bar
               </button>
               <button
                 type="button"

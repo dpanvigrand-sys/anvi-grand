@@ -126,7 +126,7 @@ export function SalariesAdmin({ initialRows }: Props) {
             ← Accounts
           </Link>
           <h1 className="mt-1 font-display text-4xl text-[var(--ag-ink)]">Salaries</h1>
-          <p className="text-[var(--ag-muted)]">జీతాలు · monthly salary register</p>
+          <p className="text-[var(--ag-muted)]">Monthly salary register</p>
         </div>
         <div className="flex flex-wrap gap-2 print:hidden">
           <Button
@@ -159,8 +159,8 @@ export function SalariesAdmin({ initialRows }: Props) {
             value={form.status}
             onChange={(e) => setForm({ ...form, status: e.target.value as SalaryPayStatus })}
           >
-            <option value="pending">Pending · పెండింగ్</option>
-            <option value="paid">Paid · చెల్లించబడింది</option>
+            <option value="pending">Pending</option>
+            <option value="paid">Paid</option>
           </select>
         </div>
         <div className="grid gap-1">

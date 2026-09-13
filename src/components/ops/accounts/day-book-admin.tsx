@@ -146,7 +146,7 @@ export function DayBookAdmin({ initialRows }: Props) {
             ← Accounts
           </Link>
           <h1 className="mt-1 font-display text-4xl text-[var(--ag-ink)]">Day Book</h1>
-          <p className="text-[var(--ag-muted)]">డే బుక్ · cash &amp; bank daily entries</p>
+          <p className="text-[var(--ag-muted)]">Cash &amp; bank daily entries</p>
         </div>
         <div className="flex flex-wrap gap-2 print:hidden">
           <Button

@@ -86,7 +86,7 @@ export function LedgerAdmin({ dayBook, ledger }: Props) {
             ← Accounts
           </Link>
           <h1 className="mt-1 font-display text-4xl text-[var(--ag-ink)]">Ledger</h1>
-          <p className="text-[var(--ag-muted)]">లెడ్జర్ · account-wise transactions</p>
+          <p className="text-[var(--ag-muted)]">Account-wise transactions</p>
         </div>
         <Button type="button" variant="outline" className="rounded-none print:hidden" onClick={() => window.print()}>
           Print A4

@@ -94,7 +94,7 @@ export function HousekeepingBoard({ rooms: initialRooms, linen: initialLinen }: 
     <div className="space-y-10">
       <section>
         <h2 className="font-display text-2xl text-[var(--ag-ink)]">
-          Room board · రూమ్ స్టేటస్
+          Room board
         </h2>
         <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {rooms.map((r) => (
@@ -138,7 +138,7 @@ export function HousekeepingBoard({ rooms: initialRooms, linen: initialLinen }: 
 
       <section>
         <h2 className="font-display text-2xl text-[var(--ag-ink)]">
-          Linen / clothes / dhobi · లినెన్ / ధోబీ
+          Linen / clothes / dhobi
         </h2>
         <form
           onSubmit={addLinen}

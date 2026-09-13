@@ -21,7 +21,6 @@ export type OpsAlert = {
   kind: OpsAlertKind;
   severity: OpsAlertSeverity;
   title: string;
-  titleTe: string;
   detail: string;
   href: string;
   /** Stations that should surface this alert */
@@ -99,7 +98,6 @@ export function buildOpsAlerts(
       kind: "rooms",
       severity: "critical",
       title: `${checkoutToday.length} checkout(s) today`,
-      titleTe: `ఈ రోజు ${checkoutToday.length} చెక్-అవుట్`,
       detail: checkoutToday
         .map((b) => `${b.guestName} · ${b.roomName}`)
         .join("; "),
@@ -113,7 +111,6 @@ export function buildOpsAlerts(
     kind: "rooms",
     severity: "info",
     title: `Rooms — ${occupied.length} occupied · ${activeRooms.length} active bookings`,
-    titleTe: `రూమ్స్ — ${occupied.length} ఆక్యుపైడ్ · ${activeRooms.length} యాక్టివ్`,
     detail: unpaidRooms.length
       ? `${unpaidRooms.length} booking(s) with unpaid balance`
       : "No unpaid balances on open bookings",
@@ -128,7 +125,6 @@ export function buildOpsAlerts(
       kind: "rooms",
       severity: "warn",
       title: `Unpaid room balance ₹${due.toLocaleString("en-IN")}`,
-      titleTe: `రూమ్ బ్యాలెన్స్ బాకీ ₹${due.toLocaleString("en-IN")}`,
       detail: unpaidRooms
         .slice(0, 4)
         .map((b) => `${b.guestName} (₹${b.balance})`)
@@ -156,7 +152,6 @@ export function buildOpsAlerts(
       kind: "food",
       severity: openTickets.length ? "critical" : "warn",
       title: `Kitchen — ${openTickets.length} cooking/queued · ${readyTickets.length} ready`,
-      titleTe: `కిచెన్ — ${openTickets.length} వంటలో · ${readyTickets.length} రెడీ`,
       detail: `${unserved.length} unserved food order(s) on floor / room service`,
       href: "/ops/kitchen",
       stations: ["kitchen", "server", "manager", "admin"],
@@ -177,7 +172,6 @@ export function buildOpsAlerts(
       kind: "grocery",
       severity: "warn",
       title: `Low stock — ${low.length} item(s) ≤ ${s.lowStockQty}`,
-      titleTe: `తక్కువ స్టాక్ — ${low.length} వస్తువులు`,
       detail: low
         .slice(0, 5)
         .map((r) => `${r.item}: ${r.qty} ${r.unit}`)
@@ -191,7 +185,6 @@ export function buildOpsAlerts(
       kind: "grocery",
       severity: "info",
       title: "No inward in last 2 days",
-      titleTe: "గత 2 రోజుల్లో ఇన్‌వర్డ్ లేదు",
       detail: "Consider fresh grocery / ingredient inward for CHIGURU & HK",
       href: "/ops/inward",
       stations: ["store", "manager", "admin"],
@@ -210,7 +203,6 @@ export function buildOpsAlerts(
       kind: "banquet",
       severity: eventsToday.length ? "critical" : "warn",
       title: `Banquet — ${eventsToday.length} today · ${eventsTomorrow.length} tomorrow`,
-      titleTe: `బ్యాంక్వెట్ — ఈరోజు ${eventsToday.length} · రేపు ${eventsTomorrow.length}`,
       detail: [...eventsToday, ...eventsTomorrow]
         .slice(0, 4)
         .map((b) => `${b.eventDate} · ${b.guestName} · ${b.venueName}`)
@@ -227,7 +219,6 @@ export function buildOpsAlerts(
       kind: "banquet",
       severity: "warn",
       title: `Banquet balance due ₹${due.toLocaleString("en-IN")}`,
-      titleTe: `బ్యాంక్వెట్ బ్యాలెన్స్ ₹${due.toLocaleString("en-IN")}`,
       detail: banquetDue
         .slice(0, 4)
         .map((b) => `${b.guestName} (₹${b.balance})`)
@@ -248,7 +239,6 @@ export function buildOpsAlerts(
       kind: "salary",
       severity: "info",
       title: `${unpaidSal.length} salary unpaid this month`,
-      titleTe: `ఈ నెల ${unpaidSal.length} జీతాలు పెండింగ్`,
       detail: unpaidSal.map((r) => r.staffName).join(", "),
       href: "/ops/accounts/salaries",
       stations: ["accounts", "admin"],
@@ -268,7 +258,6 @@ export function buildOpsAlerts(
       kind: "housekeeping",
       severity: dirty.length ? "warn" : "info",
       title: `HK — ${dirty.length} room(s) need attention · ${linenPending.length} linen`,
-      titleTe: `HK — ${dirty.length} రూమ్స్ · ${linenPending.length} లినెన్`,
       detail: [
         ...dirty.slice(0, 3).map((r) => `${r.roomName}: ${r.status}`),
         ...linenPending.slice(0, 2).map((l) => `${l.item} ×${l.qty}`),

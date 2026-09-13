@@ -140,7 +140,7 @@ export function PurchasesAdmin({ initialRows, initialType }: Props) {
             ← Accounts
           </Link>
           <h1 className="mt-1 font-display text-4xl text-[var(--ag-ink)]">Purchases</h1>
-          <p className="text-[var(--ag-muted)]">కొనుగోళ్లు · groceries, kitchen, dhobi, linen, సామాను</p>
+          <p className="text-[var(--ag-muted)]">Groceries, kitchen, dhobi, linen, supplies</p>
         </div>
         <div className="flex flex-wrap gap-2 print:hidden">
           <Button
@@ -196,7 +196,7 @@ export function PurchasesAdmin({ initialRows, initialType }: Props) {
           >
             {PURCHASE_TYPES.map((t) => (
               <option key={t.id} value={t.id}>
-                {t.label} · {t.te}
+                {t.label}
               </option>
             ))}
           </select>
@@ -293,10 +293,7 @@ export function PurchasesAdmin({ initialRows, initialType }: Props) {
                 return (
                   <tr key={r.id} className="border-t border-[var(--ag-line)]">
                     <td className="px-3 py-2 whitespace-nowrap">{r.date}</td>
-                    <td className="px-3 py-2">
-                      {label.label}
-                      <span className="block text-xs text-[var(--ag-muted)]">{label.te}</span>
-                    </td>
+                    <td className="px-3 py-2">{label.label}</td>
                     <td className="px-3 py-2">
                       <p>{r.item}</p>
                       {r.notes ? <p className="text-xs text-[var(--ag-muted)]">{r.notes}</p> : null}

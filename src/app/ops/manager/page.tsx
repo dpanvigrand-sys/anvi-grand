@@ -28,37 +28,31 @@ export default async function ManagerPage() {
         {
           href: "/ops/admin/food",
           title: "Menu & buffet prices",
-          te: "మెనూ ధరలు",
           desc: "Edit CHIGURU dish and buffet ₹ rates",
         },
         {
           href: "/ops/admin/bookings",
           title: "Food bookings overview",
-          te: "ఫుడ్ బుకింగ్స్",
           desc: "Orders ledger with advance / balance",
         },
         {
           href: "/ops/kitchen",
           title: "Kitchen pulse",
-          te: "KT",
           desc: "Queued → cook → ready tickets",
         },
         {
           href: "/ops/server",
           title: "Server floor pulse",
-          te: "సర్వర్",
           desc: "Table free / occupied / billing",
         },
         {
           href: "/ops/store",
           title: "Grocery / ingredients",
-          te: "స్టోర్",
           desc: "Low stock and inward needed",
         },
         {
           href: "/ops/banquet",
           title: "Banquet with food",
-          te: "బ్యాంక్వెట్",
           desc: "Events that need CHIGURU catering",
         },
       ]}

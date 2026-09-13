@@ -23,37 +23,31 @@ export default async function StorePage() {
         {
           href: "/ops/inward",
           title: "Inward receipts",
-          te: "ఇన్‌వర్డ్",
           desc: "Stock in from vendors + reports",
         },
         {
           href: "/ops/outward",
           title: "Outward issues",
-          te: "అవుట్‌వర్డ్",
           desc: "Issue to kitchen, HK, departments",
         },
         {
           href: "/ops/admin/stock-reports",
           title: "Stock reports",
-          te: "స్టాక్ రిపోర్ట్",
           desc: "Day / month · Excel · A4 · JPG",
         },
         {
           href: "/ops/accounts/purchases?type=groceries",
           title: "Grocery purchases",
-          te: "కిరాణా",
           desc: "Purchase book — groceries",
         },
         {
           href: "/ops/accounts/purchases?type=ingredients",
           title: "Kitchen ingredients",
-          te: "వంట పదార్థాలు",
           desc: "Purchase book — ingredients",
         },
         {
           href: "/ops/accounts/purchases?type=housekeeping",
           title: "HK supplies",
-          te: "HK సామాను",
           desc: "Housekeeping purchase links",
         },
       ]}

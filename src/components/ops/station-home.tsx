@@ -11,7 +11,6 @@ import type { OpsSettings, OpsStationId, OpsStore } from "@/lib/types";
 export type StationAction = {
   href: string;
   title: string;
-  te?: string;
   desc: string;
 };
 
@@ -42,13 +41,10 @@ export function StationHome({
   return (
     <div>
       <p className="text-xs uppercase tracking-[0.18em] text-[var(--ag-red)]">
-        {station.clientLabel} · {label.te}
+        {station.clientLabel}
       </p>
       <h1 className="mt-2 font-display text-4xl text-[var(--ag-ink)]">{label.en}</h1>
-      <p className="mt-2 max-w-2xl text-[var(--ag-muted)]">
-        {label.job}
-        <span className="mt-1 block text-sm text-[var(--ag-maroon)]">{station.jobTe}</span>
-      </p>
+      <p className="mt-2 max-w-2xl text-[var(--ag-muted)]">{label.job}</p>
 
       <div className="mt-6">
         <OpsAlerts stationId={stationId} initialAlerts={alerts} />
@@ -84,9 +80,6 @@ export function StationHome({
               <h2 className="font-display text-2xl text-[var(--ag-ink)] group-hover:text-[var(--ag-red)]">
                 {a.title}
               </h2>
-              {a.te ? (
-                <p className="mt-0.5 text-sm text-[var(--ag-red)]">{a.te}</p>
-              ) : null}
               <p className="mt-2 text-sm text-[var(--ag-muted)]">{a.desc}</p>
             </div>
           </Link>

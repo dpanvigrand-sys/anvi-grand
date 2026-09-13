@@ -178,7 +178,7 @@ export type OpsSettings = {
   /** Hours ahead to remind about banquet events (also used for “tomorrow”) */
   banquetReminderHours: number;
   stationLabels: Partial<
-    Record<OpsStationId, { en: string; te: string; subtitle?: string }>
+    Record<OpsStationId, { en: string; subtitle?: string }>
   >;
 };
 

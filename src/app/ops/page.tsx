@@ -58,7 +58,7 @@ export default async function OpsHomePage() {
       </div>
 
       <h2 className="mt-10 font-display text-2xl text-[var(--ag-ink)]">
-        Stations · స్టేషన్లు
+        Stations
       </h2>
       <p className="mt-1 text-sm text-[var(--ag-muted)]">
         Open each on its own Chrome window for client PCs (Reception.1 … Banquet.1).
@@ -81,11 +81,9 @@ export default async function OpsHomePage() {
                 <h3 className="mt-2 font-display text-2xl text-[var(--ag-ink)] group-hover:text-[var(--ag-red)]">
                   {label.en}
                 </h3>
-                <p className="text-sm text-[var(--ag-red)]">{label.te}</p>
                 <p className="mt-3 text-sm leading-snug text-[var(--ag-muted)]">
                   {label.job}
                 </p>
-                <p className="mt-auto pt-3 text-xs text-[var(--ag-maroon)]">{s.jobTe}</p>
               </div>
             </Link>
           );

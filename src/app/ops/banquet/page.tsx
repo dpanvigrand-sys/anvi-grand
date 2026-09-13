@@ -28,37 +28,31 @@ export default async function BanquetPage() {
         {
           href: "/ops/admin/venue-bookings",
           title: "Enter / list venue bookings",
-          te: "వేదిక బుకింగ్స్",
           desc: "Function details, members, food, advance, balance",
         },
         {
           href: "/ops/admin/venues",
           title: "Venue rates & capacity",
-          te: "రేట్లు",
           desc: "Banquet & party hall ₹/day",
         },
         {
           href: "/ops/manager",
           title: "Food package (CHIGURU)",
-          te: "ఫుడ్ ప్యాకేజ్",
           desc: "Coordinate catering with restaurant manager",
         },
         {
           href: "/ops/accounts",
           title: "Accounts for advances",
-          te: "అకౌంట్స్",
           desc: "Post advance / balance in day book",
         },
         {
           href: "/banquet",
           title: "Guest banquet page",
-          te: "గెస్ట్ సైట్",
           desc: "Public banquet enquiry form",
         },
         {
           href: "/ops/admin/bookings",
           title: "Rooms & food ledger",
-          te: "ఇతర బుకింగ్స్",
           desc: "Separate from venue function fields",
         },
       ]}

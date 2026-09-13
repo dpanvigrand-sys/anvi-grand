@@ -31,31 +31,27 @@ export default async function ReceptionPage() {
         {
           href: "/ops/admin/bookings",
           title: "Room bookings ledger",
-          te: "రూమ్ బుకింగ్స్",
           desc: "Name, address, phone, advance, balance · Excel / Print",
         },
         {
           href: "/ops/admin/contacts",
           title: "Phone contacts",
-          te: "ఫోన్ నంబర్లు",
           desc: "Rooms / food / reception lines for guest desk",
         },
         {
           href: "/ops/housekeeping",
           title: "Housekeeping board",
-          te: "హౌస్‌కీపింగ్",
           desc: "Dirty / clean / ready rooms after checkout",
         },
         {
           href: "/rooms",
           title: "Walk-in rates (guest site)",
-          te: "వాక్-ఇన్ రేట్లు",
           desc: "Open public rooms page for walk-in quotes",
         },
       ]}
     >
       <h2 className="font-display text-2xl text-[var(--ag-ink)]">
-        Live room desk · చెక్-ఇన్ / అవుట్
+        Live room desk — check-in / out
       </h2>
       <div className="mt-4 space-y-4">
         {ops.roomBookings.length === 0 ? (

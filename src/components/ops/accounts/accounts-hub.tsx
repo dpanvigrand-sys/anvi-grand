@@ -6,32 +6,27 @@ const sections = [
   {
     href: "/ops/accounts/day-book",
     title: "Day Book",
-    te: "డే బుక్",
     desc: "Daily cash / bank vouchers — date, voucher no, particular, debit, credit, balance, category",
   },
   {
     href: "/ops/accounts/ledger",
     title: "Ledger",
-    te: "లెడ్జర్",
     desc: "Account-wise ledger — pick an account and review every transaction",
   },
   {
     href: "/ops/accounts/muster",
     title: "Daily Muster",
-    te: "డైలీ మస్టర్",
     desc: "Staff attendance — present / absent / half day with notes",
   },
   {
     href: "/ops/accounts/salaries",
     title: "Salaries",
-    te: "జీతాలు",
     desc: "Salary register — month, basic, deductions, net, paid / pending",
   },
   {
     href: "/ops/accounts/purchases",
     title: "Purchases",
-    te: "కొనుగోళ్లు",
-    desc: "Groceries, ingredients, dhobi, clothes, housekeeping సామాను & other",
+    desc: "Groceries, ingredients, dhobi, clothes, housekeeping supplies & other",
   },
 ];
 
@@ -57,7 +52,7 @@ export function AccountsHub({ counts }: Props) {
   return (
     <div>
       <p className="text-xs uppercase tracking-[0.18em] text-[var(--ag-red)]">
-        Accounts.1 · అకౌంట్స్
+        Accounts.1
       </p>
       <h1 className="mt-2 font-display text-4xl text-[var(--ag-ink)]">Accounts</h1>
       <p className="mt-2 max-w-2xl text-[var(--ag-muted)]">
@@ -78,7 +73,6 @@ export function AccountsHub({ counts }: Props) {
                 <h2 className="font-display text-2xl text-[var(--ag-ink)] group-hover:text-[var(--ag-red)]">
                   {s.title}
                 </h2>
-                <p className="mt-0.5 text-sm text-[var(--ag-red)]">{s.te}</p>
                 <p className="mt-2 text-sm text-[var(--ag-muted)]">{s.desc}</p>
               </div>
               <p className="font-display text-2xl text-[var(--ag-maroon)]">

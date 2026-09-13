@@ -29,55 +29,46 @@ export default async function AdminPage() {
         {
           href: "/ops/admin/rooms",
           title: "Rooms & prices",
-          te: "రూమ్స్",
           desc: "Edit ₹ rates · add / delete rooms",
         },
         {
           href: "/ops/admin/food",
           title: "Food & prices",
-          te: "ఫుడ్",
           desc: "CHIGURU menu · buffet ₹ rates",
         },
         {
           href: "/ops/admin/venues",
           title: "Banquet / venues",
-          te: "వేదికలు",
           desc: "Hall ₹/day · capacity",
         },
         {
           href: "/ops/admin/venue-bookings",
           title: "Venue bookings",
-          te: "వేదిక బుకింగ్స్",
           desc: "Enter / list banquet & party hall bookings",
         },
         {
           href: "/ops/admin/photos",
           title: "Photos",
-          te: "ఫోటోలు",
           desc: "Gallery & website images",
         },
         {
           href: "/ops/admin/contacts",
           title: "Contacts",
-          te: "ఫోన్లు",
           desc: "Rooms · food · reception phone lines",
         },
         {
           href: "/ops/admin/bookings",
           title: "Rooms & food reports",
-          te: "బుకింగ్ రిపోర్ట్స్",
           desc: "Excel · Print A4 · JPG",
         },
         {
           href: "/ops/admin/stock-reports",
           title: "Stock reports",
-          te: "స్టాక్",
           desc: "Inward & outward reports",
         },
         {
           href: "/ops/admin/settings",
           title: "Ops settings",
-          te: "సెట్టింగ్స్",
           desc: "Alert thresholds · station labels · name lines",
         },
       ]}

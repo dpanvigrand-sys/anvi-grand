@@ -109,7 +109,7 @@ export function VenueBookingsAdmin({ venues, initial }: Props) {
         className="grid gap-3 border border-[var(--ag-line)] bg-white p-5 md:grid-cols-2"
       >
         <p className="md:col-span-2 text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ag-red)]">
-          Enter venue booking · వేదిక బుకింగ్
+          Enter venue booking
         </p>
         <div className="grid gap-2">
           <Label>Venue</Label>

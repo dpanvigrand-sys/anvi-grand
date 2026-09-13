@@ -20,14 +20,17 @@ export function OpsSettingsForm({ initial }: Props) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
-  function setStationLabel(id: OpsStationId, part: "en" | "te", value: string) {
+  function setStationLabel(
+    id: OpsStationId,
+    part: "en" | "subtitle",
+    value: string,
+  ) {
     setForm((f) => ({
       ...f,
       stationLabels: {
         ...(f.stationLabels || {}),
         [id]: {
           en: f.stationLabels?.[id]?.en || "",
-          te: f.stationLabels?.[id]?.te || "",
           ...f.stationLabels?.[id],
           [part]: value,
         },
@@ -48,7 +51,7 @@ export function OpsSettingsForm({ initial }: Props) {
         setMsg("Save failed.");
         return;
       }
-      setMsg("Saved · సేవ్ అయింది");
+      setMsg("Saved");
       router.refresh();
     });
   }
@@ -117,7 +120,7 @@ export function OpsSettingsForm({ initial }: Props) {
           Station labels (optional overrides)
         </h2>
         <p className="mt-1 text-sm text-[var(--ag-muted)]">
-          Leave blank to keep defaults. Telugu + English shown on hub cards.
+          Leave blank to keep defaults. Ops UI is English only.
         </p>
         <div className="mt-4 space-y-3">
           {OPS_STATIONS.map((s) => (
@@ -136,9 +139,11 @@ export function OpsSettingsForm({ initial }: Props) {
               />
               <Input
                 className="rounded-none"
-                placeholder={s.te}
-                value={form.stationLabels?.[s.id]?.te || ""}
-                onChange={(e) => setStationLabel(s.id, "te", e.target.value)}
+                placeholder={s.job}
+                value={form.stationLabels?.[s.id]?.subtitle || ""}
+                onChange={(e) =>
+                  setStationLabel(s.id, "subtitle", e.target.value)
+                }
               />
             </div>
           ))}
