@@ -4,6 +4,8 @@ const nextConfig: NextConfig = {
   // Prefer fast production cold loads for Try Live / desktop always-on.
   poweredByHeader: false,
   compress: true,
+  // Dev: allow 127.0.0.1 ↔ localhost so Try Live Chrome hydrates OpsGate unlock.
+  allowedDevOrigins: ["127.0.0.1", "localhost"],
   typescript: {
     // Admin CMS catalog manager uses a section union; allow ship while CMS finishes.
     ignoreBuildErrors: true,

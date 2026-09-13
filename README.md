@@ -26,25 +26,21 @@ npm run build && npm start
 
 ## Standing rule — auto-open after every update
 
-**Hard rule:** After any update, Chrome must auto-show **BOTH** ops and frontend (guest) — no waiting for “continue”/“next”. The user never presses refresh.
+**HARD RULE:** After any update, agent MUST run `npm run live:refresh` before finishing. Failure = incomplete. User presses nothing.
 
-1. Keep the app serving on `0.0.0.0:3947` (Next HMR via `npm run dev`, or production `npm start`)
-2. Run **`npm run live:refresh`** (`scripts/live-refresh.sh`)
-3. Leave Chrome **maximized + frontmost** on Try Live with **both**:
-   - Ops hub: `/ops?unlock=anviops2026`
-   - Guest home: `/`
-   (public tunnel preferred; local `:3947` fallback)
-4. Update store `media/shot.jpg`
+1. Keep the app serving on port **3947** (`npm run dev` or `npm start`)
+2. Optionally leave `npm run ops:keep-alive:loop` running (survives idle / Cloudflare 1033)
+3. Run **`npm run live:refresh`** — Chrome `--new-window` unlocked `/ops` + guest `/`, write `media/shot.jpg`
+4. Prefer **`localhost:3947`** for local (Next 16 breaks OpsGate unlock if only `127.0.0.1` is used in some setups)
 
 | Script | What it does |
 |--------|----------------|
-| `npm run live` / **`live:refresh`** | Health-check, ensure server, open/refresh Chrome on unlocked `/ops` **and** guest `/`, write `media/shot.jpg` |
-| `npm run live:ensure` | Server only |
-| `npm run live:open` | Open/refresh Chrome (legacy helper) |
-| `npm run live:restart` | Restart server then full `live:refresh` |
-| `npm run live:ops-windows` | 2×2 public ops Chrome windows + proof JPG |
+| `npm run live` / **`live:refresh`** | Heal via keep-alive, open Chrome `--new-window` ops + guest, write `media/shot.jpg` |
+| `npm run ops:keep-alive` | One-shot restart Next + cloudflared if dead; rewrite public URL docs |
+| `npm run ops:keep-alive:loop` | Watchdog every 30s |
+| `npm run live:ops-windows` | Multi-station public ops Chrome windows |
 
-`127.0.0.1:3947` works only on the cloud VM / Try Live. For a laptop browser, use the public HTTPS URL in the agent store `docs/public-url.md` when a tunnel is running.
+Public URL: see `docs/public-url.md`. Regression checklist: `docs/ops-regression.md`.
 
 ## Staff ops password (demo)
 

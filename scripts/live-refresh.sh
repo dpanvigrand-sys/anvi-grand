@@ -20,13 +20,21 @@ PUBLIC_URL_FILE="${ANVI_PUBLIC_URL_FILE:-$STORE/internal/public-url.txt}"
 PUBLIC_URL_DOC="${ANVI_PUBLIC_URL_DOC:-$STORE/docs/public-url.md}"
 PUBLIC_URL_FALLBACK_FILE="$ROOT/.anvi-public-url"
 SHOT="${ANVI_SHOT_PATH:-$STORE/media/shot.jpg}"
-LOCAL_BASE="http://127.0.0.1:${PORT}"
+# Prefer localhost over 127.0.0.1 — Next.js 16 blocks cross-origin HMR/dev
+# resources between the two hosts, which freezes OpsGate on "Checking staff access…".
+LOCAL_HOST="${ANVI_LOCAL_HOST:-localhost}"
+LOCAL_BASE="http://${LOCAL_HOST}:${PORT}"
 LOCAL_OPS="${LOCAL_BASE}/ops?unlock=${PASS}"
 LOCAL_HOME="${LOCAL_BASE}/"
 export DISPLAY="${DISPLAY:-:1}"
 LOG=/tmp/anvi-live.log
 
 cd "$ROOT"
+
+# Heal Next + Cloudflare tunnel before opening Chrome (survives idle / 1033).
+if [[ -x "$ROOT/scripts/ops-keep-alive.sh" ]]; then
+  bash "$ROOT/scripts/ops-keep-alive.sh" once >>"$LOG" 2>&1 || true
+fi
 
 resolve_chrome() {
   CHROME_BIN="${CHROME_BIN:-}"
@@ -176,17 +184,22 @@ open_window_on_url() {
 capture_shot() {
   mkdir -p "$(dirname "$SHOT")"
   local tmp=/tmp/anvi-shot-raw.png
-  sleep 1.5
-  if command -v scrot >/dev/null 2>&1; then
+  sleep 1.2
+  # Prefer desktop grab of the real Chrome window (Try Live proof).
+  if command -v ffmpeg >/dev/null 2>&1; then
+    ffmpeg -y -f x11grab -video_size 1920x1080 -i "${DISPLAY%.0}.0" -frames:v 1 "$tmp" >/tmp/anvi-shot-ffmpeg.log 2>&1 \
+      || ffmpeg -y -f x11grab -i "${DISPLAY:-:1}.0" -frames:v 1 "$tmp" >/tmp/anvi-shot-ffmpeg.log 2>&1 \
+      || true
+  fi
+  if [[ ! -s "$tmp" ]] && command -v scrot >/dev/null 2>&1; then
     scrot -o "$tmp" 2>/dev/null || true
   fi
   if [[ ! -s "$tmp" ]] && command -v import >/dev/null 2>&1; then
     import -window root "$tmp" 2>/dev/null || true
   fi
   if [[ ! -s "$tmp" ]]; then
-    # Playwright fallback (headless chrome) — always works in cloud VM
-    # Prefer ops shot; ANVI_SHOT_URL can override.
-    node -e "
+    # Fast headless fallback (10s cap) — only if desktop grab failed.
+    timeout 20s node -e "
 const { chromium } = require('playwright-core');
 (async () => {
   const browser = await chromium.launch({
@@ -196,8 +209,8 @@ const { chromium } = require('playwright-core');
   });
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
   const url = process.env.ANVI_SHOT_URL || '${OPS_URL}';
-  await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
-  await page.waitForTimeout(1500);
+  await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
+  await page.waitForTimeout(1200);
   await page.screenshot({ path: '/tmp/anvi-shot-raw.png', fullPage: false });
   await browser.close();
 })().catch((e) => { console.error(e); process.exit(1); });
@@ -272,54 +285,58 @@ chrome_common_args() {
 }
 
 # Open BOTH screens as two Chrome windows (ops + guest). Always required.
+# HARD: --new-window, frontmost maximized unlocked /ops — user presses nothing.
 open_or_refresh_chrome() {
   resolve_chrome || return 1
   resolve_targets
   chrome_common_args
 
-  # Launch/refocus TWO windows so both screens are visible without continue/next.
+  # Always force a dedicated NEW WINDOW for unlocked ops (frontmost).
   nohup "$CHROME_BIN" "${CHROME_COMMON[@]}" \
-    --window-size=1280,900 --window-position=20,40 \
+    --window-size=1600,1000 --window-position=20,20 \
+    --start-maximized \
     --new-window "$OPS_URL" \
     >>/tmp/chrome-anvi-live.log 2>&1 &
-  sleep 1.6
-  nohup "$CHROME_BIN" "${CHROME_COMMON[@]}" \
-    --window-size=1280,900 --window-position=340,80 \
-    --new-window "$GUEST_URL" \
-    >>/tmp/chrome-anvi-live.log 2>&1 &
-  sleep 2.4
+  sleep 2.2
 
+  local ops_wid=""
   if command -v xdotool >/dev/null 2>&1; then
-    local wids ops_wid guest_wid
-    mapfile -t wids < <(xdotool search --onlyvisible --class 'google-chrome|Google-chrome|chromium' 2>/dev/null || true)
-    # Navigate existing windows if Chrome reused a single process window
-    if [[ ${#wids[@]} -ge 1 ]]; then
-      ops_wid="${wids[0]}"
+    ops_wid="$(xdotool search --onlyvisible --class 'google-chrome|Google-chrome|chromium' 2>/dev/null | tail -1 || true)"
+    if [[ -n "$ops_wid" ]]; then
       focus_maximize "$ops_wid"
       navigate_and_reload "$ops_wid" "$OPS_URL"
-    fi
-    if [[ ${#wids[@]} -ge 2 ]]; then
-      guest_wid="${wids[1]}"
-      focus_maximize "$guest_wid"
-      navigate_and_reload "$guest_wid" "$GUEST_URL"
-      # Bring ops frontmost for shot.jpg
-      focus_maximize "$ops_wid"
-      navigate_and_reload "$ops_wid" "$OPS_URL"
-    elif [[ ${#wids[@]} -eq 1 ]]; then
-      # Single window: tab1 ops, tab2 guest
-      focus_maximize "$ops_wid"
-      xdotool key --window "$ops_wid" --clearmodifiers ctrl+1 2>/dev/null || true
-      sleep 0.15
-      navigate_and_reload "$ops_wid" "$OPS_URL"
-      xdotool key --window "$ops_wid" --clearmodifiers ctrl+t 2>/dev/null || true
-      sleep 0.2
-      navigate_and_reload "$ops_wid" "$GUEST_URL"
-      xdotool key --window "$ops_wid" --clearmodifiers ctrl+1 2>/dev/null || true
       focus_maximize "$ops_wid"
     fi
   fi
 
-  echo "[live:refresh] opened Chrome → ops + guest home (both required)"
+  # Second NEW WINDOW for guest home.
+  nohup "$CHROME_BIN" "${CHROME_COMMON[@]}" \
+    --window-size=1280,900 --window-position=280,80 \
+    --new-window "$GUEST_URL" \
+    >>/tmp/chrome-anvi-live.log 2>&1 &
+  sleep 2.0
+
+  if command -v xdotool >/dev/null 2>&1; then
+    local wids guest_wid
+    mapfile -t wids < <(xdotool search --onlyvisible --class 'google-chrome|Google-chrome|chromium' 2>/dev/null || true)
+    if [[ ${#wids[@]} -ge 2 ]]; then
+      guest_wid="${wids[-1]}"
+      focus_maximize "$guest_wid"
+      navigate_and_reload "$guest_wid" "$GUEST_URL"
+    fi
+    # Ops frontmost for shot.jpg + Try Live visibility
+    if [[ -n "$ops_wid" ]]; then
+      focus_maximize "$ops_wid"
+      navigate_and_reload "$ops_wid" "$OPS_URL"
+      focus_maximize "$ops_wid"
+    else
+      ops_wid="$(xdotool search --onlyvisible --class 'google-chrome|Google-chrome|chromium' 2>/dev/null | head -1 || true)"
+      focus_maximize "${ops_wid:-}"
+      navigate_and_reload "${ops_wid:-}" "$OPS_URL"
+    fi
+  fi
+
+  echo "[live:refresh] opened Chrome --new-window → ops + guest (user presses nothing)"
   echo "[live:refresh]   ops:   $OPS_URL"
   echo "[live:refresh]   guest: $GUEST_URL"
 }

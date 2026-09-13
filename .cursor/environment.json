@@ -1,0 +1,22 @@
+{
+  "name": "ANVI GRAND",
+  "install": "npm ci",
+  "terminals": [
+    {
+      "name": "Next.js",
+      "command": "npm run dev",
+      "description": "ANVI GRAND Next.js app on http://localhost:3947 (guest site + /ops)."
+    },
+    {
+      "name": "Ops keep-alive",
+      "command": "npm run ops:keep-alive:loop",
+      "description": "Watchdog: restarts Next + Cloudflare tunnel if dead; rewrites docs/public-url.md."
+    }
+  ],
+  "ports": [
+    {
+      "name": "web",
+      "port": 3947
+    }
+  ]
+}

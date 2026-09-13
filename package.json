@@ -12,6 +12,8 @@
     "live:open": "bash scripts/live-open.sh open",
     "live:restart": "bash scripts/live-open.sh restart",
     "live:ops-windows": "bash scripts/ops-windows-public.sh",
+    "ops:keep-alive": "bash scripts/ops-keep-alive.sh once",
+    "ops:keep-alive:loop": "bash scripts/ops-keep-alive.sh loop",
     "lint": "eslint"
   },
   "dependencies": {

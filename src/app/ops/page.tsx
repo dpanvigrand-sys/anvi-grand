@@ -142,8 +142,11 @@ export default async function OpsHomePage() {
         <Link href="/ops/admin/food" className="font-semibold text-[var(--ag-red)] underline">
           Menu (Food) — Add / Edit →
         </Link>
-        <Link href="/ops/admin/settings" className="text-[var(--ag-red)] underline">
-          Ops settings →
+        <Link href="/ops/accounts" className="text-[var(--ag-red)] underline">
+          Accounts.1 →
+        </Link>
+        <Link href="/ops/admin/bookings" className="text-[var(--ag-red)] underline">
+          Bookings reports →
         </Link>
         <Link href="/ops/admin/venue-bookings" className="text-[var(--ag-red)] underline">
           Venue bookings ledger →
@@ -153,6 +156,9 @@ export default async function OpsHomePage() {
         </Link>
         <Link href="/ops/outward" className="text-[var(--ag-red)] underline">
           Outward →
+        </Link>
+        <Link href="/ops/admin/settings" className="text-[var(--ag-red)] underline">
+          Ops settings →
         </Link>
       </div>
     </div>
