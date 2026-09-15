@@ -22,13 +22,20 @@ const taskAreas = ['RECEPTION', 'KITCHEN', 'MANAGER', 'SERVER', 'SUPPLIER', 'STO
 const taskStatuses = ['OPEN', 'IN_PROGRESS', 'DONE', 'CANCELLED'];
 const masterTabs = [['ROOM', 'Rooms'], ['BANQUET', 'Banquet Halls'], ['FOOD', 'Restaurant Menu']];
 const systemPlan = [
-  ['Reception', '2 computers', 'A4 laser/inkjet + 80mm thermal', 'Room booking, check-in slip, check-out final bill, advance receipts and guest ID handling.'],
-  ['Restaurant Billing Counter', '1 touch computer', '80mm thermal bill printer', 'Table bill, parcel bill, payment receipt, GST summary and cashier closing.'],
-  ['Kitchen', '1 KOT display or small computer', '80mm KOT thermal printer', 'Food order tickets by table, server and preparation notes.'],
-  ['Store Room', '1 basic computer', 'A4 printer optional', 'Grocery inward/outward, supplier bills, stock issue to kitchen and low-stock checks.'],
-  ['Banquet / Manager Desk', '1 computer shared by manager', 'A4 printer', 'Hall enquiry, function sheet, menu plan, advance receipt and final event invoice.'],
-  ['Accounts / Owner', '1 computer or laptop', 'A4 printer', 'Daily sales, GST summaries, pending balances, expenses and audit review.'],
-  ['Housekeeping', 'Mobile/tablet or shared reception system', 'No printer required', 'Room cleaning, hot water, linen, room service and maintenance task status.']
+  ['Reception', '2 computers', 'Windows 11 Pro, Chrome/Edge, UPS required', 'A4 laser/inkjet + 80mm thermal', 'Room booking, check-in slip, check-out final bill, advance receipts and guest ID handling.'],
+  ['Restaurant Billing Counter', '1 touch computer', 'Windows 11 Pro touch PC, Chrome/Edge, USB/LAN printer drivers', '80mm thermal bill printer', 'Table bill, parcel bill, payment receipt, GST summary and cashier closing.'],
+  ['Kitchen', '1 KOT display or small computer', 'Android tablet or Windows mini PC in kiosk mode', '80mm KOT thermal printer', 'Food order tickets by table, server and preparation notes.'],
+  ['Store Room', '1 basic computer', 'Windows 11 Home/Pro or Ubuntu LTS with Chrome', 'A4 printer optional', 'Grocery inward/outward, supplier bills, stock issue to kitchen and low-stock checks.'],
+  ['Banquet / Manager Desk', '1 computer shared by manager', 'Windows 11 Pro laptop/desktop, Chrome/Edge', 'A4 printer', 'Hall enquiry, function sheet, menu plan, advance receipt and final event invoice.'],
+  ['Accounts / Owner', '1 computer or laptop', 'Windows 11 Pro recommended; macOS okay for owner review', 'A4 printer', 'Daily sales, GST summaries, pending balances, expenses and audit review.'],
+  ['Housekeeping', 'Mobile/tablet or shared reception system', 'Android phone/tablet preferred; Windows shared PC optional', 'No printer required', 'Room cleaning, hot water, linen, room service and maintenance task status.'],
+  ['Main Local Server', '1 dedicated mini PC if multi-counter grows', 'Ubuntu Server 24.04 LTS or Windows 11 Pro; fixed IP and daily backup', 'No direct printer required', 'Runs database/app locally for all counters when internet is not dependable.']
+];
+const osPlan = [
+  ['Default Counter OS', 'Windows 11 Pro', 'Best for printer drivers, billing counters, A4 printers, thermal printers and staff familiarity.'],
+  ['Kitchen / Housekeeping', 'Android tablet or Windows kiosk', 'Simple touch operation, less typing, easy wall-mounted KOT or task screen.'],
+  ['Server Option', 'Ubuntu Server LTS', 'Stable for future central database/server PC; owner should keep one trained technician for maintenance.'],
+  ['Browser Standard', 'Chrome or Edge', 'Same browser on every system keeps UI and print layout consistent.']
 ];
 const printerPlan = [
   ['A4 Print', 'Room confirmation, check-in form, check-out final bill, banquet quotation, banquet final invoice, store reports and accounts reports.'],
@@ -457,9 +464,18 @@ export default function HospitalityView() {
             </div>
             <div className="table-scroll">
               <table className="history-table hospitality-table">
-                <thead><tr><th>Area</th><th>Systems Needed</th><th>Printer</th><th>Daily Use</th></tr></thead>
-                <tbody>{systemPlan.map(([area, systems, printer, use]) => <tr key={area}><td><strong>{area}</strong></td><td>{systems}</td><td>{printer}</td><td>{use}</td></tr>)}</tbody>
+                <thead><tr><th>Area</th><th>Systems Needed</th><th>Operating System</th><th>Printer</th><th>Daily Use</th></tr></thead>
+                <tbody>{systemPlan.map(([area, systems, os, printer, use]) => <tr key={area}><td><strong>{area}</strong></td><td>{systems}</td><td>{os}</td><td>{printer}</td><td>{use}</td></tr>)}</tbody>
               </table>
+            </div>
+            <div className="anvi-ops-grid">
+              {osPlan.map(([title, os, detail]) => (
+                <article className="panel hospitality-kpi anvi-ops-guide-card" key={title}>
+                  <span>{title}</span>
+                  <strong>{os}</strong>
+                  <p>{detail}</p>
+                </article>
+              ))}
             </div>
             <div className="anvi-ops-grid">
               {printerPlan.map(([title, detail]) => (
