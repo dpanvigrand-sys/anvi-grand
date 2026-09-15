@@ -1,5 +1,5 @@
 {
-  "name": "badizo-frontend",
+  "name": "anvi-grand-ops-frontend",
   "version": "1.0.0",
   "private": true,
   "dependencies": {
@@ -17,8 +17,7 @@
   "scripts": {
     "start": "react-scripts start",
     "test": "react-scripts test",
-    "build": "react-scripts build",
-    "postbuild": "node scripts/open-electron-after-build.js"
+    "build": "react-scripts build"
   },
   "browserslist": {
     "production": [

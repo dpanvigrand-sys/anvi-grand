@@ -1118,11 +1118,6 @@ export async function fetchAuditLogs(limit = 100) {
   return Array.isArray(data) ? data : [];
 }
 
-export async function fetchHospitalityPublic() {
-  const { data } = await api.get('/hospitality/public');
-  return data;
-}
-
 export async function fetchHospitalitySummary() {
   const { data } = await api.get('/hospitality/summary');
   return data;
@@ -1160,11 +1155,6 @@ export async function fetchHospitalityBookings({ from, to, type = 'ALL' } = {}) 
 
 export async function saveHospitalityBooking(payload) {
   const { data } = await api.post('/hospitality/bookings', payload);
-  return data;
-}
-
-export async function saveHospitalityPublicBooking(payload) {
-  const { data } = await api.post('/hospitality/public/bookings', payload);
   return data;
 }
 

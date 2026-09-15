@@ -207,13 +207,9 @@ router.use(async (_req, _res, next) => {
 });
 
 router.get('/public', async (_req, res) => {
-  const [content] = await db.query(
-    `SELECT id, content_type, title, description, image_url, price, unit_label, capacity, display_order
-     FROM hospitality_content
-     WHERE is_active = 1
-     ORDER BY content_type, display_order, id`
-  );
-  res.json({ profile: await loadProfile(), content });
+  res.status(410).json({
+    error: 'ANVI GRAND public website is disabled. Please use the operations app login.'
+  });
 });
 
 async function saveBookingRecord(req, res, createdBy = '') {
@@ -274,9 +270,10 @@ async function saveBookingRecord(req, res, createdBy = '') {
   res.json({ success: true, id: result.insertId });
 }
 
-router.post('/public/bookings', async (req, res) => {
-  req.body = { ...(req.body || {}), status: 'ENQUIRY' };
-  return saveBookingRecord(req, res, 'website');
+router.post('/public/bookings', async (_req, res) => {
+  res.status(410).json({
+    error: 'ANVI GRAND public website booking is disabled. Please use the operations app login.'
+  });
 });
 
 router.use(authenticate, authorize('SERVER', 'ADMIN'));

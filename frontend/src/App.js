@@ -6,7 +6,6 @@ import CounterCashLedgerView from './components/CounterCashLedgerView';
 import CounterClosingView from './components/CounterClosingView';
 import DashboardView from './components/DashboardView';
 import GatePassView from './components/GatePassView';
-import AnviGrandWebsite from './components/AnviGrandWebsite';
 import HospitalityView from './components/HospitalityView';
 import InwardEntryView from './components/InwardEntryView';
 import InventoryDashboardView from './components/InventoryDashboardView';
@@ -183,7 +182,12 @@ export default function App() {
     };
   }, [currentUser]);
   if (pathname === '/anvi-grand') {
-    return <AnviGrandWebsite />;
+    window.location.replace('/anvi-grand-admin');
+    return null;
+  }
+  if (!isAnviAdminRoute) {
+    window.location.replace('/anvi-grand-admin');
+    return null;
   }
 
   if (!currentUser || (isAnviAdminRoute && !canUseAnviOps(currentUser))) {
@@ -216,8 +220,6 @@ export default function App() {
             <h1>Hospitality Admin</h1>
           </div>
           <nav>
-            <a className="secondary-button hospitality-preview-link" href="/anvi-grand" target="_blank" rel="noreferrer">Open Website</a>
-            <a className="secondary-button hospitality-preview-link" href="/">Open BADIZO POS</a>
             <button className="secondary-button hospitality-preview-link" type="button" onClick={handleLogout}>Logout ({sessionLabel})</button>
           </nav>
         </header>
