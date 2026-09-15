@@ -2,9 +2,9 @@
 
 Guest site + staff ops share one public base via Cloudflare quick tunnel → Next on `:3947`.
 
-**Current base (auto-healed 2026-09-15T16:53Z):**
+**Current base (auto-healed 2026-09-15T17:12Z):**
 
-https://kills-america-loops-douglas.trycloudflare.com
+https://instructions-assumes-instrumentation-melissa.trycloudflare.com
 
 > Quick tunnels recycle when `cloudflared` restarts. Keep-alive (`scripts/ops-keep-alive.sh`) only restarts when the tunnel **process** is dead — not on transient DNS/curl failures. Hostname may rotate after a real restart.
 
@@ -23,20 +23,15 @@ Password: `anviops2026`
 
 | Screen | URL |
 |--------|-----|
-| Guest home | https://kills-america-loops-douglas.trycloudflare.com/ |
-| Ops hub (Quick edit: Photos · Menu · Rooms · Venues) | https://kills-america-loops-douglas.trycloudflare.com/ops?unlock=anviops2026 |
-| Photos — Add / Edit / Delete | https://kills-america-loops-douglas.trycloudflare.com/ops/admin/photos?unlock=anviops2026 |
-| Menu — Add / Edit / Delete | https://kills-america-loops-douglas.trycloudflare.com/ops/admin/food?unlock=anviops2026 |
-| Rooms prices — Add / Edit / Delete | https://kills-america-loops-douglas.trycloudflare.com/ops/admin/rooms?unlock=anviops2026 |
-| Banquet hall price (Royal Grand) | https://kills-america-loops-douglas.trycloudflare.com/ops/admin/venues?unlock=anviops2026#venue-royal-grand-ballroom |
-| Mini / party hall price | https://kills-america-loops-douglas.trycloudflare.com/ops/admin/venues?unlock=anviops2026#venue-imperial-ruby-mini |
-| Accounts.1 | https://kills-america-loops-douglas.trycloudflare.com/ops/accounts?unlock=anviops2026 |
-| Bookings reports | https://kills-america-loops-douglas.trycloudflare.com/ops/admin/bookings?unlock=anviops2026 |
-| Venue bookings | https://kills-america-loops-douglas.trycloudflare.com/ops/admin/venue-bookings?unlock=anviops2026 |
-| Inward | https://kills-america-loops-douglas.trycloudflare.com/ops/inward?unlock=anviops2026 |
-| Outward | https://kills-america-loops-douglas.trycloudflare.com/ops/outward?unlock=anviops2026 |
-
-Staff map: `docs/cms-where.md`
+| Guest home | https://instructions-assumes-instrumentation-melissa.trycloudflare.com/ |
+| Ops hub (Quick edit: Photos + Menu) | https://instructions-assumes-instrumentation-melissa.trycloudflare.com/ops?unlock=anviops2026 |
+| Photos — Add / Edit | https://instructions-assumes-instrumentation-melissa.trycloudflare.com/ops/admin/photos?unlock=anviops2026 |
+| Menu (Food) — Add / Edit | https://instructions-assumes-instrumentation-melissa.trycloudflare.com/ops/admin/food?unlock=anviops2026 |
+| Accounts.1 | https://instructions-assumes-instrumentation-melissa.trycloudflare.com/ops/accounts?unlock=anviops2026 |
+| Bookings reports | https://instructions-assumes-instrumentation-melissa.trycloudflare.com/ops/admin/bookings?unlock=anviops2026 |
+| Venue bookings | https://instructions-assumes-instrumentation-melissa.trycloudflare.com/ops/admin/venue-bookings?unlock=anviops2026 |
+| Inward | https://instructions-assumes-instrumentation-melissa.trycloudflare.com/ops/inward?unlock=anviops2026 |
+| Outward | https://instructions-assumes-instrumentation-melissa.trycloudflare.com/ops/outward?unlock=anviops2026 |
 
 ## Auto browser refresh
 

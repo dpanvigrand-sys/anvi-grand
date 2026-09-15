@@ -27,7 +27,7 @@ Hub footer also links Photos, Menu, Rooms prices, Venues / halls prices.
 | **Mini / party hall price** (Imperial Ruby) | `/ops/admin/venues?unlock=anviops2026#venue-imperial-ruby-mini` | `/party-hall` |
 
 Local base: `http://localhost:3947`  
-Public base: see `docs/public-url.md` (Cloudflare tunnel hostname may rotate).
+Public base (current): `https://instructions-assumes-instrumentation-melissa.trycloudflare.com` — see `docs/public-url.md` (hostname may rotate).
 
 ## Actions on each screen
 
