@@ -20,7 +20,7 @@ const BUSINESS_PROFILE = {
 const CONTENT_TYPES = new Set(['GALLERY', 'FOOD', 'ROOM', 'BANQUET']);
 const BOOKING_TYPES = new Set(['ROOM', 'FOOD', 'BANQUET']);
 const BOOKING_STATUS = new Set(['ENQUIRY', 'ADVANCE', 'CONFIRMED', 'CHECKED_IN', 'COMPLETED', 'CANCELLED']);
-const TASK_AREAS = new Set(['RECEPTION', 'KITCHEN', 'MANAGER', 'SERVER', 'SUPPLIER', 'STORE', 'HOUSEKEEPING', 'LAUNDRY', 'ACCOUNTS']);
+const TASK_AREAS = new Set(['RECEPTION', 'KITCHEN', 'MANAGER', 'SERVER', 'SUPPLIER', 'STORE', 'HOUSEKEEPING', 'LAUNDRY', 'DOBI', 'SECURITY', 'TAKEAWAY', 'ACCOUNTS']);
 const TASK_STATUS = new Set(['OPEN', 'IN_PROGRESS', 'DONE', 'CANCELLED']);
 const STOCK_DIRECTIONS = new Set(['INWARD', 'OUTWARD']);
 
@@ -153,7 +153,7 @@ async function ensureSchema() {
         CREATE TABLE IF NOT EXISTS hospitality_ops_tasks (
           id BIGINT AUTO_INCREMENT PRIMARY KEY,
           task_date DATE NOT NULL,
-          area ENUM('RECEPTION','KITCHEN','MANAGER','SERVER','SUPPLIER','STORE','HOUSEKEEPING','LAUNDRY','ACCOUNTS') NOT NULL,
+          area ENUM('RECEPTION','KITCHEN','MANAGER','SERVER','SUPPLIER','STORE','HOUSEKEEPING','LAUNDRY','DOBI','SECURITY','TAKEAWAY','ACCOUNTS') NOT NULL,
           title VARCHAR(180) NOT NULL,
           assigned_to VARCHAR(120) DEFAULT '',
           amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
@@ -182,6 +182,10 @@ async function ensureSchema() {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           INDEX idx_hospitality_stock_date_direction (movement_date, direction)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+      await db.query(`
+        ALTER TABLE hospitality_ops_tasks
+        MODIFY COLUMN area ENUM('RECEPTION','KITCHEN','MANAGER','SERVER','SUPPLIER','STORE','HOUSEKEEPING','LAUNDRY','DOBI','SECURITY','TAKEAWAY','ACCOUNTS') NOT NULL
       `);
 
       await db.query(

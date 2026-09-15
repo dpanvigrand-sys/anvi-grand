@@ -18,7 +18,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 
 const bookingTypes = ['ALL', 'ROOM', 'BANQUET', 'FOOD'];
 const bookingStatuses = ['ENQUIRY', 'ADVANCE', 'CONFIRMED', 'CHECKED_IN', 'COMPLETED', 'CANCELLED'];
-const taskAreas = ['RECEPTION', 'KITCHEN', 'MANAGER', 'SERVER', 'SUPPLIER', 'STORE', 'HOUSEKEEPING', 'LAUNDRY', 'ACCOUNTS'];
+const taskAreas = ['RECEPTION', 'KITCHEN', 'MANAGER', 'SERVER', 'SUPPLIER', 'STORE', 'HOUSEKEEPING', 'LAUNDRY', 'DOBI', 'SECURITY', 'TAKEAWAY', 'ACCOUNTS'];
 const taskStatuses = ['OPEN', 'IN_PROGRESS', 'DONE', 'CANCELLED'];
 const masterTabs = [['ROOM', 'Rooms'], ['BANQUET', 'Banquet Halls'], ['FOOD', 'Restaurant Menu']];
 const systemPlan = [
@@ -41,6 +41,27 @@ const printerPlan = [
   ['A4 Print', 'Room confirmation, check-in form, check-out final bill, banquet quotation, banquet final invoice, store reports and accounts reports.'],
   ['Thermal Print', 'Restaurant table bill, KOT, parcel receipt, quick advance receipt and small payment slip.'],
   ['No Print', 'Kitchen display, housekeeping tasks and manager dashboard can stay screen-only unless paper is required.']
+];
+const operatingSoftwarePlan = [
+  ['Admin / Owner', 'Admin Control', 'Dashboard, users, rates, GST reports, balances, audit, settings, backups', 'A4 reports', 'Daily sales SMS, high balance alert, backup alert'],
+  ['Reception', 'Front Desk Software', 'Room booking, check-in, check-out, guest ID, room facilities, advance/balance, A4 final bill', 'A4 + thermal receipt', 'Booking confirmation, check-in welcome, balance reminder'],
+  ['Kitchen', 'KOT Software', 'Food order queue, table, server ID, preparation status, parcel/takeaway token', 'Thermal KOT', 'Kitchen delay alert to manager'],
+  ['Food Billing', 'Restaurant POS', 'Dine-in table bill, takeaway bill, GST, payment mode, cashier closing', '80mm thermal bill', 'Payment receipt SMS/WhatsApp'],
+  ['Dobi & Housekeeping', 'Laundry / Room Service', 'Linen issue/return, room cleaning, hot water, towel/bed sheet status, room service task', 'Screen only; A4 only for monthly report', 'Room ready alert to reception'],
+  ['Security', 'Gate & Visitor Log', 'Guest vehicle, supplier entry, banquet crowd, night audit note, key handover', 'A4 visitor/day report optional', 'Visitor/incident alert to manager'],
+  ['Takeaway', 'Parcel Counter', 'Token number, customer phone, food items, payment, kitchen KOT, parcel delivery status', 'Thermal token + thermal bill', 'Order ready WhatsApp/SMS'],
+  ['Store', 'Store & Grocery', 'Grocery inward/outward, supplier bill, kitchen issue, stock value, low stock', 'A4 inward/outward report', 'Low stock and supplier due alert'],
+  ['Server / Waiter', 'Table Order Pad', 'Table order, item notes, server ID, KOT push, bill request', 'No direct printer', 'Order status visible to kitchen/billing'],
+  ['Accounts', 'Accounts Desk', 'GST summary, payment modes, cash/card/UPI split, pending balances, expense tasks', 'A4 reports', 'Daily summary to owner']
+];
+const alertTemplates = [
+  ['Booking Confirmation', 'WhatsApp/SMS', 'Dear guest, your ANVI GRAND booking is confirmed. Advance received: {advance}. Balance: {balance}.'],
+  ['Check-in Welcome', 'WhatsApp', 'Welcome to ANVI GRAND. WiFi, hot water and room service details are available at reception.'],
+  ['Restaurant Bill Paid', 'SMS/WhatsApp', 'Thank you for dining at CHIGURU. Bill amount: {total}. Payment: {payment_mode}.'],
+  ['Takeaway Ready', 'WhatsApp/SMS', 'Your CHIGURU takeaway order is ready. Please collect from parcel counter.'],
+  ['Room Ready', 'Internal Alert', 'Room {room} cleaned and ready. Housekeeping updated the status.'],
+  ['Low Stock', 'Internal Alert', '{item} stock is low. Store room should raise purchase/inward entry.'],
+  ['Security Incident', 'WhatsApp to Manager', 'Security note: {details}. Please review at manager desk.']
 ];
 
 const contentBlank = { id: null, content_type: 'ROOM', title: '', description: '', image_url: '', price: '', unit_label: '', capacity: '', display_order: 0, is_active: true };
@@ -208,6 +229,26 @@ export default function HospitalityView() {
     setStockForm({ ...stockBlank, ...row });
   }
 
+  function startDepartmentTask(area, title) {
+    setActiveSection('tasks');
+    setTaskForm({ ...taskBlank, area, title, assigned_to: area, notes: 'Created from Operating Software module.' });
+  }
+
+  function openWhatsAppAlert(templateText = '') {
+    const phone = (bookingForm.customer_phone || profileForm.admin_phone || profileForm.phone || '').replace(/[^\d]/g, '');
+    const balance = Math.max(Number(bookingForm.total_amount || 0) - Number(bookingForm.advance_amount || 0), 0);
+    const text = templateText
+      .replace('{advance}', formatMoney(bookingForm.advance_amount))
+      .replace('{balance}', formatMoney(balance))
+      .replace('{total}', formatMoney(bookingForm.total_amount))
+      .replace('{payment_mode}', bookingForm.payment_mode || 'Cash')
+      .replace('{room}', bookingForm.table_number || bookingForm.item_title || '')
+      .replace('{item}', stockForm.item_name || '')
+      .replace('{details}', taskForm.title || taskForm.notes || '');
+    const url = `https://wa.me/${phone || ''}?text=${encodeURIComponent(text || 'ANVI GRAND update')}`;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  }
+
   function printBooking(row, purpose = 'Final Bill', format = row.print_format || 'A4') {
     const profile = profileForm || {};
     const tax = taxBreakup(row);
@@ -345,6 +386,7 @@ export default function HospitalityView() {
     ['dashboard', 'Dashboard'],
     ['bookings', 'Bookings'],
     ['systems', 'Systems & Printers'],
+    ['software', 'Operating Software'],
     ['masters', 'Rooms / Halls / Menu'],
     ['restaurant', 'Restaurant Store'],
     ['tasks', 'Maintenance Tasks'],
@@ -502,6 +544,42 @@ export default function HospitalityView() {
                 <h3>Indian Hospitality Fit</h3>
                 <p>Keep reception calm, print formats clean, advance/balance visible, food preferences clear and guest-facing notes respectful for family functions and business guests.</p>
               </article>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {activeSection === 'software' && (
+        <section className="panel">
+          <div className="panel-header green"><h2 className="panel-title">Role Wise Operating Software</h2></div>
+          <div className="panel-body hospitality-section-body">
+            <div className="anvi-ops-note">
+              Every department gets a simple screen: staff should see only their daily work, printer output, and alert action. Real automatic SMS/WhatsApp sending needs provider keys later; until then WhatsApp quick-send links and message templates are ready.
+            </div>
+            <div className="table-scroll">
+              <table className="history-table hospitality-table">
+                <thead><tr><th>System</th><th>Software Screen</th><th>Features</th><th>Printer Output</th><th>Alerts</th><th>Open Work</th></tr></thead>
+                <tbody>{operatingSoftwarePlan.map(([system, screen, features, output, alerts]) => (
+                  <tr key={system}>
+                    <td><strong>{system}</strong></td>
+                    <td>{screen}</td>
+                    <td>{features}</td>
+                    <td>{output}</td>
+                    <td>{alerts}</td>
+                    <td><button className="secondary-button" type="button" onClick={() => startDepartmentTask(system.includes('Kitchen') ? 'KITCHEN' : system.includes('Dobi') ? 'DOBI' : system.includes('Housekeeping') ? 'HOUSEKEEPING' : system.includes('Security') ? 'SECURITY' : system.includes('Takeaway') ? 'TAKEAWAY' : system.includes('Store') ? 'STORE' : system.includes('Food') ? 'SERVER' : system.includes('Reception') ? 'RECEPTION' : system.includes('Accounts') ? 'ACCOUNTS' : 'MANAGER', `${screen} setup / daily work`)}>Task</button></td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+            <div className="anvi-ops-grid">
+              {alertTemplates.map(([name, channel, text]) => (
+                <article className="panel anvi-ops-guide-card" key={name}>
+                  <h3>{name}</h3>
+                  <p><strong>{channel}</strong></p>
+                  <p>{text}</p>
+                  <button className="secondary-button" type="button" onClick={() => openWhatsAppAlert(text)}>WhatsApp Draft</button>
+                </article>
+              ))}
             </div>
           </div>
         </section>
