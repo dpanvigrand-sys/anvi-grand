@@ -128,13 +128,6 @@ export function SiteHeader({ receptionPhone = "7569494949" }: Props) {
                 >
                   Book Now
                 </Link>
-                <Link
-                  href="/ops"
-                  onClick={() => setOpen(false)}
-                  className="mt-2 py-2 text-center text-sm text-[var(--ag-muted)]"
-                >
-                  Staff Ops
-                </Link>
               </nav>
             </SheetContent>
           </Sheet>

@@ -125,15 +125,14 @@ export function SiteFooter({
             <Link href="/contact" className="hover:text-[#ffb4b4]">
               Contact & map
             </Link>
-            <Link href="/ops" className="hover:text-[#ffb4b4]">
-              Staff ops
+            <Link href="/facilities" className="hover:text-[#ffb4b4]">
+              Facilities
             </Link>
           </div>
         </div>
       </div>
       <div className="border-t border-white/10 bg-black/20 px-5 py-5 text-center text-xs text-white/60 md:px-8">
-        © {new Date().getFullYear()} ANVI GRAND · Vijayawada · Demo password for
-        ops in README
+        © {new Date().getFullYear()} ANVI GRAND · Benz Circle, Eluru Road, Vijayawada
       </div>
     </footer>
   );
