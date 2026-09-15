@@ -93,9 +93,10 @@ Inline **Save ₹ + capacity**, full **Edit** (name, type, tagline, description,
 
 ## Photos — every website place
 
-- **Label everywhere:** **Photos — Add / Edit**
+- **Label everywhere:** **Photos — Add / Edit / Delete**
 - **Admin UI:** `/ops/admin/photos` — hub **Quick edit** (red-bordered primary card), Admin.1 first card, deep link `?unlock=anviops2026`
 - **Password:** `anviops2026`
+- **Staff map:** `docs/cms-where.md`
 - **Storage:** `data/media.json` (library) + write-through to `data/catalog.json` image fields
 - **Sync:** `POST /api/ops/media/sync` (or **Sync from website**) pulls every public placement into the library
 - **UI:** `src/components/ops/photo-manager.tsx` · page `src/app/ops/admin/photos/page.tsx`

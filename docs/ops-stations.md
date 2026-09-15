@@ -30,20 +30,22 @@ Keep the original 7 client desks and **add 2** for real hotel + restaurant + ban
 
 - **`/ops`** — Advanced multi-client station picker: 9 large cards with English role + job subtitle, live counts, alert strip + dismissible popup.
 - **Quick edit (top of hub, red-bordered primary cards):**
-  - **Photos — Add / Edit** → `/ops/admin/photos`
-  - **Menu (Food) — Add / Edit** → `/ops/admin/food`
-- Same two links also appear in the hub footer strip and as the **first two cards** on Admin.1 (`/ops/admin`). Restaurant Manager.1 also has **Menu (Food) — Add / Edit**.
+  - **Photos — Add / Edit / Delete** → `/ops/admin/photos`
+  - **Menu — Add / Edit / Delete** → `/ops/admin/food`
+  - **Rooms prices — Add / Edit / Delete** → `/ops/admin/rooms`
+  - **Venues / halls prices** → `/ops/admin/venues` (banquet + mini hall)
+- Same four links appear in the hub footer strip and as the **first four cards** on Admin.1 (`/ops/admin`). Restaurant Manager.1 also has **Menu — Add / Edit / Delete**.
 
 ## Deep links (existing tools — not rebuilt)
 
 | Need | Path | Where visible |
 |------|------|---------------|
-| **Photos — Add / Edit** | `/ops/admin/photos` | Hub Quick edit · Admin.1 first card · hub footer |
-| **Menu (Food) — Add / Edit** | `/ops/admin/food` | Hub Quick edit · Admin.1 second card · Manager.1 · hub footer |
+| **Photos — Add / Edit / Delete** | `/ops/admin/photos` | Hub Quick edit · Admin.1 · hub footer |
+| **Menu — Add / Edit / Delete** | `/ops/admin/food` | Hub Quick edit · Admin.1 · Manager.1 · hub footer |
+| **Rooms prices** | `/ops/admin/rooms` | Hub Quick edit · Admin.1 · hub footer |
+| **Venues / halls prices** (banquet + mini) | `/ops/admin/venues` | Hub Quick edit · Admin.1 · Banquet.1 · hub footer |
 | Rooms & food booking reports | `/ops/admin/bookings` | Admin.1 |
 | Venue bookings ledger | `/ops/admin/venue-bookings` | Admin.1 · Banquet.1 |
-| Venue rates | `/ops/admin/venues` | Admin.1 |
-| Rooms CMS | `/ops/admin/rooms` | Admin.1 |
 | Contacts | `/ops/admin/contacts` | Admin.1 · Reception.1 |
 | Inward / outward | `/ops/inward`, `/ops/outward` | Store.1 · hub footer |
 | Stock reports | `/ops/admin/stock-reports` | Admin.1 · Store.1 |
@@ -51,6 +53,8 @@ Keep the original 7 client desks and **add 2** for real hotel + restaurant + ban
 | Ops settings | `/ops/admin/settings` | Hub · Admin.1 |
 
 Unlock deep links: append `?unlock=anviops2026` (e.g. `/ops/admin/photos?unlock=anviops2026`).
+
+See also store/repo `docs/cms-where.md` for the staff “where to click” map.
 
 ## Alerts (OpsAlerts)
 

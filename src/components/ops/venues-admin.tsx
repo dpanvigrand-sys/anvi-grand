@@ -292,8 +292,10 @@ export function VenuesAdmin({ initialVenues }: Props) {
                         aria-label={`Capacity for ${venue.name}`}
                       />
                     </td>
-                    <td className="px-4 py-4 capitalize">
-                      {venue.type === "party-hall" ? "Party hall" : "Banquet"}
+                    <td className="px-4 py-4">
+                      {venue.type === "party-hall"
+                        ? "Mini / party hall"
+                        : "Banquet hall"}
                     </td>
                     <td className="px-4 py-4">
                       <div className="flex flex-wrap gap-2">

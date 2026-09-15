@@ -48,9 +48,9 @@ export default async function OpsHomePage() {
           Quick edit
         </h2>
         <p className="mt-1 text-sm text-[var(--ag-muted)]">
-          Primary CMS — add or edit website photos and the CHIGURU food menu from here.
+          Primary CMS — add, edit, or delete gallery photos, menu, room rates, and hall prices.
         </p>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           <Link
             href="/ops/admin/photos"
             className="group flex min-h-[140px] flex-col overflow-hidden border-2 border-[var(--ag-red)] bg-white transition hover:shadow-[0_8px_24px_rgba(139,0,0,0.12)]"
@@ -61,7 +61,7 @@ export default async function OpsHomePage() {
                 Admin CMS
               </p>
               <h3 className="mt-2 font-display text-2xl text-[var(--ag-ink)] group-hover:text-[var(--ag-red)] md:text-3xl">
-                Photos — Add / Edit
+                Photos — Add / Edit / Delete
               </h3>
               <p className="mt-2 text-sm text-[var(--ag-muted)]">
                 Gallery, hero, rooms, food & banquet images · /ops/admin/photos
@@ -78,10 +78,44 @@ export default async function OpsHomePage() {
                 Admin CMS · CHIGURU
               </p>
               <h3 className="mt-2 font-display text-2xl text-[var(--ag-ink)] group-hover:text-[var(--ag-red)] md:text-3xl">
-                Menu (Food) — Add / Edit
+                Menu — Add / Edit / Delete
               </h3>
               <p className="mt-2 text-sm text-[var(--ag-muted)]">
                 Dishes, prices, buffets · /ops/admin/food
+              </p>
+            </div>
+          </Link>
+          <Link
+            href="/ops/admin/rooms"
+            className="group flex min-h-[140px] flex-col overflow-hidden border-2 border-[var(--ag-red)] bg-white transition hover:shadow-[0_8px_24px_rgba(139,0,0,0.12)]"
+          >
+            <div className="h-2 w-full bg-[var(--ag-red)]" />
+            <div className="flex flex-1 flex-col justify-center p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ag-maroon)]">
+                Admin CMS · Rooms
+              </p>
+              <h3 className="mt-2 font-display text-2xl text-[var(--ag-ink)] group-hover:text-[var(--ag-red)] md:text-3xl">
+                Rooms prices — Add / Edit / Delete
+              </h3>
+              <p className="mt-2 text-sm text-[var(--ag-muted)]">
+                Nightly ₹ rates · /ops/admin/rooms
+              </p>
+            </div>
+          </Link>
+          <Link
+            href="/ops/admin/venues"
+            className="group flex min-h-[140px] flex-col overflow-hidden border-2 border-[var(--ag-red)] bg-white transition hover:shadow-[0_8px_24px_rgba(139,0,0,0.12)]"
+          >
+            <div className="h-2 w-full bg-[var(--ag-maroon)]" />
+            <div className="flex flex-1 flex-col justify-center p-5">
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ag-maroon)]">
+                Admin CMS · Halls
+              </p>
+              <h3 className="mt-2 font-display text-2xl text-[var(--ag-ink)] group-hover:text-[var(--ag-red)] md:text-3xl">
+                Venues / halls prices
+              </h3>
+              <p className="mt-2 text-sm text-[var(--ag-muted)]">
+                Banquet + mini hall ₹/day · /ops/admin/venues
               </p>
             </div>
           </Link>
@@ -137,10 +171,16 @@ export default async function OpsHomePage() {
 
       <div className="mt-8 flex flex-wrap gap-3 border border-[var(--ag-line)] bg-white p-4 text-sm">
         <Link href="/ops/admin/photos" className="font-semibold text-[var(--ag-red)] underline">
-          Photos — Add / Edit →
+          Photos — Add / Edit / Delete →
         </Link>
         <Link href="/ops/admin/food" className="font-semibold text-[var(--ag-red)] underline">
-          Menu (Food) — Add / Edit →
+          Menu — Add / Edit / Delete →
+        </Link>
+        <Link href="/ops/admin/rooms" className="font-semibold text-[var(--ag-red)] underline">
+          Rooms prices →
+        </Link>
+        <Link href="/ops/admin/venues" className="font-semibold text-[var(--ag-red)] underline">
+          Venues / halls prices →
         </Link>
         <Link href="/ops/accounts" className="text-[var(--ag-red)] underline">
           Accounts.1 →

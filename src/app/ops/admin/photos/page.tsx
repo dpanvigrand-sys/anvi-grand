@@ -38,7 +38,8 @@ export default async function AdminPhotosPage() {
       </p>
       <p className="mt-2 text-sm text-[var(--ag-muted)]">
         Entry: <code>/ops?unlock=anviops2026</code> →{" "}
-        <strong>Photos — Add / Edit</strong> (hub Quick edit or Admin.1).
+        <strong>Photos — Add / Edit / Delete</strong> (hub Quick edit or
+        Admin.1).
       </p>
       <div className="mt-8">
         <PhotoManager initialItems={items} />

@@ -29,7 +29,7 @@ export default async function AdminFoodPage() {
       </p>
       <p className="mt-2 text-sm text-[var(--ag-muted)]">
         Entry: <code>/ops?unlock=anviops2026</code> →{" "}
-        <strong>Menu (Food) — Add / Edit</strong> (hub Quick edit, Admin.1, or
+        <strong>Menu — Add / Edit / Delete</strong> (hub Quick edit, Admin.1, or
         Restaurant Manager).
       </p>
       <div className="mt-8">

@@ -28,23 +28,23 @@ export default async function AdminPage() {
       actions={[
         {
           href: "/ops/admin/photos",
-          title: "Photos — Add / Edit",
+          title: "Photos — Add / Edit / Delete",
           desc: "Gallery, hero, rooms, food & banquet images · primary CMS",
         },
         {
           href: "/ops/admin/food",
-          title: "Menu (Food) — Add / Edit",
-          desc: "CHIGURU dishes, prices, buffets · add / edit / delete",
+          title: "Menu — Add / Edit / Delete",
+          desc: "CHIGURU dishes, prices, buffets · full item fields",
         },
         {
           href: "/ops/admin/rooms",
-          title: "Rooms & prices",
-          desc: "Edit ₹ rates · add / delete rooms",
+          title: "Rooms prices — Add / Edit / Delete",
+          desc: "Nightly ₹ rates · add / edit / delete rooms",
         },
         {
           href: "/ops/admin/venues",
-          title: "Banquet / venues",
-          desc: "Hall ₹/day · capacity",
+          title: "Venues / halls prices — Add / Edit / Delete",
+          desc: "Banquet (Royal Grand) + mini hall ₹/day · capacity",
         },
         {
           href: "/ops/admin/venue-bookings",

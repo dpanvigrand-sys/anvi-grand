@@ -27,8 +27,8 @@ export default async function ManagerPage() {
       actions={[
         {
           href: "/ops/admin/food",
-          title: "Menu (Food) — Add / Edit",
-          desc: "CHIGURU dishes, prices, buffets · add / edit / delete",
+          title: "Menu — Add / Edit / Delete",
+          desc: "CHIGURU dishes, prices, buffets · full item fields",
         },
         {
           href: "/ops/admin/bookings",
