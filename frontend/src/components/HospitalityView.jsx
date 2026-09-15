@@ -14,7 +14,27 @@ import {
   saveHospitalityTask
 } from '../api/client';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const localIso = (date) => {
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${date.getFullYear()}-${month}-${day}`;
+};
+const today = () => localIso(new Date());
+const toDate = (value) => new Date(`${value || today()}T00:00:00`);
+const toIso = (date) => localIso(date);
+const addDays = (value, days) => {
+  const date = toDate(value);
+  date.setDate(date.getDate() + days);
+  return toIso(date);
+};
+const monthStart = (value) => {
+  const date = toDate(value);
+  return toIso(new Date(date.getFullYear(), date.getMonth(), 1));
+};
+const monthEnd = (value) => {
+  const date = toDate(value);
+  return toIso(new Date(date.getFullYear(), date.getMonth() + 1, 0));
+};
 
 const bookingTypes = ['ALL', 'ROOM', 'BANQUET', 'FOOD'];
 const bookingStatuses = ['ENQUIRY', 'ADVANCE', 'CONFIRMED', 'CHECKED_IN', 'COMPLETED', 'CANCELLED'];
@@ -143,7 +163,9 @@ export default function HospitalityView() {
   const [activeMasterType, setActiveMasterType] = useState('ROOM');
   const [summary, setSummary] = useState(null);
   const [masterRows, setMasterRows] = useState([]);
+  const [roomRows, setRoomRows] = useState([]);
   const [bookings, setBookings] = useState([]);
+  const [calendarRows, setCalendarRows] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [stockRows, setStockRows] = useState([]);
   const [contentForm, setContentForm] = useState(contentBlank);
@@ -152,12 +174,14 @@ export default function HospitalityView() {
   const [stockForm, setStockForm] = useState(stockBlank);
   const [profileForm, setProfileForm] = useState(profileBlank);
   const [filters, setFilters] = useState({ from: today(), to: today(), bookingType: 'ALL' });
+  const [calendarDate, setCalendarDate] = useState(today());
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
-  useEffect(() => { loadSummary(); }, []);
+  useEffect(() => { loadSummary(); loadRoomMasters(); }, []);
   useEffect(() => { loadMaster(activeMasterType); }, [activeMasterType]);
   useEffect(() => { loadWork(); }, [filters.from, filters.to, filters.bookingType]);
+  useEffect(() => { loadCalendar(); }, [calendarDate]);
 
   async function loadSummary() {
     try {
@@ -174,6 +198,22 @@ export default function HospitalityView() {
       setMasterRows(await fetchHospitalityContent(type));
     } catch (_err) {
       setMasterRows([]);
+    }
+  }
+
+  async function loadRoomMasters() {
+    try {
+      setRoomRows(await fetchHospitalityContent('ROOM'));
+    } catch (_err) {
+      setRoomRows([]);
+    }
+  }
+
+  async function loadCalendar() {
+    try {
+      setCalendarRows(await fetchHospitalityBookings({ from: monthStart(calendarDate), to: monthEnd(calendarDate), type: 'ROOM' }));
+    } catch (_err) {
+      setCalendarRows([]);
     }
   }
 
@@ -308,7 +348,7 @@ export default function HospitalityView() {
       await saveHospitalityContent({ ...contentForm, content_type: activeMasterType });
       setContentForm({ ...contentBlank, content_type: activeMasterType });
       setStatusMessage('Master saved.');
-      await Promise.all([loadMaster(activeMasterType), loadSummary()]);
+      await Promise.all([loadMaster(activeMasterType), loadRoomMasters(), loadSummary()]);
     } catch (err) {
       setErrorMessage(err.response?.data?.error || 'Unable to save master.');
     }
@@ -320,7 +360,7 @@ export default function HospitalityView() {
     try {
       await deleteHospitalityContent(row.id);
       setStatusMessage('Master deleted.');
-      await loadMaster(activeMasterType);
+      await Promise.all([loadMaster(activeMasterType), loadRoomMasters()]);
     } catch (err) {
       setErrorMessage(err.response?.data?.error || 'Unable to delete master.');
     }
@@ -333,7 +373,7 @@ export default function HospitalityView() {
       await saveHospitalityBooking(bookingForm);
       setBookingForm({ ...bookingBlank, booking_type: bookingForm.booking_type });
       setStatusMessage(`${bookingLabel(bookingForm.booking_type)} saved.`);
-      await Promise.all([loadWork(), loadSummary()]);
+      await Promise.all([loadWork(), loadCalendar(), loadSummary()]);
     } catch (err) {
       setErrorMessage(err.response?.data?.error || 'Unable to save booking.');
     }
@@ -365,6 +405,45 @@ export default function HospitalityView() {
     }
   }
 
+  function bookingsForDate(rows, date, type = 'ALL') {
+    return rows.filter((row) => {
+      if (type !== 'ALL' && row.booking_type !== type) return false;
+      if (row.status === 'CANCELLED') return false;
+      return row.booking_date <= date && (row.end_date || row.booking_date) >= date;
+    });
+  }
+
+  function roomStatusForDate(date) {
+    const totalRooms = roomRows.filter((row) => row.is_active !== 0).length;
+    const bookedKeys = new Set(bookingsForDate(calendarRows, date, 'ROOM').map((row) => row.table_number || row.item_title || `booking-${row.id}`));
+    const booked = bookedKeys.size;
+    const available = Math.max(totalRooms - booked, 0);
+    if (totalRooms > 0 && booked >= totalRooms) return { tone: 'full', label: 'Full', booked, available, totalRooms };
+    if (booked > 0) return { tone: 'partial', label: 'Some Available', booked, available, totalRooms };
+    return { tone: 'free', label: 'Available', booked, available: totalRooms, totalRooms };
+  }
+
+  function selectCalendarDate(date) {
+    setCalendarDate(date);
+    setFilters({ from: date, to: date, bookingType: 'ALL' });
+    setActiveSection('bookings');
+  }
+
+  function calendarDays() {
+    const start = toDate(monthStart(calendarDate));
+    const end = toDate(monthEnd(calendarDate));
+    const days = [];
+    for (let day = 1; day <= end.getDate(); day += 1) {
+      days.push(toIso(new Date(start.getFullYear(), start.getMonth(), day)));
+    }
+    return days;
+  }
+
+  function dailyBookingRows(date) {
+    const inCalendarMonth = date >= monthStart(calendarDate) && date <= monthEnd(calendarDate);
+    return bookingsForDate(inCalendarMonth ? calendarRows : bookings, date, 'ROOM');
+  }
+
   const cards = useMemo(() => {
     const bookingsSummary = summary?.bookings || {};
     const taskSummary = summary?.tasks || {};
@@ -389,12 +468,44 @@ export default function HospitalityView() {
     ['software', 'Operating Software'],
     ['masters', 'Rooms / Halls / Menu'],
     ['restaurant', 'Restaurant Store'],
+    ['accounts', 'Accounts'],
     ['tasks', 'Maintenance Tasks'],
     ['settings', 'Hotel Settings']
   ];
 
   const recentRows = bookings.slice(0, 5);
   const pendingTasks = tasks.filter((row) => ['OPEN', 'IN_PROGRESS'].includes(row.status)).slice(0, 6);
+  const selectedDayBookings = bookingsForDate(bookings, filters.from, 'ALL');
+  const dayIncome = selectedDayBookings.reduce((sum, row) => sum + Number(row.advance_amount || 0), 0);
+  const daySales = selectedDayBookings.reduce((sum, row) => sum + Number(row.total_amount || 0), 0);
+  const dayReceivables = selectedDayBookings.reduce((sum, row) => sum + Number(row.balance_amount || 0), 0);
+  const dayExpenses = tasks.reduce((sum, row) => sum + Number(row.amount || 0), 0) + stockRows.filter((row) => row.direction === 'INWARD').reduce((sum, row) => sum + Number(row.amount || 0), 0);
+  const dayCash = selectedDayBookings.filter((row) => String(row.payment_mode || '').toLowerCase().includes('cash')).reduce((sum, row) => sum + Number(row.advance_amount || 0), 0);
+  const accountCards = [
+    ['Day Sales', formatMoney(daySales)],
+    ['Cash Book', formatMoney(dayCash)],
+    ['Collection', formatMoney(dayIncome)],
+    ['Pending Balance', formatMoney(dayReceivables)],
+    ['Expenses / Store', formatMoney(dayExpenses)],
+    ['Net Position', formatMoney(dayIncome - dayExpenses)]
+  ];
+  const dayBookRows = [
+    ...selectedDayBookings.map((row) => ({ date: row.booking_date, type: 'Booking', party: row.customer_name, details: `${bookingLabel(row.booking_type)} - ${row.item_title || row.table_number || ''}`, debit: row.balance_amount, credit: row.advance_amount, mode: row.payment_mode })),
+    ...stockRows.map((row) => ({ date: row.movement_date, type: row.direction === 'INWARD' ? 'Purchase/Inward' : 'Issue/Outward', party: row.supplier_name || row.purpose, details: row.item_name, debit: row.direction === 'INWARD' ? row.amount : 0, credit: row.direction === 'OUTWARD' ? row.amount : 0, mode: row.direction })),
+    ...tasks.filter((row) => Number(row.amount || 0) > 0).map((row) => ({ date: row.task_date, type: 'Expense/Task', party: row.assigned_to || row.area, details: row.title, debit: row.amount, credit: 0, mode: row.status }))
+  ];
+  const ledgerRows = Object.values(dayBookRows.reduce((acc, row) => {
+    const key = row.party || row.type;
+    acc[key] = acc[key] || { party: key, debit: 0, credit: 0 };
+    acc[key].debit += Number(row.debit || 0);
+    acc[key].credit += Number(row.credit || 0);
+    return acc;
+  }, {}));
+  const threeDayDates = [
+    ['Yesterday', addDays(today(), -1)],
+    ['Today', today()],
+    ['Tomorrow', addDays(today(), 1)]
+  ];
 
   return (
     <div className="hospitality-view anvi-ops-app">
@@ -452,6 +563,44 @@ export default function HospitalityView() {
         <section className="panel">
           <div className="panel-header green"><h2 className="panel-title">Rooms, Banquet & Restaurant Bookings</h2></div>
           <div className="panel-body hospitality-section-body">
+            <div className="anvi-booking-planner">
+              <div className="panel anvi-calendar-panel">
+                <div className="anvi-calendar-head">
+                  <button className="secondary-button" type="button" onClick={() => setCalendarDate(addDays(monthStart(calendarDate), -1))}>Prev</button>
+                  <strong>{toDate(calendarDate).toLocaleString('en-IN', { month: 'long', year: 'numeric' })}</strong>
+                  <button className="secondary-button" type="button" onClick={() => setCalendarDate(addDays(monthEnd(calendarDate), 1))}>Next</button>
+                </div>
+                <div className="anvi-calendar-legend"><span className="free">Green: rooms empty</span><span className="partial">Blue: some rooms available</span><span className="full">Red: rooms full</span></div>
+                <div className="anvi-calendar-grid">
+                  {calendarDays().map((date) => {
+                    const status = roomStatusForDate(date);
+                    const isSelected = date === filters.from && filters.from === filters.to;
+                    return (
+                      <button key={date} type="button" className={`anvi-calendar-day ${status.tone} ${isSelected ? 'selected' : ''}`} onClick={() => selectCalendarDate(date)} title={`${status.label}: ${status.available}/${status.totalRooms || 0} available`}>
+                        <span>{toDate(date).getDate()}</span>
+                        <small>{status.available}/{status.totalRooms || 0}</small>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div className="panel anvi-three-day-panel">
+                <div className="panel-header green"><h2 className="panel-title">Yesterday / Today / Tomorrow Rooms</h2></div>
+                <div className="panel-body hospitality-section-body">
+                  {threeDayDates.map(([label, date]) => {
+                    const rows = dailyBookingRows(date);
+                    const status = roomStatusForDate(date);
+                    return (
+                      <div className="anvi-day-summary" key={date}>
+                        <strong>{label} <span>{date}</span></strong>
+                        <p className={`anvi-day-pill ${status.tone}`}>{status.label}: {status.available}/{status.totalRooms || 0} rooms available</p>
+                        {rows.length === 0 ? <p className="muted">No room bookings.</p> : rows.map((row) => <p key={row.id}>{row.table_number || row.item_title || 'Room'} - {row.customer_name} <span className="muted">{row.status}</span></p>)}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
             <form className="hospitality-form-grid" onSubmit={handleBookingSave}>
               <Field label="Booking Type"><select className="select" value={bookingForm.booking_type} onChange={(event) => setBookingForm((current) => ({ ...current, booking_type: event.target.value }))}>{bookingTypes.filter((type) => type !== 'ALL').map((type) => <option key={type} value={type}>{bookingLabel(type)}</option>)}</select></Field>
               <Field label="Date From"><input className="field" type="date" value={bookingForm.booking_date} onChange={(event) => setBookingForm((current) => ({ ...current, booking_date: event.target.value, end_date: current.end_date || event.target.value }))} /></Field>
@@ -492,6 +641,37 @@ export default function HospitalityView() {
                   <tr key={row.id}><td>{row.booking_date}{row.end_date && row.end_date !== row.booking_date ? ` to ${row.end_date}` : ''}<span className="muted">{row.time_slot || ''}</span></td><td>{bookingLabel(row.booking_type)}</td><td><strong>{row.customer_name}</strong><span className="muted">{row.customer_phone}</span></td><td>{row.table_number || row.item_title || '-'}<span className="muted">{row.server_id || row.item_title || ''}</span></td><td>{row.food_plan === 'WITH_FOOD' ? 'With Food' : 'Without Food'}<span className="muted">{row.food_details || row.complimentary_breakfast || row.notes || ''}</span></td><td>{formatMoney(row.total_amount)}<span className="muted">GST {formatMoney(row.gst_amount)}</span></td><td>{formatMoney(row.advance_amount)}</td><td>{formatMoney(row.balance_amount)}</td><td><span className="status-chip info">{row.status}</span></td><td><div className="table-actions"><button className="secondary-button" type="button" onClick={() => editBooking(row)}>Edit</button><button className="secondary-button" type="button" onClick={() => printBooking(row, row.booking_type === 'ROOM' ? 'Check-in / Stay Form' : row.booking_type === 'FOOD' ? 'Food Bill' : 'Banquet Function Sheet', row.print_format || 'A4')}>Print</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Final Bill', 'A4')}>Final A4</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Thermal Receipt', 'THERMAL')}>Thermal</button></div></td></tr>
                 ))}</tbody>
               </table>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {activeSection === 'accounts' && (
+        <section className="panel">
+          <div className="panel-header green"><h2 className="panel-title">Day Book, Ledger, Cash Book & Balance Sheet</h2></div>
+          <div className="panel-body hospitality-section-body">
+            <div className="hospitality-filter-row">
+              <input className="field" type="date" value={filters.from} onChange={(event) => setFilters((current) => ({ ...current, from: event.target.value, to: event.target.value }))} />
+              <button className="secondary-button" type="button" onClick={() => setFilters((current) => ({ ...current, from: today(), to: today() }))}>Today</button>
+              <button className="secondary-button" type="button" onClick={() => window.print()}>Print A4</button>
+            </div>
+            <section className="hospitality-kpi-grid">
+              {accountCards.map(([label, value]) => <div className="panel hospitality-kpi" key={label}><span>{label}</span><strong>{value}</strong></div>)}
+            </section>
+            <div className="hospitality-two-column">
+              <div className="panel">
+                <div className="panel-header green"><h2 className="panel-title">Day Book</h2></div>
+                <div className="panel-body hospitality-section-body">
+                  <table className="history-table hospitality-table"><thead><tr><th>Date</th><th>Type</th><th>Party</th><th>Details</th><th>Debit</th><th>Credit</th><th>Mode</th></tr></thead><tbody>{dayBookRows.length === 0 ? <tr><td colSpan="7">No day book entries.</td></tr> : dayBookRows.map((row, index) => <tr key={`${row.type}-${index}`}><td>{row.date}</td><td>{row.type}</td><td>{row.party || '-'}</td><td>{row.details}</td><td>{formatMoney(row.debit)}</td><td>{formatMoney(row.credit)}</td><td>{row.mode}</td></tr>)}</tbody></table>
+                </div>
+              </div>
+              <div className="panel">
+                <div className="panel-header green"><h2 className="panel-title">Ledger / Balance Sheet</h2></div>
+                <div className="panel-body hospitality-section-body">
+                  <table className="history-table hospitality-table"><thead><tr><th>Ledger</th><th>Debit</th><th>Credit</th><th>Balance</th></tr></thead><tbody>{ledgerRows.length === 0 ? <tr><td colSpan="4">No ledger entries.</td></tr> : ledgerRows.map((row) => <tr key={row.party}><td>{row.party}</td><td>{formatMoney(row.debit)}</td><td>{formatMoney(row.credit)}</td><td>{formatMoney(Number(row.debit || 0) - Number(row.credit || 0))}</td></tr>)}</tbody></table>
+                  <div className="anvi-ops-note"><strong>Balance Sheet:</strong> Cash/Bank collection {formatMoney(dayIncome)}, receivables {formatMoney(dayReceivables)}, store/task expenses {formatMoney(dayExpenses)}, net position {formatMoney(dayIncome - dayExpenses)}.</div>
+                </div>
+              </div>
             </div>
           </div>
         </section>

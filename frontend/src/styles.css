@@ -11021,6 +11021,118 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
   font-size: 0.78rem;
 }
 
+.anvi-booking-planner {
+  display: grid;
+  grid-template-columns: minmax(320px, 1fr) minmax(300px, 0.85fr);
+  gap: 14px;
+}
+
+.anvi-calendar-panel,
+.anvi-three-day-panel {
+  padding: 14px;
+}
+
+.anvi-calendar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.anvi-calendar-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.anvi-calendar-legend span {
+  border-radius: 999px;
+  padding: 4px 8px;
+}
+
+.anvi-calendar-legend .free,
+.anvi-calendar-day.free,
+.anvi-day-pill.free {
+  background: #dcfce7;
+  color: #166534;
+  border-color: #86efac;
+}
+
+.anvi-calendar-legend .partial,
+.anvi-calendar-day.partial,
+.anvi-day-pill.partial {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-color: #93c5fd;
+}
+
+.anvi-calendar-legend .full,
+.anvi-calendar-day.full,
+.anvi-day-pill.full {
+  background: #fee2e2;
+  color: #b91c1c;
+  border-color: #fca5a5;
+}
+
+.anvi-calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(42px, 1fr));
+  gap: 8px;
+}
+
+.anvi-calendar-day {
+  min-height: 58px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 7px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.anvi-calendar-day span,
+.anvi-calendar-day small {
+  display: block;
+  font-weight: 800;
+}
+
+.anvi-calendar-day small {
+  margin-top: 8px;
+  font-size: 0.72rem;
+}
+
+.anvi-calendar-day.selected {
+  outline: 3px solid rgba(127, 29, 29, 0.28);
+}
+
+.anvi-day-summary {
+  border-bottom: 1px solid rgba(127, 29, 29, 0.12);
+  padding: 8px 0;
+}
+
+.anvi-day-summary:last-child {
+  border-bottom: 0;
+}
+
+.anvi-day-summary strong {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.anvi-day-pill {
+  display: inline-flex;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 4px 8px;
+  margin: 6px 0;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
 @media (max-width: 820px) {
   .anvi-admin-topbar {
     align-items: flex-start;
@@ -11043,5 +11155,13 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
 
   .anvi-ops-grid {
     grid-template-columns: 1fr;
+  }
+
+  .anvi-booking-planner {
+    grid-template-columns: 1fr;
+  }
+
+  .anvi-calendar-grid {
+    grid-template-columns: repeat(4, minmax(42px, 1fr));
   }
 }
