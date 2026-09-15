@@ -21,6 +21,20 @@ const bookingStatuses = ['ENQUIRY', 'ADVANCE', 'CONFIRMED', 'CHECKED_IN', 'COMPL
 const taskAreas = ['RECEPTION', 'KITCHEN', 'MANAGER', 'SERVER', 'SUPPLIER', 'STORE', 'HOUSEKEEPING', 'LAUNDRY', 'ACCOUNTS'];
 const taskStatuses = ['OPEN', 'IN_PROGRESS', 'DONE', 'CANCELLED'];
 const masterTabs = [['ROOM', 'Rooms'], ['BANQUET', 'Banquet Halls'], ['FOOD', 'Restaurant Menu']];
+const systemPlan = [
+  ['Reception', '2 computers', 'A4 laser/inkjet + 80mm thermal', 'Room booking, check-in slip, check-out final bill, advance receipts and guest ID handling.'],
+  ['Restaurant Billing Counter', '1 touch computer', '80mm thermal bill printer', 'Table bill, parcel bill, payment receipt, GST summary and cashier closing.'],
+  ['Kitchen', '1 KOT display or small computer', '80mm KOT thermal printer', 'Food order tickets by table, server and preparation notes.'],
+  ['Store Room', '1 basic computer', 'A4 printer optional', 'Grocery inward/outward, supplier bills, stock issue to kitchen and low-stock checks.'],
+  ['Banquet / Manager Desk', '1 computer shared by manager', 'A4 printer', 'Hall enquiry, function sheet, menu plan, advance receipt and final event invoice.'],
+  ['Accounts / Owner', '1 computer or laptop', 'A4 printer', 'Daily sales, GST summaries, pending balances, expenses and audit review.'],
+  ['Housekeeping', 'Mobile/tablet or shared reception system', 'No printer required', 'Room cleaning, hot water, linen, room service and maintenance task status.']
+];
+const printerPlan = [
+  ['A4 Print', 'Room confirmation, check-in form, check-out final bill, banquet quotation, banquet final invoice, store reports and accounts reports.'],
+  ['Thermal Print', 'Restaurant table bill, KOT, parcel receipt, quick advance receipt and small payment slip.'],
+  ['No Print', 'Kitchen display, housekeeping tasks and manager dashboard can stay screen-only unless paper is required.']
+];
 
 const contentBlank = { id: null, content_type: 'ROOM', title: '', description: '', image_url: '', price: '', unit_label: '', capacity: '', display_order: 0, is_active: true };
 const bookingBlank = {
@@ -33,10 +47,17 @@ const bookingBlank = {
   customer_phone: '',
   customer_address: '',
   item_title: '',
+  table_number: '',
+  server_id: '',
   guest_count: '',
   food_plan: 'WITHOUT_FOOD',
   food_details: '',
   complimentary_breakfast: '',
+  room_facilities: 'WiFi, hot water, room service',
+  travel_notes: 'Near railway station / bus stand / airport details',
+  print_format: 'A4',
+  gst_percent: '',
+  gst_amount: '',
   total_amount: '',
   advance_amount: '',
   payment_mode: 'Cash',
@@ -69,6 +90,24 @@ function bookingLabel(type) {
   if (type === 'ROOM') return 'Room Booking';
   if (type === 'BANQUET') return 'Banquet Booking';
   return 'Restaurant Order';
+}
+
+function escapeHtml(value) {
+  return String(value || '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+}
+
+function taxBreakup(row) {
+  const total = Number(row.total_amount || 0);
+  const gst = Number(row.gst_amount || 0);
+  const taxable = Math.max(total - gst, 0);
+  return {
+    taxable,
+    gst,
+    cgst: gst / 2,
+    sgst: gst / 2,
+    advance: Number(row.advance_amount || 0),
+    balance: Number(row.balance_amount || Math.max(total - Number(row.advance_amount || 0), 0))
+  };
 }
 
 export default function HospitalityView() {
@@ -160,6 +199,45 @@ export default function HospitalityView() {
   function editStock(row) {
     setActiveSection('restaurant');
     setStockForm({ ...stockBlank, ...row });
+  }
+
+  function printBooking(row, purpose = 'Final Bill', format = row.print_format || 'A4') {
+    const profile = profileForm || {};
+    const tax = taxBreakup(row);
+    const isThermal = format === 'THERMAL';
+    const lineItems = String(row.food_details || row.item_title || row.notes || 'Booking charge')
+      .split(/\n|,/)
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const details = [
+      ['Guest', row.customer_name],
+      ['Phone', row.customer_phone],
+      ['Booking', bookingLabel(row.booking_type)],
+      [row.booking_type === 'FOOD' ? 'Table' : row.booking_type === 'ROOM' ? 'Room' : 'Hall', row.table_number || row.item_title],
+      ['Server / Supplier', row.server_id],
+      ['Date', `${row.booking_date}${row.end_date && row.end_date !== row.booking_date ? ` to ${row.end_date}` : ''}`],
+      ['Slot', row.time_slot],
+      ['Guests', row.guest_count],
+      ['Food Plan', row.food_plan === 'WITH_FOOD' ? 'With food' : 'Without food'],
+      ['Breakfast', row.complimentary_breakfast],
+      ['Facilities', row.room_facilities],
+      ['Location Notes', row.travel_notes]
+    ].filter(([, value]) => value);
+    const css = isThermal
+      ? 'body{font-family:Arial,sans-serif;width:72mm;margin:0;padding:8px;color:#111;font-size:12px}.center{text-align:center}.line{border-top:1px dashed #111;margin:8px 0}.row{display:flex;justify-content:space-between;gap:8px}.muted{font-size:11px;color:#444}h1{font-size:15px;margin:0}h2{font-size:13px;margin:4px 0 0}table{width:100%;border-collapse:collapse}td{padding:2px 0;vertical-align:top}.total{font-weight:700;font-size:13px}'
+      : 'body{font-family:Arial,sans-serif;margin:28px;color:#1f2937}.bill{max-width:820px;margin:0 auto;border:1px solid #ddd;padding:24px}h1{margin:0;color:#7f1d1d}h2{margin:4px 0 18px;color:#14532d}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 22px}.line{border-top:1px solid #ddd;margin:16px 0}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border-bottom:1px solid #eee;padding:8px;text-align:left}.amount{text-align:right}.total{font-weight:700;background:#fff7ed}.muted{color:#6b7280;font-size:12px}@media print{body{margin:0}.bill{border:0}}';
+    const rows = details.map(([label, value]) => `<div><span class="muted">${escapeHtml(label)}</span><br><strong>${escapeHtml(value)}</strong></div>`).join('');
+    const itemRows = lineItems.length
+      ? lineItems.map((item, index) => `<tr><td>${index + 1}</td><td>${escapeHtml(item)}</td><td class="amount">${index === 0 ? formatMoney(tax.taxable) : ''}</td></tr>`).join('')
+      : `<tr><td>1</td><td>${escapeHtml(row.item_title || 'Booking charge')}</td><td class="amount">${formatMoney(tax.taxable)}</td></tr>`;
+    const html = `<!doctype html><html><head><title>${escapeHtml(purpose)} - ${escapeHtml(profile.hotel_name || 'ANVI GRAND')}</title><style>${css}</style></head><body><div class="bill"><div class="center"><h1>${escapeHtml(profile.hotel_name || 'ANVI GRAND')}</h1><h2>${escapeHtml(purpose)}</h2><div class="muted">${escapeHtml(profile.address || '')}</div><div class="muted">Phone: ${escapeHtml(profile.phone || profile.reception_phone || '')}</div></div><div class="line"></div><div class="${isThermal ? '' : 'grid'}">${rows}</div><div class="line"></div><table><thead><tr><th>#</th><th>Particulars</th><th class="amount">Amount</th></tr></thead><tbody>${itemRows}<tr><td></td><td>CGST</td><td class="amount">${formatMoney(tax.cgst)}</td></tr><tr><td></td><td>SGST</td><td class="amount">${formatMoney(tax.sgst)}</td></tr><tr class="total"><td></td><td>Total</td><td class="amount">${formatMoney(row.total_amount)}</td></tr><tr><td></td><td>Advance / Paid</td><td class="amount">${formatMoney(tax.advance)}</td></tr><tr class="total"><td></td><td>Balance</td><td class="amount">${formatMoney(tax.balance)}</td></tr></tbody></table><div class="line"></div><div class="muted">Payment: ${escapeHtml(row.payment_mode || 'Cash / UPI / Card')} | Status: ${escapeHtml(row.status || '')}</div><p class="center">Thank you. Visit again.</p></div><script>window.onload=function(){window.print();};</script></body></html>`;
+    const popup = window.open('', '_blank', 'width=900,height=700');
+    if (!popup) {
+      setErrorMessage('Popup blocked. Please allow popups for printing.');
+      return;
+    }
+    popup.document.write(html);
+    popup.document.close();
   }
 
   async function handleProfileSave(event) {
@@ -259,6 +337,7 @@ export default function HospitalityView() {
   const sections = [
     ['dashboard', 'Dashboard'],
     ['bookings', 'Bookings'],
+    ['systems', 'Systems & Printers'],
     ['masters', 'Rooms / Halls / Menu'],
     ['restaurant', 'Restaurant Store'],
     ['tasks', 'Maintenance Tasks'],
@@ -332,15 +411,22 @@ export default function HospitalityView() {
               <Field label="Customer Name"><input className="field" value={bookingForm.customer_name} onChange={(event) => setBookingForm((current) => ({ ...current, customer_name: event.target.value }))} required /></Field>
               <Field label="Phone"><input className="field" value={bookingForm.customer_phone} onChange={(event) => setBookingForm((current) => ({ ...current, customer_phone: event.target.value }))} required /></Field>
               <Field label="Room / Hall / Food Item"><input className="field" value={bookingForm.item_title} onChange={(event) => setBookingForm((current) => ({ ...current, item_title: event.target.value }))} /></Field>
+              <Field label="Room / Table / Hall No"><input className="field" value={bookingForm.table_number || ''} onChange={(event) => setBookingForm((current) => ({ ...current, table_number: event.target.value }))} placeholder="Room 203 / Table 5 / Hall A" /></Field>
+              <Field label="Server / Supplier ID"><input className="field" value={bookingForm.server_id || ''} onChange={(event) => setBookingForm((current) => ({ ...current, server_id: event.target.value }))} placeholder="Server name, waiter ID, supplier ref" /></Field>
               <Field label="Persons / Guests"><input className="field" type="number" value={bookingForm.guest_count} onChange={(event) => setBookingForm((current) => ({ ...current, guest_count: event.target.value }))} /></Field>
               <Field label="Food Plan"><select className="select" value={bookingForm.food_plan || 'WITHOUT_FOOD'} onChange={(event) => setBookingForm((current) => ({ ...current, food_plan: event.target.value }))}><option value="WITHOUT_FOOD">Without Food</option><option value="WITH_FOOD">With Food</option></select></Field>
+              <Field label="Print Format"><select className="select" value={bookingForm.print_format || 'A4'} onChange={(event) => setBookingForm((current) => ({ ...current, print_format: event.target.value }))}><option value="A4">A4 Invoice / Form</option><option value="THERMAL">80mm Thermal</option></select></Field>
               <Field label="Total Amount"><input className="field" type="number" value={bookingForm.total_amount} onChange={(event) => setBookingForm((current) => ({ ...current, total_amount: event.target.value }))} /></Field>
               <Field label="Advance"><input className="field" type="number" value={bookingForm.advance_amount} onChange={(event) => setBookingForm((current) => ({ ...current, advance_amount: event.target.value }))} /></Field>
+              <Field label="GST %"><input className="field" type="number" value={bookingForm.gst_percent || ''} onChange={(event) => setBookingForm((current) => ({ ...current, gst_percent: event.target.value }))} placeholder="0 / 5 / 12 / 18" /></Field>
+              <Field label="GST Amount"><input className="field" type="number" value={bookingForm.gst_amount || ''} onChange={(event) => setBookingForm((current) => ({ ...current, gst_amount: event.target.value }))} placeholder="Auto if blank and GST % given" /></Field>
               <Field label="Payment Mode"><input className="field" value={bookingForm.payment_mode} onChange={(event) => setBookingForm((current) => ({ ...current, payment_mode: event.target.value }))} placeholder="Cash / UPI / Card" /></Field>
               <Field label="Status"><select className="select" value={bookingForm.status} onChange={(event) => setBookingForm((current) => ({ ...current, status: event.target.value }))}>{bookingStatuses.map((status) => <option key={status} value={status}>{status}</option>)}</select></Field>
               <Field label="Address"><textarea className="field" rows="2" value={bookingForm.customer_address} onChange={(event) => setBookingForm((current) => ({ ...current, customer_address: event.target.value }))} /></Field>
               <Field label="Food / Decoration Details"><textarea className="field" rows="2" value={bookingForm.food_details || ''} onChange={(event) => setBookingForm((current) => ({ ...current, food_details: event.target.value }))} /></Field>
               <Field label="Room Breakfast / Notes"><textarea className="field" rows="2" value={bookingForm.complimentary_breakfast || ''} onChange={(event) => setBookingForm((current) => ({ ...current, complimentary_breakfast: event.target.value }))} /></Field>
+              <Field label="Room Facilities"><textarea className="field" rows="2" value={bookingForm.room_facilities || ''} onChange={(event) => setBookingForm((current) => ({ ...current, room_facilities: event.target.value }))} placeholder="WiFi, hot water, room service, parking, lift" /></Field>
+              <Field label="Travel / Nearby Details"><textarea className="field" rows="2" value={bookingForm.travel_notes || ''} onChange={(event) => setBookingForm((current) => ({ ...current, travel_notes: event.target.value }))} placeholder="Near airport, railway station, bus stand, temple, function venue" /></Field>
               <Field label="Internal Notes"><textarea className="field" rows="2" value={bookingForm.notes} onChange={(event) => setBookingForm((current) => ({ ...current, notes: event.target.value }))} /></Field>
               <button className="primary-button compact-primary" type="submit">{bookingForm.id ? 'Update Booking' : 'Save Booking'}</button>
               <button className="secondary-button" type="button" onClick={() => setBookingForm(bookingBlank)}>Clear</button>
@@ -352,11 +438,54 @@ export default function HospitalityView() {
             </div>
             <div className="table-scroll">
               <table className="history-table hospitality-table">
-                <thead><tr><th>Dates</th><th>Type</th><th>Customer</th><th>Item</th><th>Food / Notes</th><th>Total</th><th>Advance</th><th>Balance</th><th>Status</th><th>Edit</th></tr></thead>
+                <thead><tr><th>Dates</th><th>Type</th><th>Customer</th><th>Room/Table</th><th>Food / Notes</th><th>Total</th><th>Advance</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
                 <tbody>{bookings.length === 0 ? <tr><td colSpan="10">No bookings in selected dates.</td></tr> : bookings.map((row) => (
-                  <tr key={row.id}><td>{row.booking_date}{row.end_date && row.end_date !== row.booking_date ? ` to ${row.end_date}` : ''}<span className="muted">{row.time_slot || ''}</span></td><td>{bookingLabel(row.booking_type)}</td><td><strong>{row.customer_name}</strong><span className="muted">{row.customer_phone}</span></td><td>{row.item_title || '-'}</td><td>{row.food_plan === 'WITH_FOOD' ? 'With Food' : 'Without Food'}<span className="muted">{row.food_details || row.complimentary_breakfast || row.notes || ''}</span></td><td>{formatMoney(row.total_amount)}</td><td>{formatMoney(row.advance_amount)}</td><td>{formatMoney(row.balance_amount)}</td><td><span className="status-chip info">{row.status}</span></td><td><button className="secondary-button" type="button" onClick={() => editBooking(row)}>Edit</button></td></tr>
+                  <tr key={row.id}><td>{row.booking_date}{row.end_date && row.end_date !== row.booking_date ? ` to ${row.end_date}` : ''}<span className="muted">{row.time_slot || ''}</span></td><td>{bookingLabel(row.booking_type)}</td><td><strong>{row.customer_name}</strong><span className="muted">{row.customer_phone}</span></td><td>{row.table_number || row.item_title || '-'}<span className="muted">{row.server_id || row.item_title || ''}</span></td><td>{row.food_plan === 'WITH_FOOD' ? 'With Food' : 'Without Food'}<span className="muted">{row.food_details || row.complimentary_breakfast || row.notes || ''}</span></td><td>{formatMoney(row.total_amount)}<span className="muted">GST {formatMoney(row.gst_amount)}</span></td><td>{formatMoney(row.advance_amount)}</td><td>{formatMoney(row.balance_amount)}</td><td><span className="status-chip info">{row.status}</span></td><td><div className="table-actions"><button className="secondary-button" type="button" onClick={() => editBooking(row)}>Edit</button><button className="secondary-button" type="button" onClick={() => printBooking(row, row.booking_type === 'ROOM' ? 'Check-in / Stay Form' : row.booking_type === 'FOOD' ? 'Food Bill' : 'Banquet Function Sheet', row.print_format || 'A4')}>Print</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Final Bill', 'A4')}>Final A4</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Thermal Receipt', 'THERMAL')}>Thermal</button></div></td></tr>
                 ))}</tbody>
               </table>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {activeSection === 'systems' && (
+        <section className="panel">
+          <div className="panel-header green"><h2 className="panel-title">Systems, Printers & Department Setup</h2></div>
+          <div className="panel-body hospitality-section-body">
+            <div className="anvi-ops-note">
+              <strong>Recommended first setup:</strong> 7 working screens/computers, 3 thermal printers and 3 A4 printers are enough for a hotel with rooms, restaurant and banquet hall. Start lean, then add more kitchen KOT printers if rush increases.
+            </div>
+            <div className="table-scroll">
+              <table className="history-table hospitality-table">
+                <thead><tr><th>Area</th><th>Systems Needed</th><th>Printer</th><th>Daily Use</th></tr></thead>
+                <tbody>{systemPlan.map(([area, systems, printer, use]) => <tr key={area}><td><strong>{area}</strong></td><td>{systems}</td><td>{printer}</td><td>{use}</td></tr>)}</tbody>
+              </table>
+            </div>
+            <div className="anvi-ops-grid">
+              {printerPlan.map(([title, detail]) => (
+                <article className="panel hospitality-kpi anvi-ops-guide-card" key={title}>
+                  <span>{title}</span>
+                  <strong>{detail}</strong>
+                </article>
+              ))}
+            </div>
+            <div className="anvi-ops-grid">
+              <article className="panel anvi-ops-guide-card">
+                <h3>Reception Flow</h3>
+                <p>Enquiry, advance, room assignment, guest ID, check-in A4 form, room service posting, check-out final bill and balance collection must happen at reception.</p>
+              </article>
+              <article className="panel anvi-ops-guide-card">
+                <h3>Restaurant Flow</h3>
+                <p>Table number, server ID, food items, GST breakup, KOT, thermal bill and payment mode must be fast enough for rush hours.</p>
+              </article>
+              <article className="panel anvi-ops-guide-card">
+                <h3>Banquet Flow</h3>
+                <p>Hall availability, guest count, food package, decoration notes, payment milestones, function sheet, staff tasks and final A4 invoice should stay in one booking.</p>
+              </article>
+              <article className="panel anvi-ops-guide-card">
+                <h3>Indian Hospitality Fit</h3>
+                <p>Keep reception calm, print formats clean, advance/balance visible, food preferences clear and guest-facing notes respectful for family functions and business guests.</p>
+              </article>
             </div>
           </div>
         </section>

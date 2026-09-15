@@ -114,10 +114,17 @@ async function ensureSchema() {
           customer_phone VARCHAR(20) NOT NULL,
           customer_address VARCHAR(500) DEFAULT '',
           item_title VARCHAR(160) DEFAULT '',
+          table_number VARCHAR(40) DEFAULT '',
+          server_id VARCHAR(80) DEFAULT '',
           guest_count INT DEFAULT NULL,
           food_plan ENUM('WITH_FOOD','WITHOUT_FOOD') NOT NULL DEFAULT 'WITHOUT_FOOD',
           food_details VARCHAR(500) DEFAULT '',
           complimentary_breakfast VARCHAR(500) DEFAULT '',
+          room_facilities VARCHAR(800) DEFAULT '',
+          travel_notes VARCHAR(800) DEFAULT '',
+          print_format ENUM('A4','THERMAL') NOT NULL DEFAULT 'A4',
+          gst_percent DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+          gst_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
           total_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
           advance_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
           balance_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
@@ -132,9 +139,16 @@ async function ensureSchema() {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
       await addColumnIfMissing('hospitality_bookings', 'end_date', 'DATE DEFAULT NULL AFTER booking_date');
+      await addColumnIfMissing('hospitality_bookings', 'table_number', "VARCHAR(40) DEFAULT '' AFTER item_title");
+      await addColumnIfMissing('hospitality_bookings', 'server_id', "VARCHAR(80) DEFAULT '' AFTER table_number");
       await addColumnIfMissing('hospitality_bookings', 'food_plan', "ENUM('WITH_FOOD','WITHOUT_FOOD') NOT NULL DEFAULT 'WITHOUT_FOOD' AFTER guest_count");
       await addColumnIfMissing('hospitality_bookings', 'food_details', "VARCHAR(500) DEFAULT '' AFTER food_plan");
       await addColumnIfMissing('hospitality_bookings', 'complimentary_breakfast', "VARCHAR(500) DEFAULT '' AFTER food_details");
+      await addColumnIfMissing('hospitality_bookings', 'room_facilities', "VARCHAR(800) DEFAULT '' AFTER complimentary_breakfast");
+      await addColumnIfMissing('hospitality_bookings', 'travel_notes', "VARCHAR(800) DEFAULT '' AFTER room_facilities");
+      await addColumnIfMissing('hospitality_bookings', 'print_format', "ENUM('A4','THERMAL') NOT NULL DEFAULT 'A4' AFTER travel_notes");
+      await addColumnIfMissing('hospitality_bookings', 'gst_percent', 'DECIMAL(5,2) NOT NULL DEFAULT 0.00 AFTER print_format');
+      await addColumnIfMissing('hospitality_bookings', 'gst_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER gst_percent');
       await db.query(`
         CREATE TABLE IF NOT EXISTS hospitality_ops_tasks (
           id BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -220,6 +234,9 @@ async function saveBookingRecord(req, res, createdBy = '') {
 
   const total = parseMoney(req.body?.total_amount);
   const advance = parseMoney(req.body?.advance_amount);
+  const gstPercent = parseMoney(req.body?.gst_percent);
+  const requestedGstAmount = parseMoney(req.body?.gst_amount);
+  const gstAmount = requestedGstAmount || (gstPercent > 0 && total > 0 ? Number((total * gstPercent / (100 + gstPercent)).toFixed(2)) : 0);
   const startDate = normalizeDate(req.body?.booking_date, todayIso());
   const requestedEndDate = normalizeDate(req.body?.end_date, startDate);
   const bookingStartDate = startDate <= requestedEndDate ? startDate : requestedEndDate;
@@ -234,10 +251,17 @@ async function saveBookingRecord(req, res, createdBy = '') {
     customerPhone,
     cleanText(req.body?.customer_address, 500),
     cleanText(req.body?.item_title, 160),
+    cleanText(req.body?.table_number, 40),
+    cleanText(req.body?.server_id, 80),
     Number.parseInt(req.body?.guest_count, 10) || null,
     foodPlan,
     cleanText(req.body?.food_details, 500),
     cleanText(req.body?.complimentary_breakfast, 500),
+    cleanText(req.body?.room_facilities, 800),
+    cleanText(req.body?.travel_notes, 800),
+    String(req.body?.print_format || '').toUpperCase() === 'THERMAL' ? 'THERMAL' : 'A4',
+    gstPercent,
+    gstAmount,
     total,
     advance,
     Math.max(total - advance, 0),
@@ -250,8 +274,8 @@ async function saveBookingRecord(req, res, createdBy = '') {
     await db.query(
       `UPDATE hospitality_bookings
        SET booking_type = ?, booking_date = ?, end_date = ?, time_slot = ?, customer_name = ?, customer_phone = ?,
-           customer_address = ?, item_title = ?, guest_count = ?, food_plan = ?, food_details = ?,
-           complimentary_breakfast = ?, total_amount = ?, advance_amount = ?,
+           customer_address = ?, item_title = ?, table_number = ?, server_id = ?, guest_count = ?, food_plan = ?, food_details = ?,
+           complimentary_breakfast = ?, room_facilities = ?, travel_notes = ?, print_format = ?, gst_percent = ?, gst_amount = ?, total_amount = ?, advance_amount = ?,
            balance_amount = ?, payment_mode = ?, status = ?, notes = ?
        WHERE id = ?`,
       [...payload, id]
@@ -262,9 +286,10 @@ async function saveBookingRecord(req, res, createdBy = '') {
   const [result] = await db.query(
     `INSERT INTO hospitality_bookings
      (booking_type, booking_date, end_date, time_slot, customer_name, customer_phone, customer_address, item_title,
-      guest_count, food_plan, food_details, complimentary_breakfast, total_amount, advance_amount, balance_amount,
+      table_number, server_id, guest_count, food_plan, food_details, complimentary_breakfast, room_facilities, travel_notes,
+      print_format, gst_percent, gst_amount, total_amount, advance_amount, balance_amount,
       payment_mode, status, notes, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [...payload, createdBy]
   );
   res.json({ success: true, id: result.insertId });
@@ -394,7 +419,8 @@ router.get('/bookings', async (req, res) => {
     `SELECT id, booking_type, DATE_FORMAT(booking_date, '%Y-%m-%d') AS booking_date,
             DATE_FORMAT(COALESCE(end_date, booking_date), '%Y-%m-%d') AS end_date, time_slot,
             customer_name, customer_phone, customer_address, item_title, guest_count, total_amount,
-            food_plan, food_details, complimentary_breakfast, advance_amount, balance_amount, payment_mode, status, notes
+            table_number, server_id, food_plan, food_details, complimentary_breakfast, room_facilities, travel_notes,
+            print_format, gst_percent, gst_amount, advance_amount, balance_amount, payment_mode, status, notes
      FROM hospitality_bookings
      WHERE ${where.join(' AND ')}
      ORDER BY booking_date DESC, id DESC

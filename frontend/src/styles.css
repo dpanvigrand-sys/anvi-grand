@@ -10975,6 +10975,52 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
   gap: 10px;
 }
 
+.anvi-ops-note {
+  padding: 14px 16px;
+  border: 1px solid rgba(20, 83, 45, 0.18);
+  border-radius: 8px;
+  background: #f0fdf4;
+  color: #13351f;
+  line-height: 1.45;
+}
+
+.anvi-ops-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.anvi-ops-guide-card {
+  padding: 14px;
+  border: 1px solid rgba(127, 29, 29, 0.12);
+}
+
+.anvi-ops-guide-card h3 {
+  margin: 0 0 8px;
+  color: #7f1d1d;
+  font-size: 1rem;
+}
+
+.anvi-ops-guide-card p {
+  margin: 0;
+  color: #374151;
+  line-height: 1.45;
+}
+
+.hospitality-table .table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 210px;
+}
+
+.hospitality-table .table-actions button {
+  min-height: 32px;
+  padding: 6px 9px;
+  font-size: 0.78rem;
+}
+
 @media (max-width: 820px) {
   .anvi-admin-topbar {
     align-items: flex-start;
@@ -10993,5 +11039,9 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
   .anvi-quick-actions {
     justify-content: flex-start;
     width: 100%;
+  }
+
+  .anvi-ops-grid {
+    grid-template-columns: 1fr;
   }
 }
