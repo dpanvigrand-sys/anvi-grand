@@ -1,0 +1,1191 @@
+import axios from 'axios';
+
+function getDefaultApiBaseUrl() {
+  if (typeof window === 'undefined') {
+    return ['http://', 'localhost', ':5000/api'].join('');
+  }
+
+  const protocol = window.location.protocol || 'http:';
+  const hostname = window.location.hostname || 'localhost';
+  return `${protocol}//${hostname}:5000/api`;
+}
+
+const api = axios.create({
+  baseURL: getDefaultApiBaseUrl(),
+  timeout: 25000
+});
+
+const AUTH_KEYS = {
+  badizo: {
+    token: 'badizo_token',
+    user: 'badizo_user'
+  },
+  anvi: {
+    token: 'anvi_grand_token',
+    user: 'anvi_grand_user'
+  }
+};
+let exitLogoutSent = false;
+
+function getAuthStorage() {
+  return window.sessionStorage;
+}
+
+function getAuthScope() {
+  if (typeof window !== 'undefined' && window.location.pathname === '/anvi-grand-admin') {
+    return 'anvi';
+  }
+  return 'badizo';
+}
+
+function getAuthKeys() {
+  return AUTH_KEYS[getAuthScope()] || AUTH_KEYS.badizo;
+}
+
+function clearLegacyAuthSession() {
+  window.localStorage.removeItem(AUTH_KEYS.badizo.token);
+  window.localStorage.removeItem(AUTH_KEYS.badizo.user);
+}
+
+api.interceptors.request.use((config) => {
+  const token = getAuthStorage().getItem(getAuthKeys().token);
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
+function shouldRetryRequest(error) {
+  const method = String(error.config?.method || 'get').toLowerCase();
+  if (method !== 'get') return false;
+  if (error.config?.__badizoNoRetry) return false;
+  if (error.code === 'ECONNABORTED' || error.message?.toLowerCase().includes('timeout')) return true;
+  if (!error.response && error.request) return true;
+  return false;
+}
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const config = error.config || {};
+    config.__badizoRetryCount = Number(config.__badizoRetryCount || 0);
+    if (!shouldRetryRequest(error) || config.__badizoRetryCount >= 2) {
+      return Promise.reject(error);
+    }
+
+    config.__badizoRetryCount += 1;
+    const delayMs = config.__badizoRetryCount === 1 ? 350 : 900;
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    return api(config);
+  }
+);
+
+export function setAuthSession(token, user) {
+  clearLegacyAuthSession();
+  const authKeys = getAuthKeys();
+  getAuthStorage().setItem(authKeys.token, token);
+  getAuthStorage().setItem(authKeys.user, JSON.stringify(user));
+}
+
+export function clearAuthSession() {
+  const authKeys = getAuthKeys();
+  getAuthStorage().removeItem(authKeys.token);
+  getAuthStorage().removeItem(authKeys.user);
+  clearLegacyAuthSession();
+}
+
+export function getStoredUser() {
+  clearLegacyAuthSession();
+  const rawUser = getAuthStorage().getItem(getAuthKeys().user);
+  if (!rawUser) return null;
+
+  try {
+    return JSON.parse(rawUser);
+  } catch (err) {
+    return null;
+  }
+}
+
+export async function login(username, password, personName = '', options = {}) {
+  const { data } = await api.post('/auth/login', {
+    username,
+    password,
+    person_name: personName,
+    system_no: options.systemNo,
+    counter_no: options.counterNo
+  });
+  exitLogoutSent = false;
+  setAuthSession(data.token, data.user);
+  return data.user;
+}
+
+export async function logout() {
+  const token = getAuthStorage().getItem(getAuthKeys().token);
+  await api.post('/auth/logout', {}, {
+    timeout: 1500,
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined
+  });
+}
+
+export function recordLogoutOnExit() {
+  const token = getAuthStorage().getItem(getAuthKeys().token);
+  if (!token || exitLogoutSent) return;
+
+  exitLogoutSent = true;
+  const url = `${api.defaults.baseURL}/auth/logout-beacon`;
+  const payload = JSON.stringify({ token });
+
+  if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function') {
+    const blob = new Blob([payload], { type: 'application/json' });
+    navigator.sendBeacon(url, blob);
+  } else if (typeof fetch === 'function') {
+    fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: payload,
+      keepalive: true
+    }).catch(() => {});
+  }
+
+  clearAuthSession();
+}
+
+export async function fetchLoginOptions() {
+  const { data } = await api.get('/auth/login-options');
+  return Array.isArray(data.options) ? data.options : [];
+}
+
+export async function fetchSessionEvents(options = 200) {
+  const params = typeof options === 'object' ? options : { limit: options };
+  const { data } = await api.get('/auth/session-events', { params });
+  return {
+    rows: Array.isArray(data.rows) ? data.rows : [],
+    summary: Array.isArray(data.summary) ? data.summary : []
+  };
+}
+
+export async function fetchBackupHealth() {
+  const { data } = await api.get('/backup-health', {
+    timeout: 5000,
+    __badizoNoRetry: true,
+    params: { _: Date.now() }
+  });
+  return data;
+}
+
+export async function pingBackendHealth(timeoutMs = 2500, options = {}) {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const baseUrl = String(api.defaults.baseURL || '').replace(/\/api\/?$/, '');
+    const includeUser = options.includeUser !== false;
+    let user = {};
+    if (includeUser) {
+      try {
+        user = JSON.parse(getAuthStorage().getItem(getAuthKeys().user) || '{}') || {};
+      } catch (_err) {
+        user = {};
+      }
+    }
+    const params = new URLSearchParams({
+      _: String(Date.now()),
+      source: String(options.source || 'billing-heartbeat'),
+      user: String(user.username || ''),
+      role: String(user.role || ''),
+      counter: String(user.counter_no || user.counterNo || '')
+    });
+    const response = await fetch(`${baseUrl}/api/health?${params.toString()}`, {
+      cache: 'no-store',
+      signal: controller.signal
+    });
+    return response.ok;
+  } catch (err) {
+    return false;
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
+export async function fetchGatePassEntries({ from, to, movementType = '', status = '', search = '' } = {}) {
+  const { data } = await api.get('/gate-pass', {
+    params: { from, to, movement_type: movementType, status, search }
+  });
+  return data;
+}
+
+export async function saveGatePassEntry(payload) {
+  const { data } = await api.post('/gate-pass', payload);
+  return data;
+}
+
+export async function approveSensitiveBillingMode({ username, password, reason }) {
+  const { data } = await api.post('/auth/approve-sensitive-mode', { username, password, reason });
+  return data;
+}
+
+export async function searchProducts(query, options = {}) {
+  const trimmed = String(query || '').trim();
+  if (!trimmed) return [];
+
+  const { data } = await api.get(`/products/search/${encodeURIComponent(trimmed)}`, {
+    params: { limit: Number(options.limit) > 0 ? Number(options.limit) : 50 },
+    timeout: Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : 30000,
+    __badizoNoRetry: options.retry === false
+  });
+  return Array.isArray(data) ? data : [];
+}
+
+export async function lookupExactProduct(query) {
+  const trimmed = String(query || '').trim();
+  if (!trimmed) return null;
+
+  const fetchExact = async () => {
+    const { data } = await api.get(`/products/exact/${encodeURIComponent(trimmed)}`, {
+      params: { _: Date.now() },
+      timeout: 2500
+    });
+    return data || null;
+  };
+
+  try {
+    return await fetchExact();
+  } catch (err) {
+    if (err.response?.status === 404) return null;
+    const isTransientLookupFailure = (
+      err.code === 'ECONNABORTED'
+      || err.message?.toLowerCase().includes('timeout')
+      || (!err.response && err.request)
+    );
+    if (!isTransientLookupFailure) throw err;
+
+    await new Promise((resolve) => setTimeout(resolve, 650));
+    return await fetchExact();
+  }
+}
+
+export async function fetchProducts({ page = 1, limit = 50, search = '', gst = 'ALL' } = {}) {
+  const { data } = await api.get('/products', {
+    params: { page, limit, search, gst }
+  });
+  return data;
+}
+
+export async function fetchBulkEditableProducts(search = '') {
+  const { data } = await api.get('/products/bulk-edit/search', {
+    params: { search }
+  });
+  return Array.isArray(data) ? data : [];
+}
+
+export async function fetchPriceListGroups() {
+  const { data } = await api.get('/products/price-list/groups');
+  return Array.isArray(data.groups) ? data.groups : ['ALL PRODUCTS'];
+}
+
+export async function fetchPriceListProducts({ group = 'ALL PRODUCTS', description = '', updatedBefore = '', page = 1, limit = 500 } = {}) {
+  const { data } = await api.get('/products/price-list/search', {
+    params: { group, description, updatedBefore, page, limit }
+  });
+  const rows = Array.isArray(data.rows) ? data.rows : [];
+  const rawSummary = data.summary || {};
+  const total = Number(rawSummary.total ?? data.total ?? rawSummary.matchingTotal ?? rawSummary.count ?? rows.length);
+  const pageNumber = Number(rawSummary.page ?? page) || 1;
+  const pageLimit = Number(rawSummary.limit ?? limit) || limit;
+  return {
+    rows,
+    summary: {
+      ...rawSummary,
+      count: Number(rawSummary.count ?? rows.length),
+      total,
+      page: pageNumber,
+      limit: pageLimit,
+      totalPages: Number(rawSummary.totalPages ?? Math.max(Math.ceil(total / pageLimit), 1))
+    },
+    groups: Array.isArray(data.groups) ? data.groups : []
+  };
+}
+
+export async function updatePriceListProducts(payload) {
+  const { data } = await api.post('/products/price-list/update', payload, { timeout: 30000 });
+  return data;
+}
+
+export async function startPriceListUpdateJob(payload) {
+  const { data } = await api.post('/products/price-list/jobs', payload, { timeout: 30000 });
+  return data.job;
+}
+
+export async function fetchPriceListUpdateJob(jobId) {
+  const { data } = await api.get(`/products/price-list/jobs/${encodeURIComponent(jobId)}`);
+  return data.job;
+}
+
+export async function fetchProductDropbox({ search = '', ageDays = 365, limit = 500 } = {}) {
+  const { data } = await api.get('/products/dropbox', {
+    params: { search, ageDays, limit }
+  });
+  return data;
+}
+
+export async function fetchDuplicateProductCodes({ search = '', limit = 100 } = {}) {
+  const { data } = await api.get('/products/duplicate-codes', {
+    params: { search, limit }
+  });
+  return data;
+}
+
+export async function fetchProductExpiryDashboard({ days = 30, limit = 500 } = {}) {
+  const { data } = await api.get('/products/expiry-dashboard', {
+    params: { days, limit }
+  });
+  return data;
+}
+
+export async function fetchReorderSuggestions({ limit = 500 } = {}) {
+  const { data } = await api.get('/products/reorder-suggestions', {
+    params: { limit }
+  });
+  return Array.isArray(data) ? data : [];
+}
+
+export async function saveStockAdjustment(payload) {
+  const { data } = await api.post('/products/stock-adjustments', payload);
+  return data;
+}
+
+export async function saveProduct(product) {
+  const { data } = await api.post('/products/save', product);
+  return data;
+}
+
+export async function bulkUpdateProducts(rows) {
+  const { data } = await api.post('/products/bulk-update', { rows });
+  return data;
+}
+
+export async function bulkDeleteProductDropbox({ barcodes, username, password, ageDays = 365 }) {
+  const { data } = await api.delete('/products/dropbox/bulk-delete', {
+    data: { barcodes, username, password, ageDays }
+  });
+  return data;
+}
+
+export async function bulkDeleteDuplicateProductCodes({ barcodes, username, password }) {
+  const { data } = await api.delete('/products/duplicate-codes/bulk-delete', {
+    data: { barcodes, username, password }
+  });
+  return data;
+}
+
+function downloadBlob(blob, filename) {
+  const url = window.URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  window.URL.revokeObjectURL(url);
+}
+
+export async function exportProducts() {
+  const { data } = await api.get('/products/export', { responseType: 'blob' });
+  downloadBlob(data, 'badizo_products_export.csv');
+}
+
+export async function importProducts(csv, fileName = '') {
+  const { data } = await api.post('/products/import', { csv, fileName }, { timeout: 300000 });
+  return data;
+}
+
+export async function fetchProductImportHistory() {
+  const { data } = await api.get('/products/import-history');
+  return Array.isArray(data) ? data : [];
+}
+
+export async function fetchProductImportHistoryDetail(importId) {
+  const { data } = await api.get(`/products/import-history/${encodeURIComponent(importId)}`);
+  return data;
+}
+
+export async function deleteProductImport(importId) {
+  const { data } = await api.delete(`/products/import-history/${encodeURIComponent(importId)}`);
+  return data;
+}
+
+export async function fetchBarcodeTemplate(templateName = 'tsc-244-pro-50x50-two-up.prn') {
+  const { data } = await api.get('/barcode/template', {
+    params: { template: templateName }
+  });
+  return data;
+}
+
+export async function generateBarcodePrn(payload) {
+  const { data } = await api.post('/barcode/prn', payload);
+  return data;
+}
+
+export async function printBarcodePrn(payload) {
+  const { data } = await api.post('/barcode/print', payload);
+  return data;
+}
+
+export async function fetchBarcodePrintLogs({ from, to, search = '' } = {}) {
+  const { data } = await api.get('/barcode/print-logs', {
+    params: { from, to, search }
+  });
+  return data;
+}
+
+export async function fetchDashboardReport() {
+  const { data } = await api.get('/reports/dashboard');
+  return data;
+}
+
+export async function fetchDailySalesReport({ date, from, to, counter = '', search = '' } = {}) {
+  const { data } = await api.get('/reports/daily-sales', {
+    params: { date, from, to, counter, search }
+  });
+  return data;
+}
+
+export async function fetchFinancialYears() {
+  const { data } = await api.get('/reports/financial-years');
+  return data;
+}
+
+export async function fetchFinancialArchive({ financialYear = '', search = '', type = 'ALL' } = {}) {
+  const { data } = await api.get('/reports/financial-archive', {
+    params: { financial_year: financialYear, search, type }
+  });
+  return data;
+}
+
+
+const pendingReportApprovals = new Set();
+export function cancelPendingReportApprovals() {
+  for (const request of pendingReportApprovals) request.cancelled = true;
+}
+export async function fetchPendingReportApprovals() {
+  return (await api.get('/reports/approvals')).data;
+}
+export async function decideReportApproval(id, approved) {
+  return (await api.post('/reports/approvals/' + id, { approved })).data;
+}
+async function approvedReportGet(kind, params) {
+  if (getStoredUser()?.role !== 'COUNTER') return api.get('/reports/' + kind, { params });
+  const token = getAuthStorage().getItem(getAuthKeys().token);
+  const pending = { cancelled: false };
+  pendingReportApprovals.add(pending);
+  window.dispatchEvent(new CustomEvent('report-approval-wait', { detail: pendingReportApprovals.size }));
+  let request;
+  try {
+    ({ data: request } = await api.post('/reports/approvals', { kind, params }));
+    const deadline = Date.now() + 10 * 60 * 1000;
+    while (request.status === 'PENDING') {
+      if (pending.cancelled || token !== getAuthStorage().getItem(getAuthKeys().token)) throw new Error('Report request cancelled.');
+      if (Date.now() >= deadline) throw new Error('Server approval timed out. Please request again.');
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      request = (await api.get('/reports/approvals/' + request.id)).data;
+    }
+    if (pending.cancelled || token !== getAuthStorage().getItem(getAuthKeys().token)) throw new Error('Report request cancelled.');
+    if (request.status !== 'APPROVED') throw new Error('Server rejected the report request.');
+    return await api.get('/reports/' + kind, { params, headers: { 'X-Report-Approval': request.id } });
+  } finally {
+    if (request?.status === 'PENDING' && token === getAuthStorage().getItem(getAuthKeys().token)) {
+      await api.delete('/reports/approvals/' + request.id).catch(() => {});
+    }
+    pendingReportApprovals.delete(pending);
+    window.dispatchEvent(new CustomEvent('report-approval-wait', { detail: pendingReportApprovals.size }));
+  }
+}
+
+export async function fetchCounterSaleSlip({ date, counterNo } = {}) {
+  const { data } = await approvedReportGet('counter-sale-slip', { date, counter_no: counterNo });
+  return data;
+}
+
+export async function fetchPosSaleReport({ from, to, reportType = 'ALL', counterNo = '' } = {}) {
+  try {
+    const { data } = await approvedReportGet('pos-sale-report', { from, to, report_type: reportType, counter_no: counterNo });
+    return data;
+  } catch (err) {
+    if (getStoredUser()?.role === 'COUNTER' || err.response?.status !== 404) throw err;
+  }
+
+  const counter = counterNo ? `Counter ${counterNo}` : '';
+  const [{ data: daily }, { data: tax }] = await Promise.all([
+    api.get('/reports/daily-sales', { params: { from, to, counter } }),
+    api.get('/reports/tax-summary', { params: { from, to } })
+  ]);
+  const paymentTotals = { cash: 0, upi: 0, card: 0, other: 0, total: 0 };
+
+  (daily.rows || []).forEach((row) => {
+    const amount = Number(row.grand_total || 0);
+    const mode = String(row.payment_mode || '').toUpperCase();
+    if (mode === 'UPI') paymentTotals.upi += amount;
+    else if (mode === 'CARD') paymentTotals.card += amount;
+    else if (mode === 'CASH') paymentTotals.cash += amount;
+    else paymentTotals.other += amount;
+    paymentTotals.total += amount;
+  });
+
+  const taxRowsByRate = new Map((tax.rows || []).map((row) => [Number(row.gst_percent || 0), row]));
+  const baseGstSlabs = [0, 3, 5, 18, 40];
+  const allRates = [...new Set([...baseGstSlabs, ...(tax.rows || []).map((row) => Number(row.gst_percent || 0))])]
+    .sort((a, b) => a - b);
+  const gst = allRates.map((rate) => {
+    const row = taxRowsByRate.get(rate) || {};
+    const cgst = Number(row.cgst || 0);
+    const sgst = Number(row.sgst || 0);
+    const igst = Number(row.igst || 0);
+    const gross = Number(row.gross_total || 0);
+    return {
+      gstPercent: rate,
+      billCount: 0,
+      quantity: 0,
+      taxable: gross - cgst - sgst - igst,
+      cgst,
+      sgst,
+      igst,
+      gst: cgst + sgst + igst,
+      total: gross
+    };
+  });
+
+  return {
+    from: daily.from || from,
+    to: daily.to || to,
+    reportType,
+    counter: daily.counter || counter || 'ALL',
+    paymentTotals,
+    gst,
+    totals: {
+      billCount: Number(daily.totals?.billCount || 0),
+      taxable: Number(daily.totals?.taxable || 0),
+      gst: Number(daily.totals?.gst || 0),
+      saleTotal: Number(daily.totals?.saleTotal || 0),
+      exchangeTotal: Number(daily.totals?.exchangeLess || 0),
+      netTotal: Number(daily.totals?.total || 0)
+    }
+  };
+}
+
+export async function exportDailySalesReport({ date, from, to, counter = '', search = '' } = {}) {
+  const { data } = await api.get('/reports/daily-sales/export', {
+    params: { date, from, to, counter, search },
+    responseType: 'blob'
+  });
+  const rangeLabel = from && to ? `${from}_to_${to}` : date || 'today';
+  downloadBlob(data, `badizo_daily_sales_${rangeLabel}.csv`);
+}
+
+export async function fetchGstHsnReport({ from, to } = {}) {
+  const { data } = await api.get('/reports/gst-hsn', {
+    params: { from, to }
+  });
+  return data;
+}
+
+export async function fetchGstHsnProductDetails({ from, to, search } = {}) {
+  const { data } = await api.get('/reports/gst-hsn/product-details', {
+    params: { from, to, search }
+  });
+  return data;
+}
+
+export async function fetchProductSalesReport({ from, to, search } = {}) {
+  const { data } = await api.get('/reports/product-sales', {
+    params: { from, to, search }
+  });
+  return data;
+}
+
+export async function fetchMonthlySalesReport({ from, to } = {}) {
+  const { data } = await api.get('/reports/monthly-sales', { params: { from, to } });
+  return data;
+}
+
+export async function fetchStockReport(lowOnly = false, search = '', includeAll = false) {
+  const { data } = await api.get('/reports/stock', { params: { low_only: lowOnly ? '1' : '', search, all: includeAll ? '1' : '' } });
+  return Array.isArray(data) ? data : [];
+}
+
+export async function fetchTopProductsReport({ from, to, direction = 'DESC', search = '' } = {}) {
+  const { data } = await api.get('/reports/top-products', { params: { from, to, direction, search } });
+  return data;
+}
+
+export async function fetchTaxSummaryReport({ from, to } = {}) {
+  const { data } = await api.get('/reports/tax-summary', { params: { from, to } });
+  return data;
+}
+
+export async function fetchGstr1Report({ from, to } = {}) {
+  const { data } = await api.get('/reports/gstr1', { params: { from, to } });
+  return data;
+}
+
+export async function fetchGstr2Report({ from, to } = {}) {
+  const { data } = await api.get('/reports/gstr2', { params: { from, to } });
+  return data;
+}
+
+export async function fetchGstr3Report({ from, to } = {}) {
+  const { data } = await api.get('/reports/gstr3', { params: { from, to } });
+  return data;
+}
+
+export async function fetchCounterHandoverReport({ from, to, counter = '' } = {}) {
+  const { data } = await api.get('/reports/counter-handover', { params: { from, to, counter } });
+  return data;
+}
+
+export async function fetchExceptionReport({ from, to, search = '' } = {}) {
+  const { data } = await api.get('/reports/exceptions', { params: { from, to, search } });
+  return data;
+}
+
+export async function fetchExchangeBillsReport({ from, to, counter = '', search = '' } = {}) {
+  const { data } = await api.get('/reports/exchange-bills', { params: { from, to, counter, search } });
+  return data;
+}
+
+export async function fetchReprintReport({ from, to, counter = '', search = '' } = {}) {
+  const { data } = await api.get('/reports/reprints', { params: { from, to, counter, search } });
+  return data;
+}
+
+export async function createQuotation(payload) {
+  const { data } = await api.post('/quotations', payload, { timeout: 30000 });
+  return data;
+}
+
+export async function fetchQuotations({ from, to, search = '' } = {}) {
+  const { data } = await api.get('/quotations', { params: { from, to, search } });
+  return data;
+}
+
+export async function fetchQuotationDetails(quotationNo) {
+  const { data } = await api.get(`/quotations/${encodeURIComponent(quotationNo)}`);
+  return data;
+}
+export async function checkout(payload) {
+  try {
+    const { data } = await api.post('/billing/checkout', payload, { timeout: 30000 });
+    return data;
+  } catch (error) {
+    // A timed-out POST may already have committed on the server. Retrying with
+    // the same checkout_request_id is safe and returns that committed invoice.
+    // A rolled-back database deadlock is also safe to retry once with that ID.
+    const timedOut = error?.code === 'ECONNABORTED' || /timeout/i.test(String(error?.message || ''));
+    const retryableDeadlock = error?.response?.status === 503 && error?.response?.data?.retryable === true;
+    if (!timedOut && !retryableDeadlock) throw error;
+    const { data } = await api.post('/billing/checkout', payload, { timeout: 10000 });
+    return data;
+  }
+}
+
+export async function fetchNextInvoice(counterNo = 1) {
+  const { data } = await api.get('/billing/invoice/next', {
+    params: { counter_no: counterNo }
+  });
+  return data;
+}
+
+export async function fetchSettings() {
+  const { data } = await api.get('/settings');
+  return data;
+}
+
+export async function fetchSystemHealth() {
+  const { data } = await api.get('/system-health');
+  return data;
+}
+
+export async function saveSettings(settings) {
+  const { data } = await api.post('/settings', settings);
+  return data;
+}
+
+export async function fetchPasswordVault(category = 'STORE_PROTECTED') {
+  const { data } = await api.get('/settings/password-vault', {
+    params: { category }
+  });
+  return data;
+}
+
+export async function savePasswordVaultSlot(slotNo, payload, category = 'STORE_PROTECTED') {
+  const { data } = await api.post(`/settings/password-vault/${slotNo}`, { ...payload, category });
+  return data;
+}
+
+export async function revealPasswordVaultSlot(slotNo, category = 'STORE_PROTECTED') {
+  const { data } = await api.get(`/settings/password-vault/${slotNo}/reveal`, {
+    params: { category }
+  });
+  return data;
+}
+
+export async function fetchBackups() {
+  const { data } = await api.get('/backup');
+  return data;
+}
+
+export async function runBackup() {
+  const { data } = await api.post('/backup/run');
+  return data;
+}
+
+export async function downloadBackup(fileKey, downloadName = fileKey) {
+  const { data } = await api.get(`/backup/download/${encodeURIComponent(fileKey)}`, {
+    responseType: 'blob'
+  });
+  downloadBlob(data, downloadName);
+}
+
+export async function restoreBackup(file, confirmation) {
+  const { data } = await api.post('/backup/restore', { file, confirmation });
+  return data;
+}
+
+export async function fetchInvoiceHistory({ from, to, search, paymentMode } = {}) {
+  const { data } = await api.get('/billing/hold/list', {
+    params: { from, to, search, payment_mode: paymentMode }
+  });
+  return Array.isArray(data) ? data : [];
+}
+
+export async function fetchInvoiceDetails(invoiceNo, options = {}) {
+  const { data } = await api.get('/billing/invoice/details', {
+    params: {
+      invoice_no: invoiceNo,
+      checkout_request_id: options.checkoutRequestId || ''
+    },
+    timeout: Number(options.timeoutMs) > 0 ? Number(options.timeoutMs) : 25000
+  });
+  return data;
+}
+
+export async function recordInvoiceReprint(invoiceNo, printMode = 'Thermal') {
+  const { data } = await api.post('/billing/invoice/reprint', { invoice_no: invoiceNo, print_mode: printMode });
+  return data;
+}
+
+export async function voidInvoice(invoiceNo, reason) {
+  const { data } = await api.post('/billing/invoice/void', { invoice_no: invoiceNo, reason });
+  return data;
+}
+
+export async function createSalesReturn(payload) {
+  const { data } = await api.post('/billing/return', payload);
+  return data;
+}
+
+export async function holdBill(holdToken, savedState, metadata = {}) {
+  const { data } = await api.post('/billing/hold', {
+    hold_token: holdToken,
+    saved_state: savedState,
+    ...metadata
+  });
+  return data;
+}
+
+export async function fetchHeldBills(counterNo) {
+  const { data } = await api.get('/billing/holds', {
+    params: counterNo ? { counter_no: counterNo } : {}
+  });
+  return Array.isArray(data) ? data : [];
+}
+
+export async function deleteHeldBill(holdToken) {
+  const { data } = await api.delete(`/billing/hold/${encodeURIComponent(holdToken)}`);
+  return data;
+}
+
+export async function fetchRecentInwards() {
+  const { data } = await api.get('/inward/recent');
+  return Array.isArray(data) ? data : [];
+}
+
+export async function fetchPurchaseOrders({ status = 'ALL', supplier = '' } = {}) {
+  const { data } = await api.get('/inward/purchase-orders', {
+    params: {
+      status,
+      ...(String(supplier || '').trim() ? { supplier: String(supplier || '').trim() } : {})
+    }
+  });
+  return Array.isArray(data) ? data : [];
+}
+
+export async function fetchPurchaseOrderDetails(poNo) {
+  const { data } = await api.get(`/inward/purchase-orders/${encodeURIComponent(poNo)}`);
+  return data;
+}
+
+export async function savePurchaseOrder(payload) {
+  const { data } = await api.post('/inward/purchase-orders', payload);
+  return data;
+}
+
+export async function updatePurchaseOrderStatus(poNo, status) {
+  const { data } = await api.post(`/inward/purchase-orders/${encodeURIComponent(poNo)}/status`, { status });
+  return data;
+}
+
+export async function fetchSuppliers({ search = '' } = {}) {
+  const { data } = await api.get('/inward/suppliers', {
+    params: { search }
+  });
+  return Array.isArray(data) ? data : [];
+}
+
+export async function saveSupplier(payload) {
+  const { data } = await api.post('/inward/suppliers', payload);
+  return data;
+}
+
+export async function fetchSupplierDues({ supplier = '', status = 'OPEN' } = {}) {
+  const { data } = await api.get('/inward/supplier-dues', {
+    params: { supplier, status }
+  });
+  return data;
+}
+
+export async function recordSupplierPayment(payload) {
+  const { data } = await api.post('/inward/supplier-payments', payload);
+  return data;
+}
+
+export async function fetchSupplierLedger({ supplier = '' } = {}) {
+  const { data } = await api.get('/inward/supplier-ledger', {
+    params: { supplier }
+  });
+  return data;
+}
+
+export async function fetchInwardHistory({ from = '', to = '', supplier = '', invoice = '' } = {}) {
+  const { data } = await api.get('/inward/history', {
+    params: { from, to, supplier, invoice }
+  });
+  return Array.isArray(data) ? data : [];
+}
+
+export async function searchInwardSuppliers(search = '') {
+  const trimmed = String(search || '').trim();
+  if (trimmed.length < 3) return [];
+
+  const { data } = await api.get('/inward/suppliers/search', {
+    params: { q: trimmed }
+  });
+  return Array.isArray(data) ? data : [];
+}
+
+export async function fetchPendingInwards() {
+  const { data } = await api.get('/inward/history');
+  return Array.isArray(data) ? data.filter((entry) => entry.posting_status === 'DRAFT') : [];
+}
+
+export async function fetchInwardDetails(id) {
+  const { data } = await api.get(`/inward/${encodeURIComponent(id)}/details`);
+  return data;
+}
+
+export async function fetchInwardDetailsByNumber(inwardNo) {
+  const { data } = await api.get(`/inward/by-number/${encodeURIComponent(inwardNo)}/details`);
+  return data;
+}
+
+export async function saveInwardEntry(payload) {
+  const { data } = await api.post('/inward', payload);
+  return data;
+}
+
+export async function deleteInwardEntry(id) {
+  const { data } = await api.delete(`/inward/${encodeURIComponent(id)}`);
+  return data;
+}
+
+export async function matchCustomerFromPreviousBill({ name = '', phone = '' } = {}) {
+  const { data } = await api.get('/customers/match', { params: { name, phone } });
+  return data;
+}
+export async function lookupCustomer(phone) {
+  const { data } = await api.get(`/customers/lookup/${encodeURIComponent(phone)}`);
+  return data;
+}
+
+export async function saveCustomer(customer) {
+  const { data } = await api.post('/customers', customer);
+  return data;
+}
+
+export async function fetchCustomers(search = '') {
+  const { data } = await api.get('/customers', { params: { search } });
+  return Array.isArray(data) ? data : [];
+}
+
+export async function fetchUpcomingSpecialOrders() {
+  const { data } = await api.get('/special-orders/upcoming');
+  return Array.isArray(data) ? data : [];
+}
+
+export async function fetchSpecialOrders({ search = '', status = 'OPEN' } = {}) {
+  const { data } = await api.get('/special-orders', { params: { search, status } });
+  return Array.isArray(data) ? data : [];
+}
+
+export async function fetchSpecialOrderDetails(orderNo) {
+  const { data } = await api.get(`/special-orders/${encodeURIComponent(orderNo)}`);
+  return data;
+}
+
+export async function saveSpecialOrder(payload) {
+  const { data } = await api.post('/special-orders', payload);
+  return data;
+}
+
+export async function updateSpecialOrderStatus(orderNo, status) {
+  const { data } = await api.post(`/special-orders/${encodeURIComponent(orderNo)}/status`, { status });
+  return data;
+}
+
+export async function recordSpecialOrderPayment(orderNo, payload) {
+  const { data } = await api.post(`/special-orders/${encodeURIComponent(orderNo)}/payments`, payload);
+  return data;
+}
+
+export async function fetchSpecialOrderReceivables({ search = '' } = {}) {
+  const { data } = await api.get('/special-orders/receivables', { params: { search } });
+  return data;
+}
+
+export async function fetchBooksSummary(dateOrRange) {
+  const params = typeof dateOrRange === 'object' ? dateOrRange : { date: dateOrRange };
+  const { data } = await api.get('/books/summary', { params });
+  return data;
+}
+
+export async function fetchDayBook(dateOrRange) {
+  const params = typeof dateOrRange === 'object' ? dateOrRange : { date: dateOrRange };
+  const { data } = await api.get('/books/day-book', { params });
+  return data;
+}
+
+export async function fetchAccountingBooks(dateOrRange) {
+  const params = typeof dateOrRange === 'object' ? dateOrRange : { date: dateOrRange };
+  const { data } = await api.get('/books/accounting', { params });
+  return data;
+}
+
+export async function saveNamedLedgerEntry(payload) {
+  const { data } = await api.post('/books/named-ledgers/manual', payload);
+  return data;
+}
+
+export async function saveCounterClosingCashAccountEntry(payload) {
+  const { data } = await api.post('/books/counter-closing-cash-account/manual', payload);
+  return data;
+}
+
+export async function saveAccountingVoucher(payload) {
+  const { data } = await api.post('/accounting-vouchers', payload);
+  return data;
+}
+
+export async function fetchLocalAccounts(params) {
+  const { data } = await api.get('/local-accounts', { params });
+  return data;
+}
+export async function saveLocalAccountEntry(payload, id = null) {
+  const { data } = id ? await api.put(`/local-accounts/${id}`, payload) : await api.post('/local-accounts', payload);
+  return data;
+}
+
+export async function setLocalAccountEntryCleared(id, isCleared) {
+  const { data } = await api.put(`/local-accounts/${id}/cleared`, { is_cleared: Boolean(isCleared) });
+  return data;
+}
+
+export async function deleteLocalLedger(payload) {
+  const { data } = await api.delete('/local-accounts/ledger', { data: payload });
+  return data;
+}
+export async function saveLocalLedgerProfile(payload) {
+  const { data } = await api.put('/local-accounts/ledger/profile', payload);
+  return data;
+}
+export async function renameLocalLedger(payload) {
+  const { data } = await api.put('/local-accounts/ledger/name', payload);
+  return data;
+}
+export async function fetchStaffWorkers({ search = '', activeOnly = true } = {}) {
+  const { data } = await api.get('/staff-payroll/staff', {
+    params: { search, active_only: activeOnly ? '1' : '0' }
+  });
+  return Array.isArray(data.rows) ? data.rows : [];
+}
+
+export async function saveStaffWorker(payload) {
+  const { data } = await api.post('/staff-payroll/staff', payload);
+  return data;
+}
+
+export async function fetchStaffAttendance({ from, to, staffId = '', search = '' } = {}) {
+  const { data } = await api.get('/staff-payroll/attendance', {
+    params: { from, to, staff_id: staffId, search }
+  });
+  return Array.isArray(data.rows) ? data.rows : [];
+}
+
+export async function saveStaffAttendance(payload) {
+  const { data } = await api.post('/staff-payroll/attendance', payload);
+  return data;
+}
+
+export async function fetchStaffMonthlySheet({ month, search = '' } = {}) {
+  const { data } = await api.get('/staff-payroll/monthly-sheet', {
+    params: { month, search }
+  });
+  return data;
+}
+
+export async function saveStaffSalarySheet(payload) {
+  const { data } = await api.post('/staff-payroll/salary-sheet', payload);
+  return data;
+}
+
+export async function fetchCounterExpected(date, counterNo) {
+  const { data } = await api.get('/counter-closing/expected', {
+    params: { date, counter_no: counterNo }
+  });
+  return data;
+}
+
+export async function saveCounterClosing(payload) {
+  const { data } = await api.post('/counter-closing', payload);
+  return data;
+}
+
+export async function fetchCounterClosingSummary(date) {
+  const { data } = await api.get('/counter-closing/summary', { params: { date } });
+  return data;
+}
+
+export async function fetchCounterHandover(date, counterNo) {
+  const { data } = await api.get('/counter-closing/handover', {
+    params: { date, counter_no: counterNo }
+  });
+  return data;
+}
+
+export async function saveCounterHandover(payload) {
+  const { data } = await api.post('/counter-closing/handover', payload, { timeout: 30000 });
+  return data;
+}
+
+export async function fetchCounterHandoverHistory({ from, to, counterNo = '' } = {}) {
+  const { data } = await api.get('/counter-closing/handover/history', {
+    params: { from, to, counter_no: counterNo }
+  });
+  return data;
+}
+
+export async function fetchCounterCashLedger({ from, to, counterNo = '' } = {}) {
+  const { data } = await api.get('/counter-cash-ledger', {
+    params: { from, to, counter_no: counterNo }
+  });
+  return data;
+}
+
+export async function saveCounterCashLedgerEntry(payload) {
+  const { data } = await api.post('/counter-cash-ledger', payload);
+  return data;
+}
+
+export async function fetchUsers() {
+  const { data } = await api.get('/users');
+  return Array.isArray(data) ? data : [];
+}
+
+export async function saveUser(user) {
+  const { data } = await api.post('/users', user);
+  return data;
+}
+
+export async function fetchAuditLogs(limit = 100) {
+  const { data } = await api.get('/audit', { params: { limit } });
+  return Array.isArray(data) ? data : [];
+}
+
+export async function fetchHospitalityPublic() {
+  const { data } = await api.get('/hospitality/public');
+  return data;
+}
+
+export async function fetchHospitalitySummary() {
+  const { data } = await api.get('/hospitality/summary');
+  return data;
+}
+
+export async function fetchHospitalityProfile() {
+  const { data } = await api.get('/hospitality/profile');
+  return data.profile || {};
+}
+
+export async function saveHospitalityProfile(payload) {
+  const { data } = await api.post('/hospitality/profile', payload);
+  return data;
+}
+
+export async function fetchHospitalityContent(type = 'GALLERY') {
+  const { data } = await api.get('/hospitality/content', { params: { type } });
+  return Array.isArray(data.rows) ? data.rows : [];
+}
+
+export async function saveHospitalityContent(payload) {
+  const { data } = await api.post('/hospitality/content', payload);
+  return data;
+}
+
+export async function deleteHospitalityContent(id) {
+  const { data } = await api.delete(`/hospitality/content/${encodeURIComponent(id)}`);
+  return data;
+}
+
+export async function fetchHospitalityBookings({ from, to, type = 'ALL' } = {}) {
+  const { data } = await api.get('/hospitality/bookings', { params: { from, to, type } });
+  return Array.isArray(data.rows) ? data.rows : [];
+}
+
+export async function saveHospitalityBooking(payload) {
+  const { data } = await api.post('/hospitality/bookings', payload);
+  return data;
+}
+
+export async function saveHospitalityPublicBooking(payload) {
+  const { data } = await api.post('/hospitality/public/bookings', payload);
+  return data;
+}
+
+export async function fetchHospitalityTasks({ from, to } = {}) {
+  const { data } = await api.get('/hospitality/tasks', { params: { from, to } });
+  return Array.isArray(data.rows) ? data.rows : [];
+}
+
+export async function saveHospitalityTask(payload) {
+  const { data } = await api.post('/hospitality/tasks', payload);
+  return data;
+}
+
+export async function fetchHospitalityStockMovements({ from, to } = {}) {
+  const { data } = await api.get('/hospitality/stock-movements', { params: { from, to } });
+  return Array.isArray(data.rows) ? data.rows : [];
+}
+
+export async function saveHospitalityStockMovement(payload) {
+  const { data } = await api.post('/hospitality/stock-movements', payload);
+  return data;
+}
+
+export default api;

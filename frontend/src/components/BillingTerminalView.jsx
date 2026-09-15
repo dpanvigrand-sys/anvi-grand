@@ -1,0 +1,7039 @@
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { renderToStaticMarkup } from 'react-dom/server';
+import {
+  approveSensitiveBillingMode,
+  checkout,
+  createSalesReturn,
+  createQuotation,
+  deleteHeldBill,
+  fetchHeldBills,
+  fetchCounterSaleSlip,
+  cancelPendingReportApprovals,
+  fetchInvoiceDetails,
+  fetchInvoiceHistory,
+  fetchNextInvoice,
+  fetchPosSaleReport,
+  fetchCustomers,
+  fetchSettings,
+  getStoredUser,
+  holdBill,
+  lookupExactProduct,
+  lookupCustomer,
+  matchCustomerFromPreviousBill,
+  pingBackendHealth,
+  recordInvoiceReprint,
+  saveCustomer,
+  voidInvoice,
+  searchProducts
+} from '../api/client';
+import { amountInWords, formatMoney, toNumber } from '../utils/money';
+import { findExactSaleProduct } from '../utils/productLookup';
+import PrintableInvoice from './PrintableInvoice';
+import PrintableQuotation from './PrintableQuotation';
+
+const BILLING_MODES = {
+  RETAIL_LOCAL: {
+    label: 'GST Retail',
+    shortLabel: 'GST Retail',
+    tier: 'RETAIL',
+    taxType: 'LOCAL',
+    transactionType: 'B2C'
+  },
+  WHOLESALE_LOCAL: {
+    label: 'GST Wholesale',
+    shortLabel: 'GST Whole',
+    tier: 'WHOLESALE',
+    taxType: 'LOCAL',
+    transactionType: 'B2C'
+  },
+  RETAIL_IGST: {
+    label: 'IGST Retail',
+    shortLabel: 'IGST Retail',
+    tier: 'RETAIL',
+    taxType: 'INTERSTATE',
+    transactionType: 'B2C'
+  },
+  WHOLESALE_IGST: {
+    label: 'IGST Wholesale',
+    shortLabel: 'IGST Whole',
+    tier: 'WHOLESALE',
+    taxType: 'INTERSTATE',
+    transactionType: 'B2B'
+  }
+};
+
+const RETAIL_MODE = 'RETAIL_LOCAL';
+const POS_DRAFT_KEY = 'badizo_pos_active_draft';
+const EMPTY_MIXED_PAYMENT = { cash: '', upi: '', card: '', upi_reference: '', card_reference: '' };
+const SCANNER_BARCODE_PATTERN = /^[A-Z0-9._-]+$/i;
+const SCANNER_MIN_BARCODE_LENGTH = 6;
+const SCANNER_SETTLE_MS = 240;
+const SCANNER_FAST_KEY_MS = 45;
+const SCANNER_TOTAL_KEY_MS = 140;
+const SCANNER_WAKE_BLOCK_MS = 120;
+const TYPED_SEARCH_DEBOUNCE_MS = 160;
+const TYPED_BARCODE_AUTO_ADD_MS = 300;
+const BACKEND_PING_TIMEOUT_MS = 12000;
+const BACKEND_PING_INTERVAL_MS = 15000;
+const BACKEND_PING_FAIL_THRESHOLD = 6;
+const EXACT_PRODUCT_CACHE_TTL_MS = 2000;
+const POS_SUGGESTION_LIMIT = 50;
+const MIN_VISIBLE_BILL_ROWS = 12;
+const FIXED_THERMAL_RECEIPT_WIDTH_MM = 80;
+const FIXED_THERMAL_CONTENT_WIDTH_MM = 72;
+const FIXED_THERMAL_FEED_MARGIN_MM = 4;
+
+function readActivePosDraft(user) {
+  try {
+    const raw = window.localStorage.getItem(POS_DRAFT_KEY);
+    if (!raw) return null;
+    const draft = JSON.parse(raw);
+    const username = String(user?.username || '').trim();
+    if (draft.username && username && draft.username !== username) return null;
+    if (user?.role === 'COUNTER') {
+      const activeCounterNo = Number(user.counter_no || 1);
+      const draftCounterNo = Number(draft.counterNo || 1);
+      const activeSystemNo = Number(user.system_no || 0);
+      const draftSystemNo = Number(draft.systemNo || activeSystemNo || 0);
+      if (draftCounterNo !== activeCounterNo || (activeSystemNo > 0 && draftSystemNo > 0 && draftSystemNo !== activeSystemNo)) {
+        window.localStorage.removeItem(POS_DRAFT_KEY);
+        return null;
+      }
+    }
+    const hasBillLines = Array.isArray(draft.cart) && draft.cart.length > 0;
+    const hasExchangeLines = Array.isArray(draft.exchangeItems) && draft.exchangeItems.length > 0;
+    if (!hasBillLines && !hasExchangeLines) {
+      window.localStorage.removeItem(POS_DRAFT_KEY);
+      return null;
+    }
+    return { ...draft, cashReceived: '' };
+  } catch (err) {
+    return null;
+  }
+}
+
+function clearActivePosDraft() {
+  try {
+    window.localStorage.removeItem(POS_DRAFT_KEY);
+  } catch (err) {
+    // Ignore storage failures; billing state still works in memory.
+  }
+}
+
+function getUnitPrice(item, mode) {
+  const quantity = toNumber(item.quantity, 1);
+  const qty3Price = toNumber(item.qty_3_price);
+  const qty6Price = toNumber(item.qty_6_price);
+  const qty12Price = toNumber(item.qty_12_price);
+  if (quantity >= 12 && qty12Price > 0) return qty12Price;
+  if (quantity >= 6 && qty6Price > 0) return qty6Price;
+  if (quantity >= 3 && qty3Price > 0) return qty3Price;
+  if (BILLING_MODES[mode]?.tier === 'WHOLESALE') {
+    return toNumber(item.wholesale_price || item.sale_price || item.mrp);
+  }
+  return toNumber(item.sale_price || item.mrp);
+}
+
+function isSensitiveBillingMode(mode) {
+  const config = BILLING_MODES[mode] || {};
+  return config.tier === 'WHOLESALE' || config.taxType === 'INTERSTATE';
+}
+
+function isBusinessBillingMode(mode) {
+  return BILLING_MODES[mode]?.transactionType === 'B2B';
+}
+
+function isSensitivePrintMode(mode) {
+  return mode === 'A4';
+}
+
+function normalizeBillingMode(mode) {
+  if (mode === 'BUSINESS_IGST') return 'WHOLESALE_IGST';
+  return BILLING_MODES[mode] ? mode : RETAIL_MODE;
+}
+
+function composeBillingMode(saleMode, taxMode) {
+  if (saleMode === 'WHOLESALE' && taxMode === 'IGST') return 'WHOLESALE_IGST';
+  if (saleMode === 'WHOLESALE') return 'WHOLESALE_LOCAL';
+  if (taxMode === 'IGST') return 'RETAIL_IGST';
+  return RETAIL_MODE;
+}
+
+function getHeldBillMode(heldBill) {
+  try {
+    const savedState = typeof heldBill.saved_state === 'string'
+      ? JSON.parse(heldBill.saved_state)
+      : heldBill.saved_state;
+    return normalizeBillingMode(savedState?.billingMode);
+  } catch (err) {
+    return RETAIL_MODE;
+  }
+}
+
+function isDigitalPaymentContactReady(value) {
+  const text = String(value || '').trim();
+  return text.toUpperCase() === 'NO' || text.replace(/\D/g, '').length === 10;
+}
+
+function isExchangeCustomerNameReady(value) {
+  const text = String(value || '').trim();
+  return text.length > 0 && text.toLowerCase() !== 'walk-in customer';
+}
+
+function isTenDigitPhoneReady(value) {
+  return String(value || '').replace(/\D/g, '').length === 10;
+}
+
+function formatSlipAmount(value) {
+  return toNumber(value).toFixed(2);
+}
+
+function moneyToPaise(value) {
+  return Math.round(toNumber(value) * 100);
+}
+
+function paiseToMoney(value) {
+  return moneyToPaise(value) / 100;
+}
+
+function localIsoDate(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeDateRange(fromDate, toDate) {
+  const fallback = localIsoDate();
+  const from = String(fromDate || fallback).trim() || fallback;
+  const to = String(toDate || from).trim() || from;
+  return from <= to ? { from, to } : { from: to, to: from };
+}
+
+function getThermalFeedMarginMm(settings) {
+  return FIXED_THERMAL_FEED_MARGIN_MM;
+}
+
+function getThermalReceiptWidthMm() {
+  return FIXED_THERMAL_RECEIPT_WIDTH_MM;
+}
+
+function getThermalContentWidthMm() {
+  return FIXED_THERMAL_CONTENT_WIDTH_MM;
+}
+
+function buildHoldToken({ invoiceNo, counterNo, customerLabel }) {
+  const billLabel = String(invoiceNo || '').trim();
+  const stableBillLabel = billLabel && billLabel !== 'Loading...'
+    ? billLabel
+    : `HOLD-C${counterNo}-${Date.now()}`;
+  const customerText = String(customerLabel || '').trim() || 'WALK-IN';
+  return `${stableBillLabel} - ${customerText.toUpperCase()}`.slice(0, 80);
+}
+
+function parseCounterNoFromLabel(value, fallback = 1) {
+  const text = String(value || '').trim();
+  const match = text.match(/(?:^|\/)Counter\s*(\d+)/i);
+  if (match) return Number(match[1]) || fallback;
+  const plain = text.match(/^Counter\s*(\d+)$/i);
+  if (plain) return Number(plain[1]) || fallback;
+  return fallback;
+}
+
+function counterDisplayLabel(value, fallbackCounterNo = 1) {
+  const text = String(value || '').trim();
+  if (text) return text;
+  return `Counter ${fallbackCounterNo}`;
+}
+
+function billingCounterLabelForUser(user, counterNo) {
+  const normalizedCounter = Number(counterNo || 1);
+  const username = String(user?.username || '').trim().toLowerCase();
+  const usernameSystemMatch = username.match(/^counter([1-6])$/);
+  const systemNo = Number(user?.system_no || user?.login_counter_no || usernameSystemMatch?.[1] || 0);
+  if (user?.role === 'COUNTER' && systemNo > 0) return `S${systemNo}/Counter${normalizedCounter}`;
+
+  if (username === 'server' || user?.role === 'SERVER') return `SER/Counter${normalizedCounter}`;
+  const adminMatch = username.match(/^admin(\d+)$/);
+  if (adminMatch) return `AD${adminMatch[1]}/Counter${normalizedCounter}`;
+  if (username === 'admin' || user?.role === 'ADMIN') return `AD/Counter${normalizedCounter}`;
+  return `Counter ${normalizedCounter}`;
+}
+
+function counterLabelMatches(savedCounter, counterNo) {
+  const text = String(savedCounter || '').trim().toLowerCase();
+  const normalizedCounter = Number(counterNo || 1);
+  return !text || text === `counter ${normalizedCounter}` || text === `counter${normalizedCounter}` || text.endsWith(`/counter${normalizedCounter}`);
+}
+
+function CounterSaleSlip({ slip, shop, printedAt }) {
+  const printedDate = printedAt.toLocaleDateString('en-IN');
+  const printedTime = printedAt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+  const counter = slip?.counter || {};
+  const allCounters = slip?.allCounters || {};
+
+  return (
+    <div className="counter-sale-slip">
+      <div className="thermal-brand-edge">Badizo</div>
+      <div className="counter-sale-slip-title">
+        <strong>{shop.shop_name}</strong>
+        <span>{printedDate} | {printedTime}</span>
+      </div>
+      <div className="counter-sale-slip-rule" />
+      <div className="counter-sale-slip-heading">COUNTER SALE</div>
+      <div className="counter-sale-slip-line"><span>Counter Detail</span><strong>{slip?.counterLabel || `Counter ${slip?.counterNo || '-'}`}</strong></div>
+      <div className="counter-sale-slip-rule counter-detail-rule" />
+      <div className="counter-sale-slip-line"><span>Bills</span><strong>{Number(counter.billCount || 0)}</strong></div>
+      <div className="counter-sale-slip-line"><span>UPI Sale</span><strong>{formatSlipAmount(counter.upiSale)}</strong></div>
+      <div className="counter-sale-slip-line"><span>Card Sale</span><strong>{formatSlipAmount(counter.cardSale)}</strong></div>
+      <div className="counter-sale-slip-line"><span>Cash Sale</span><strong>{formatSlipAmount(counter.cashSale)}</strong></div>
+      <div className="counter-sale-slip-total"><span>Total Sale</span><strong>{formatSlipAmount(counter.totalSale)}</strong></div>
+      <div className="counter-sale-slip-line"><span>Exchange Bills</span><strong>{Number(counter.exchangeBillCount || 0)}</strong></div>
+      <div className="counter-sale-slip-line"><span>Exchange Sale</span><strong>{formatSlipAmount(counter.exchangeSaleTotal)}</strong></div>
+      <div className="counter-sale-slip-line"><span>Exchange Less</span><strong>{formatSlipAmount(counter.exchangeLess)}</strong></div>
+      <div className="counter-sale-slip-total"><span>Exchange Net</span><strong>{formatSlipAmount(counter.exchangeNetTotal)}</strong></div>
+      <div className="counter-sale-slip-rule" />
+      {slip?.allCounters && <>
+      <div className="counter-sale-slip-total all-sale"><span>All Counter Sale</span><strong>{formatSlipAmount(allCounters.totalSale)}</strong></div>
+      <div className="counter-sale-slip-line"><span>All Exchange Bills</span><strong>{Number(allCounters.exchangeBillCount || 0)}</strong></div>
+      <div className="counter-sale-slip-line"><span>All Exchange Sale</span><strong>{formatSlipAmount(allCounters.exchangeSaleTotal)}</strong></div>
+      <div className="counter-sale-slip-line"><span>All Exchange Less</span><strong>{formatSlipAmount(allCounters.exchangeLess)}</strong></div>
+      <div className="counter-sale-slip-total"><span>All Exchange Net</span><strong>{formatSlipAmount(allCounters.exchangeNetTotal)}</strong></div>
+      <div className="counter-sale-slip-line"><span>Net Sale</span><strong>{formatSlipAmount(allCounters.totalSale)}</strong></div>
+      </>}
+      <div className="counter-sale-slip-rule" />
+      <div className="counter-sale-slip-footer">Cash handover slip</div>
+    </div>
+  );
+}
+
+function SaleReportSlip({ report, shop, printedAt }) {
+  const printedDate = printedAt.toLocaleDateString('en-IN');
+  const printedTime = printedAt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+  const payments = report?.paymentTotals || {};
+  const totals = report?.totals || {};
+  const gstRows = Array.isArray(report?.gst) ? report.gst : [];
+  const activeGstRows = gstRows.filter((row) => Number(row.total || 0) !== 0 || Number(row.gst || 0) !== 0);
+  const gstBreakupTotals = activeGstRows.reduce((sum, row) => ({
+    cgst: sum.cgst + Number(row.cgst || 0),
+    sgst: sum.sgst + Number(row.sgst || 0),
+    igst: sum.igst + Number(row.igst || 0)
+  }), { cgst: 0, sgst: 0, igst: 0 });
+  const showGstDetail = report?.reportType === 'GST';
+
+  return (
+    <div className="counter-sale-slip sale-report-slip">
+      <div className="thermal-brand-edge">Badizo</div>
+      <div className="counter-sale-slip-title">
+        <strong>{shop.shop_name}</strong>
+        <span>{printedDate} | {printedTime}</span>
+      </div>
+      <div className="counter-sale-slip-rule" />
+      <div className="counter-sale-slip-heading">SALE REPORT</div>
+      <div className="counter-sale-slip-line"><span>Date</span><strong>{report?.from || '-'} to {report?.to || '-'}</strong></div>
+      <div className="counter-sale-slip-line"><span>Report</span><strong>{report?.reportType || 'ALL'} | {report?.counter || 'ALL'}</strong></div>
+      <div className="counter-sale-slip-rule" />
+      <div className="counter-sale-slip-line"><span>Bills</span><strong>{Number(totals.billCount || 0)}</strong></div>
+      <div className="counter-sale-slip-line"><span>UPI Sales</span><strong>{formatSlipAmount(payments.upi)}</strong></div>
+      <div className="counter-sale-slip-line"><span>Card Sales</span><strong>{formatSlipAmount(payments.card)}</strong></div>
+      <div className="counter-sale-slip-line"><span>Other Sales</span><strong>{formatSlipAmount(payments.other)}</strong></div>
+      <div className="counter-sale-slip-line"><span>Cash Sales</span><strong>{formatSlipAmount(payments.cash)}</strong></div>
+      <div className="counter-sale-slip-total"><span>Total Sale</span><strong>{formatSlipAmount(totals.saleTotal)}</strong></div>
+      <div className="counter-sale-slip-line"><span>Payment / Net Total</span><strong>{formatSlipAmount(payments.total || totals.netTotal)}</strong></div>
+      {showGstDetail && (
+        <>
+          <div className="counter-sale-slip-rule" />
+          <div className="counter-sale-slip-heading">GST SALE REPORT</div>
+          {activeGstRows.map((row) => (
+            <div className="sale-report-gst-detail" key={row.gstPercent}>
+              <div className="counter-sale-slip-line"><strong>GST {Number(row.gstPercent || 0).toFixed(0)}%</strong><strong>{formatSlipAmount(row.total)}</strong></div>
+              <div className="counter-sale-slip-line"><span>Taxable</span><span>{formatSlipAmount(row.taxable)}</span></div>
+              <div className="sale-report-gst-taxes"><span>CGST {formatSlipAmount(row.cgst)}</span><span>SGST {formatSlipAmount(row.sgst)}</span><span>IGST {formatSlipAmount(row.igst)}</span></div>
+            </div>
+          ))}
+          <div className="counter-sale-slip-line"><span>Total CGST</span><strong>{formatSlipAmount(gstBreakupTotals.cgst)}</strong></div>
+          <div className="counter-sale-slip-line"><span>Total SGST</span><strong>{formatSlipAmount(gstBreakupTotals.sgst)}</strong></div>
+          <div className="counter-sale-slip-line"><span>Total IGST</span><strong>{formatSlipAmount(gstBreakupTotals.igst)}</strong></div>
+          <div className="counter-sale-slip-total"><span>GST Total Sale</span><strong>{formatSlipAmount(totals.saleTotal)}</strong></div>
+        </>
+      )}
+      <div className="counter-sale-slip-rule" />
+      <div className="counter-sale-slip-line"><span>Taxable</span><strong>{formatSlipAmount(totals.taxable)}</strong></div>
+      <div className="counter-sale-slip-line"><span>GST</span><strong>{formatSlipAmount(totals.gst)}</strong></div>
+      <div className="counter-sale-slip-line"><span>Exchange Bills</span><strong>{Number(totals.exchangeBillCount || 0)}</strong></div>
+      <div className="counter-sale-slip-line"><span>Exchange Sale</span><strong>{formatSlipAmount(totals.exchangeSaleTotal)}</strong></div>
+      <div className="counter-sale-slip-line"><span>Exchange Less</span><strong>{formatSlipAmount(totals.exchangeTotal)}</strong></div>
+      {Number(totals.loyaltyRedeemedTotal || 0) !== 0 && <div className="counter-sale-slip-line"><span>Loyalty Less</span><strong>{formatSlipAmount(totals.loyaltyRedeemedTotal)}</strong></div>}
+      {Math.abs(Number(totals.roundOffTotal || 0)) >= 0.005 && <div className="counter-sale-slip-line"><span>Round Off</span><strong>{Number(totals.roundOffTotal) >= 0 ? "+" : "-"} {formatSlipAmount(Math.abs(Number(totals.roundOffTotal)))}</strong></div>}
+      <div className="counter-sale-slip-line"><span>Exchange Net</span><strong>{formatSlipAmount(totals.exchangeNetTotal)}</strong></div>
+      <div className="counter-sale-slip-total"><span>Net Sale</span><strong>{formatSlipAmount(totals.netTotal)}</strong></div>
+      <div className="counter-sale-slip-rule" />
+      <div className="counter-sale-slip-line sale-report-bill-range"><span>Bill Starting No</span><strong>{totals.startingInvoiceNo || '-'}</strong></div>
+      <div className="counter-sale-slip-line sale-report-bill-range"><span>Bill Ending No</span><strong>{totals.endingInvoiceNo || '-'}</strong></div>
+      <div className="counter-sale-slip-footer">POS sale report</div>
+    </div>
+  );
+}
+
+function GatePassSlip({ invoice, printedAt }) {
+  const printedDate = printedAt.toLocaleDateString('en-IN');
+  const printedTime = printedAt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+  const customerName = String(invoice?.customerName || '').trim() || 'Walk-in Customer';
+  const customerPhone = String(invoice?.customerPhone || '').trim();
+  const customerAddress = String(invoice?.customerAddress || '').trim();
+  const gatePassDetails = normalizeGatePassDetails(invoice?.gatePassDetails);
+  const fixedDetails = [
+    ['Box', gatePassDetails.boxQty],
+    ['Gunny Bags', gatePassDetails.gunnyBagQty],
+    ['Tins', gatePassDetails.tinsQty]
+  ].filter(([, value]) => value);
+  const hasCounterDetail = gatePassDetails.counterItemName || gatePassDetails.counterItemQty;
+  const hasExtraDetails = fixedDetails.length > 0 || hasCounterDetail;
+  const qtyTotal = (invoice?.items || [])
+    .filter((item) => !item.is_free_bonus)
+    .reduce((sum, item) => sum + toNumber(item.quantity), 0);
+
+  return (
+    <div className="gate-pass-slip">
+      <div className="thermal-brand-edge">Badizo</div>
+      <div className="gate-pass-brand">
+        <strong>{invoice?.shop?.shop_name || 'Badizo'}</strong>
+        <span>STOCK DELIVERY GATE PASS</span>
+      </div>
+      <div className="gate-pass-rule" />
+      <div className="gate-pass-row"><span>Bill No</span><strong>{invoice?.invoiceNo || '-'}</strong></div>
+      <div className="gate-pass-row"><span>Counter</span><strong>{invoice?.counterLabel || `Counter ${invoice?.counterNo || '-'}`}</strong></div>
+      <div className="gate-pass-row"><span>Bill Date</span><strong>{invoice?.date || '-'}</strong></div>
+      <div className="gate-pass-row"><span>Bill Time</span><strong>{invoice?.time || '-'}</strong></div>
+      <div className="gate-pass-row"><span>Printed</span><strong>{printedDate} {printedTime}</strong></div>
+      <div className="gate-pass-rule" />
+      <div className="gate-pass-customer">
+        <span>Customer</span>
+        <strong>{customerName}</strong>
+        {customerPhone && <em>Phone: {customerPhone}</em>}
+        {customerAddress && <em>Address: {customerAddress}</em>}
+      </div>
+      <div className="gate-pass-rule" />
+      <div className="gate-pass-total"><span>Bill Amount</span><strong>{formatMoney(invoice?.totals?.grand || 0)}</strong></div>
+      <div className="gate-pass-total"><span>Qty Total</span><strong>{formatSlipAmount(qtyTotal)}</strong></div>
+      {hasExtraDetails && (
+        <>
+          <div className="gate-pass-rule" />
+          <div className="gate-pass-extra">
+            <strong>Counter Details</strong>
+            {fixedDetails.map(([label, value]) => (
+              <div className="gate-pass-extra-row" key={label}><span>{label}</span><em>{value}</em></div>
+            ))}
+            {hasCounterDetail && (
+              <div className="gate-pass-extra-row">
+                <span>{gatePassDetails.counterItemName || 'Counter Entry'}</span>
+                <em>{gatePassDetails.counterItemQty || gatePassDetails.counterItemName}</em>
+              </div>
+            )}
+          </div>
+        </>
+      )}
+      <div className="gate-pass-rule" />
+      <div className="gate-pass-note">Goods delivered against above bill.</div>
+      <div className="gate-pass-signatures">
+        <div><span>Checked Sign</span></div>
+        <div><span>Security Sign</span></div>
+      </div>
+    </div>
+  );
+}
+
+function normalizeGatePassDetails(details = {}) {
+  return {
+    boxQty: String(details.boxQty || details.bagDetails || '').trim().slice(0, 40),
+    gunnyBagQty: String(details.gunnyBagQty || details.gunnyBagDetails || '').trim().slice(0, 40),
+    tinsQty: String(details.tinsQty || details.tinsDetails || '').trim().slice(0, 40),
+    counterItemName: String(details.counterItemName || details.counterItemOne || '').trim().slice(0, 80),
+    counterItemQty: String(details.counterItemQty || details.counterItemTwo || '').trim().slice(0, 40)
+  };
+}
+
+export default function BillingTerminalView({ isActive = true }) {
+  const currentUser = getStoredUser();
+  const initialDraft = readActivePosDraft(currentUser);
+  const [invoiceNo, setInvoiceNo] = useState(initialDraft?.invoiceNo || 'Loading...');
+  const [liveTime, setLiveTime] = useState(new Date());
+  const [backendPingOk, setBackendPingOk] = useState(null);
+  const [lastBackendPingAt, setLastBackendPingAt] = useState(null);
+  const [counterNo, setCounterNo] = useState(Number(initialDraft?.counterNo || currentUser?.counter_no || 1));
+  const [counterCount, setCounterCount] = useState(6);
+  const [shopSettings, setShopSettings] = useState({
+    shop_name: 'Hyper Fresh Mart LLP',
+    gst_number: '36AAJFH7790R1ZB',
+    address: 'Sathupally - Khammam(dt) - 507303',
+    phone: '08761 295000',
+    bank_name: 'HDFC BANK',
+    bank_account_name: 'Hyper Fresh Mart LLP',
+    bank_account_no: '59209440987345',
+    bank_ifsc: 'HDFC0004047',
+    bank_branch: 'Sathupally',
+    thermal_receipt_width_mm: 80,
+    thermal_feed_margin_mm: 4,
+    thermal_footer_line_1: '1. Goods Exchange Time 2 P.M - 4 P.M',
+    thermal_footer_line_2: '2. Decoration Items & Toys Exchange Not Allowed',
+    thermal_footer_line_3: '3. Warranty or guarantee is the responsibility of the manufacturer.',
+    thermal_footer_line_4: '4. Any dispute subject related to SATHUPALLY jurisdiction.',
+    loyalty_enabled: false,
+    loyalty_earn_sale_amount: 100,
+    loyalty_earn_points: 10,
+    loyalty_redeem_points: 10,
+    loyalty_redeem_amount: 0.5
+  });
+  const [query, setQuery] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [selectedSuggestion, setSelectedSuggestion] = useState(0);
+  const [cart, setCart] = useState(initialDraft?.cart || []);
+  const [selectedCartIndex, setSelectedCartIndex] = useState(
+    initialDraft?.cart?.length ? initialDraft.cart.length - 1 : -1
+  );
+  const [exchangeMode, setExchangeMode] = useState(Boolean(initialDraft?.exchangeMode));
+  const [exchangeQuery, setExchangeQuery] = useState('');
+  const [exchangeItems, setExchangeItems] = useState(initialDraft?.exchangeItems || []);
+  const [billingMode, setBillingMode] = useState(normalizeBillingMode(initialDraft?.billingMode));
+  const [approvalDialog, setApprovalDialog] = useState(null);
+  const [approvalUsername, setApprovalUsername] = useState(['SERVER', 'ADMIN', 'COUNTER'].includes(currentUser?.role) ? currentUser.username : '');
+  const [approvalPassword, setApprovalPassword] = useState('');
+  const [approvalError, setApprovalError] = useState('');
+  const [isApprovingMode, setIsApprovingMode] = useState(false);
+  const [customerName, setCustomerName] = useState(initialDraft?.customerName || '');
+  const [customerAddress, setCustomerAddress] = useState(initialDraft?.customerAddress || '');
+  const [customerPhone, setCustomerPhone] = useState(initialDraft?.customerPhone || '');
+  const [companyName, setCompanyName] = useState(initialDraft?.companyName || '');
+  const [customerGstin, setCustomerGstin] = useState(initialDraft?.customerGstin || '');
+  const [customerSuggestions, setCustomerSuggestions] = useState([]);
+  const [isCustomerLookupOpen, setIsCustomerLookupOpen] = useState(false);
+  const [isCustomerSuggestionLoading, setIsCustomerSuggestionLoading] = useState(false);
+  const [paymentMode, setPaymentMode] = useState(initialDraft?.paymentMode || 'Cash');
+  const [mixedPayment, setMixedPayment] = useState(initialDraft?.mixedPayment || EMPTY_MIXED_PAYMENT);
+  const [paymentReference, setPaymentReference] = useState(initialDraft?.paymentReference || '');
+  const [paymentConfirmed, setPaymentConfirmed] = useState(Boolean(initialDraft?.paymentConfirmed));
+  const [isCheckoutSubmitting, setIsCheckoutSubmitting] = useState(false);
+  const [holdBillDialogOpen, setHoldBillDialogOpen] = useState(false);
+  const [holdCustomerName, setHoldCustomerName] = useState('');
+  const [digitalContactModal, setDigitalContactModal] = useState(null);
+  const [digitalContactDraft, setDigitalContactDraft] = useState({ name: '', phone: '' });
+  const [digitalContactError, setDigitalContactError] = useState('');
+  const [printMode, setPrintMode] = useState(initialDraft?.printMode || 'Thermal');
+  const [cashReceived, setCashReceived] = useState('');
+  const [cashReceivedFlashToken, setCashReceivedFlashToken] = useState(0);
+  const [statusMessage, setStatusMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [invoiceHistory, setInvoiceHistory] = useState([]);
+  const [historySearch, setHistorySearch] = useState('');
+  const [historyPaymentMode, setHistoryPaymentMode] = useState('');
+  const [historyFromDate, setHistoryFromDate] = useState(localIsoDate());
+  const [historyToDate, setHistoryToDate] = useState(localIsoDate());
+  const [selectedHistoryInvoice, setSelectedHistoryInvoice] = useState(null);
+  const [a4PdfPreviewInvoice, setA4PdfPreviewInvoice] = useState(null);
+  const [quotationDialogOpen, setQuotationDialogOpen] = useState(false);
+  const [quotationPreview, setQuotationPreview] = useState(null);
+  const [quotationDraft, setQuotationDraft] = useState({ customerName: '', customerPhone: '', customerAddress: '', validityDays: '7', notes: '', username: '', password: '' });
+  const [isQuotationSaving, setIsQuotationSaving] = useState(false);
+  const [gatePassPreview, setGatePassPreview] = useState(null);
+  const [isHistoryLoading, setIsHistoryLoading] = useState(false);
+  const [isHistoryInvoiceLoading, setIsHistoryInvoiceLoading] = useState(false);
+  const [heldBills, setHeldBills] = useState([]);
+  const [isLastBillOpen, setIsLastBillOpen] = useState(false);
+  const [isHeldBillsOpen, setIsHeldBillsOpen] = useState(false);
+  const [heldBillPreview, setHeldBillPreview] = useState(null);
+  const [billWindows, setBillWindows] = useState([]);
+  const [activeBillWindowId, setActiveBillWindowId] = useState(null);
+  const [hoverBillPreview, setHoverBillPreview] = useState(null);
+  const [showHistory, setShowHistory] = useState(false);
+  const [showPriceCheck, setShowPriceCheck] = useState(false);
+  const [showSaleReport, setShowSaleReport] = useState(false);
+  const [saleReportFromDate, setSaleReportFromDate] = useState(localIsoDate());
+  const [saleReportToDate, setSaleReportToDate] = useState(localIsoDate());
+  const [saleReportType, setSaleReportType] = useState('ALL');
+  const [saleReportScope, setSaleReportScope] = useState(currentUser?.role === 'COUNTER' ? 'CURRENT' : 'ALL');
+  const [saleReport, setSaleReport] = useState(null);
+  const [isSaleReportLoading, setIsSaleReportLoading] = useState(false);
+  const [saleReportError, setSaleReportError] = useState('');
+  const [priceCheckQuery, setPriceCheckQuery] = useState('');
+  const [priceCheckProduct, setPriceCheckProduct] = useState(null);
+  const [priceCheckError, setPriceCheckError] = useState('');
+  const [isCheckingPrice, setIsCheckingPrice] = useState(false);
+  const [printableInvoice, setPrintableInvoice] = useState(null);
+  const [loyaltyCustomer, setLoyaltyCustomer] = useState(null);
+  const [useLoyaltyPoints, setUseLoyaltyPoints] = useState(false);
+  const [loyaltyRedeemPoints, setLoyaltyRedeemPoints] = useState('');
+  const [returnInvoice, setReturnInvoice] = useState(null);
+  const [returnQuantities, setReturnQuantities] = useState({});
+  const [returnReason, setReturnReason] = useState('');
+  const [refundMode, setRefundMode] = useState('Cash');
+  const scannerRef = useRef(null);
+  const exactProductShortCacheRef = useRef(new Map());
+  const scannerKeyTimesRef = useRef([]);
+  const scannerAutoAddTimerRef = useRef(null);
+  const scannerInputModeRef = useRef('keyboard');
+  const suppressSuggestionsUntilKeyboardInputRef = useRef(false);
+  const scannerScanTokenRef = useRef(0);
+  const scannerReadQueueRef = useRef([]);
+  const isScannerReadQueueProcessingRef = useRef(false);
+  const scannerBufferRef = useRef('');
+  const scannerBufferLastKeyAtRef = useRef(0);
+  const scannerBufferTimerRef = useRef(null);
+  const scannerWakeBlockUntilRef = useRef(0);
+  const searchFocusTimerRef = useRef(null);
+  const suggestionClickTimerRef = useRef(null);
+  const suggestionRowRefs = useRef([]);
+  const selectedSuggestionRef = useRef(0);
+  const exchangeScannerBufferRef = useRef('');
+  const exchangeScannerBufferLastKeyAtRef = useRef(0);
+  const exchangeScannerBufferTimerRef = useRef(null);
+  const exchangeScannerInputModeRef = useRef('keyboard');
+  const holdBillShortcutKeysRef = useRef({ ctrl: false, alt: false });
+  const holdBillShortcutPressedRef = useRef(false);
+  const checkoutInFlightRef = useRef(false);
+  const checkoutRequestIdRef = useRef('');
+  const backendPingFailCountRef = useRef(0);
+  const previousExchangeModeRef = useRef(exchangeMode);
+  const priceCheckKeyTimesRef = useRef([]);
+  const lastPriceCheckScanRef = useRef('');
+  const exchangeScannerRef = useRef(null);
+  const billingTableRef = useRef(null);
+  const lastBillDetailsRef = useRef(null);
+  const heldBillsDetailsRef = useRef(null);
+  const saleReportFormRef = useRef(null);
+  const priceCheckInputRef = useRef(null);
+  const restoredDraftRef = useRef(Boolean(initialDraft));
+  const restoredDraftInvoiceNoRef = useRef(initialDraft?.invoiceNo || '');
+  const restoredDraftCheckedRef = useRef(false);
+  const suppressDraftPersistenceRef = useRef(false);
+  const customerNameRef = useRef(null);
+  const cashReceivedRef = useRef(null);
+  const mixedCashRef = useRef(null);
+  const mixedUpiRef = useRef(null);
+  const mixedCardRef = useRef(null);
+  const holdCustomerNameRef = useRef(null);
+  const customerPhoneRef = useRef(null);
+  const customerGstinRef = useRef(null);
+  const customerAddressRef = useRef(null);
+  const paymentReferenceRef = useRef(null);
+  const digitalContactNameRef = useRef(null);
+  const digitalContactPhoneRef = useRef(null);
+  const billWindowSeqRef = useRef(1);
+  const canManageInvoice = ['SERVER', 'ADMIN'].includes(currentUser?.role);
+  const canSelectCounter = ['SERVER', 'ADMIN'].includes(currentUser?.role);
+  const canUseA4Print = ['SERVER', 'ADMIN'].includes(currentUser?.role);
+  const activeMode = BILLING_MODES[billingMode];
+  const activeSaleMode = activeMode.tier === 'WHOLESALE' ? 'WHOLESALE' : 'RETAIL';
+  const activeTaxMode = activeMode.taxType === 'INTERSTATE' ? 'IGST' : 'GST';
+
+  function isScannerWakeBlocked() {
+    return Date.now() < scannerWakeBlockUntilRef.current;
+  }
+
+  function blockWakeScannerInput() {
+    scannerWakeBlockUntilRef.current = Date.now() + SCANNER_WAKE_BLOCK_MS;
+    resetScannerBuffer();
+    scannerInputModeRef.current = 'keyboard';
+    suppressSuggestionsUntilKeyboardInputRef.current = false;
+    setQuery('');
+    setSuggestions([]);
+    setSelectedSuggestion(0);
+  }
+
+  function releaseScannerWakeBlockForInput() {
+    if (!isScannerWakeBlocked()) return;
+    scannerWakeBlockUntilRef.current = 0;
+  }
+
+  useEffect(() => {
+    if (!canSelectCounter && currentUser?.counter_no) {
+      setCounterNo(Number(currentUser.counter_no));
+    }
+    scannerRef.current?.focus();
+    loadSettings();
+    refreshHistory(false);
+    if (restoredDraftRef.current) {
+      setStatusMessage('Unsaved bill restored. Complete sale or Hold before closing POS.');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (canUseA4Print || printMode === 'Thermal') return;
+    setPrintMode('Thermal');
+  }, [canUseA4Print, printMode]);
+
+  useEffect(() => () => {
+    if (suggestionClickTimerRef.current) {
+      window.clearTimeout(suggestionClickTimerRef.current);
+      suggestionClickTimerRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isActive) return undefined;
+    const hasUnsavedBill = cart.length > 0 || exchangeItems.length > 0 || isCheckoutSubmitting;
+    if (!hasUnsavedBill) return undefined;
+
+    const warnBeforeExit = (event) => {
+      event.preventDefault();
+      event.returnValue = 'Unsaved bill is still open. Complete sale or Hold before closing POS.';
+      return event.returnValue;
+    };
+
+    window.addEventListener('beforeunload', warnBeforeExit);
+    return () => window.removeEventListener('beforeunload', warnBeforeExit);
+  }, [cart.length, exchangeItems.length, isActive, isCheckoutSubmitting]);
+
+  useEffect(() => {
+    if (!isActive) return undefined;
+    blockWakeScannerInput();
+    const timer = window.setTimeout(() => {
+      scannerRef.current?.focus();
+      scannerRef.current?.select?.();
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [isActive]);
+
+  useEffect(() => {
+    if (!isActive) return undefined;
+
+    const shouldPauseSearchFocus = () => (
+      Boolean(approvalDialog)
+      || Boolean(digitalContactModal)
+      || holdBillDialogOpen
+      || Boolean(heldBillPreview)
+      || showHistory
+      || showPriceCheck
+      || showSaleReport
+      || Boolean(returnInvoice)
+    );
+
+    const focusSearchInput = () => {
+      if (!isActive || shouldPauseSearchFocus()) return;
+      if (!document.hasFocus()) return;
+      const scanner = scannerRef.current;
+      if (!scanner || document.activeElement === scanner) return;
+      const activeElement = document.activeElement;
+      const isEditableTarget = activeElement?.isContentEditable
+        || ['INPUT', 'TEXTAREA', 'SELECT'].includes(activeElement?.tagName);
+      if (isEditableTarget) return;
+      scanner.focus();
+      scanner.select?.();
+    };
+
+    const delayedFocus = () => {
+      if (searchFocusTimerRef.current) window.clearTimeout(searchFocusTimerRef.current);
+      searchFocusTimerRef.current = window.setTimeout(() => {
+        searchFocusTimerRef.current = null;
+        focusSearchInput();
+      }, 1200);
+    };
+    const interval = window.setInterval(focusSearchInput, 1800);
+    delayedFocus();
+
+    window.addEventListener('focus', focusSearchInput);
+    document.addEventListener('focusin', delayedFocus);
+    window.addEventListener('focus', blockWakeScannerInput);
+    document.addEventListener('visibilitychange', blockWakeScannerInput);
+
+    return () => {
+      if (searchFocusTimerRef.current) {
+        window.clearTimeout(searchFocusTimerRef.current);
+        searchFocusTimerRef.current = null;
+      }
+      window.clearInterval(interval);
+      window.removeEventListener('focus', focusSearchInput);
+      document.removeEventListener('focusin', delayedFocus);
+      window.removeEventListener('focus', blockWakeScannerInput);
+      document.removeEventListener('visibilitychange', blockWakeScannerInput);
+    };
+  }, [approvalDialog, digitalContactModal, heldBillPreview, holdBillDialogOpen, isActive, returnInvoice, showHistory, showPriceCheck, showSaleReport]);
+
+  useEffect(() => {
+    const wasExchangeMode = previousExchangeModeRef.current;
+    previousExchangeModeRef.current = exchangeMode;
+    if (!isActive || !exchangeMode || wasExchangeMode) return undefined;
+
+    const timer = window.setTimeout(() => {
+      exchangeScannerRef.current?.focus();
+      exchangeScannerRef.current?.select?.();
+    }, 100);
+    return () => window.clearTimeout(timer);
+  }, [exchangeMode, isActive]);
+
+  useEffect(() => {
+    const hasBillLines = cart.length > 0 || exchangeItems.length > 0;
+    if (suppressDraftPersistenceRef.current) {
+      clearActivePosDraft();
+      if (!hasBillLines) {
+        suppressDraftPersistenceRef.current = false;
+      }
+      return;
+    }
+
+    const hasDraft = hasBillLines && (
+      exchangeMode
+      || billingMode !== RETAIL_MODE
+      || customerName
+      || customerAddress
+      || customerPhone
+      || companyName
+      || customerGstin
+      || paymentMode !== 'Cash'
+      || Object.values(mixedPayment).some(Boolean)
+      || paymentReference
+      || paymentConfirmed
+      || printMode !== 'Thermal'
+      || cart.length > 0
+      || exchangeItems.length > 0
+    );
+
+    if (!hasDraft) {
+      clearActivePosDraft();
+      return;
+    }
+
+    try {
+      window.localStorage.setItem(POS_DRAFT_KEY, JSON.stringify({
+        username: currentUser?.username,
+        role: currentUser?.role,
+        systemNo: currentUser?.system_no || null,
+        invoiceNo,
+        counterNo,
+        cart,
+        exchangeMode,
+        exchangeItems,
+        billingMode,
+        customerName,
+        customerAddress,
+        customerPhone,
+        companyName,
+        customerGstin,
+        paymentMode,
+        mixedPayment,
+        paymentReference,
+        paymentConfirmed,
+        printMode: canUseA4Print ? printMode : 'Thermal',
+        savedAt: new Date().toISOString()
+      }));
+    } catch (err) {
+      // Keep billing usable even if browser storage is unavailable.
+    }
+  }, [billingMode, canUseA4Print, cart, cashReceived, companyName, counterNo, currentUser?.username, customerAddress, customerGstin, customerName, customerPhone, exchangeItems, exchangeMode, invoiceNo, mixedPayment, paymentConfirmed, paymentMode, paymentReference, printMode]);
+
+  useEffect(() => {
+    if (!isActive) return undefined;
+    setLiveTime(new Date());
+    const timer = window.setInterval(() => setLiveTime(new Date()), 1000);
+    return () => window.clearInterval(timer);
+  }, [isActive]);
+
+  useEffect(() => {
+    if (!isActive) return undefined;
+    let cancelled = false;
+    const keepBackendWarm = () => {
+      pingBackendHealth(BACKEND_PING_TIMEOUT_MS, { includeUser: false, source: 'billing-ping-chip' })
+        .then((ok) => {
+          if (!cancelled) {
+            if (ok) {
+              backendPingFailCountRef.current = 0;
+              setBackendPingOk(true);
+            } else {
+              backendPingFailCountRef.current += 1;
+              if (backendPingFailCountRef.current >= BACKEND_PING_FAIL_THRESHOLD) setBackendPingOk(false);
+            }
+            setLastBackendPingAt(new Date());
+          }
+        })
+        .catch(() => {
+          if (!cancelled) {
+            backendPingFailCountRef.current += 1;
+            if (backendPingFailCountRef.current >= BACKEND_PING_FAIL_THRESHOLD) setBackendPingOk(false);
+            setLastBackendPingAt(new Date());
+          }
+        });
+    };
+    keepBackendWarm();
+    const timer = window.setInterval(keepBackendWarm, BACKEND_PING_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [isActive]);
+
+  useEffect(() => {
+    document.body.classList.toggle('badizo-ping-fail', backendPingOk === false);
+    document.body.classList.toggle('badizo-ping-ok', backendPingOk === true);
+    return () => {
+      document.body.classList.remove('badizo-ping-fail');
+      document.body.classList.remove('badizo-ping-ok');
+    };
+  }, [backendPingOk]);
+
+  useEffect(() => {
+    refreshInvoicePreview(counterNo);
+    refreshHeldBills(counterNo);
+  }, [counterNo]);
+
+  useEffect(() => {
+    if (!billingTableRef.current) return;
+    billingTableRef.current.scrollTop = cart.length >= 10
+      ? billingTableRef.current.scrollHeight
+      : 0;
+  }, [cart.length]);
+
+  useEffect(() => {
+    setSelectedCartIndex((current) => {
+      if (cart.length === 0) return -1;
+      if (current < 0) return cart.length - 1;
+      return Math.min(current, cart.length - 1);
+    });
+  }, [cart.length]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const run = async () => {
+      if (isScannerWakeBlocked()) {
+        setSuggestions([]);
+        setSelectedSuggestion(0);
+        return;
+      }
+      const { search: cleaned } = parseQuantitySearch(query);
+      if (cleaned.length < 3) {
+        setSuggestions([]);
+        setSelectedSuggestion(0);
+        return;
+      }
+
+      if (suppressSuggestionsUntilKeyboardInputRef.current) {
+        setSuggestions([]);
+        setSelectedSuggestion(0);
+        return;
+      }
+
+      if (scannerInputModeRef.current !== 'keyboard') {
+        setSuggestions([]);
+        setSelectedSuggestion(0);
+        return;
+      }
+
+      if (isLikelyScannerInput(cleaned, scannerKeyTimesRef)) {
+        setSuggestions([]);
+        setSelectedSuggestion(0);
+        return;
+      }
+
+      try {
+        const results = await searchProducts(cleaned);
+        if (cancelled || suppressSuggestionsUntilKeyboardInputRef.current || scannerInputModeRef.current !== 'keyboard') {
+          setSuggestions([]);
+          setSelectedSuggestion(0);
+          return;
+        }
+        setSuggestions(results.slice(0, POS_SUGGESTION_LIMIT));
+        setSelectedSuggestion(0);
+      } catch (err) {
+        if (!cancelled) setSuggestions([]);
+      }
+    };
+
+    const timer = window.setTimeout(run, TYPED_SEARCH_DEBOUNCE_MS);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [query]);
+
+  useEffect(() => {
+    if (isScannerWakeBlocked()) return undefined;
+    const { search: cleaned, quantity } = parseQuantitySearch(query);
+    if (!cleaned || !SCANNER_BARCODE_PATTERN.test(cleaned)) return undefined;
+    if (cleaned.length < SCANNER_MIN_BARCODE_LENGTH) return undefined;
+    if (scannerInputModeRef.current !== 'keyboard' || suppressSuggestionsUntilKeyboardInputRef.current) return undefined;
+
+    const timer = window.setTimeout(async () => {
+      if (scannerInputModeRef.current !== 'keyboard' || suppressSuggestionsUntilKeyboardInputRef.current) return;
+      if (scannerBufferRef.current || scannerBufferTimerRef.current) return;
+      try {
+        const exactProduct = await findExactProductFast(cleaned);
+        if (!exactProduct) return;
+        if (String(scannerRef.current?.value || '').trim().toUpperCase() !== cleaned.toUpperCase()) return;
+        addProduct(exactProduct, quantity);
+      } catch (err) {
+        setQuery(cleaned);
+        setSuggestions([]);
+        setSelectedSuggestion(0);
+        setErrorMessage(`Product lookup failed for ${cleaned}. Delete this line or scan again after network is ready.`);
+      }
+    }, TYPED_BARCODE_AUTO_ADD_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [query]);
+
+  useEffect(() => () => {
+    if (scannerAutoAddTimerRef.current) {
+      window.clearTimeout(scannerAutoAddTimerRef.current);
+    }
+    if (scannerBufferTimerRef.current) {
+      window.clearTimeout(scannerBufferTimerRef.current);
+    }
+    if (exchangeScannerBufferTimerRef.current) {
+      window.clearTimeout(exchangeScannerBufferTimerRef.current);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!isActive) return undefined;
+
+    const resetHoldBillShortcut = () => {
+      holdBillShortcutKeysRef.current = { ctrl: false, alt: false };
+      holdBillShortcutPressedRef.current = false;
+    };
+
+    const handleShortcut = (event) => {
+      const keyName = event.key || '';
+      if (keyName === 'Control') holdBillShortcutKeysRef.current.ctrl = true;
+      if (keyName === 'Alt') holdBillShortcutKeysRef.current.alt = true;
+      holdBillShortcutKeysRef.current = {
+        ctrl: holdBillShortcutKeysRef.current.ctrl || event.ctrlKey,
+        alt: holdBillShortcutKeysRef.current.alt || event.altKey
+      };
+      const isHoldBillShortcut = (event.ctrlKey && event.altKey)
+        || (holdBillShortcutKeysRef.current.ctrl && holdBillShortcutKeysRef.current.alt);
+
+      if (isHoldBillShortcut && !holdBillShortcutPressedRef.current) {
+        event.preventDefault();
+        event.stopPropagation();
+        holdBillShortcutPressedRef.current = true;
+        openNewBillTab();
+        return;
+      }
+
+      if (event.key === 'Delete') {
+        const target = event.target;
+        const isScannerInputWithText = target === scannerRef.current && String(query || '').length > 0;
+        const isEditableTarget = target?.isContentEditable
+          || ['TEXTAREA', 'SELECT'].includes(target?.tagName)
+          || (target?.tagName === 'INPUT' && target !== scannerRef.current)
+          || isScannerInputWithText;
+
+        if (!isEditableTarget && cart.length > 0) {
+          event.preventDefault();
+          removeLine(selectedCartIndex >= 0 ? selectedCartIndex : cart.length - 1);
+        }
+      }
+
+      const keyCode = event.keyCode || event.which;
+      const isF9 = keyName === 'F9' || event.code === 'F9' || keyCode === 120;
+      const isF8 = keyName === 'F8' || event.code === 'F8' || keyCode === 119;
+      const isF6 = keyName === 'F6' || event.code === 'F6' || keyCode === 117;
+      const isF10 = keyName === 'F10' || event.code === 'F10' || keyCode === 121;
+      const isF11 = keyName === 'F11' || event.code === 'F11' || keyCode === 122;
+      const isF12 = keyName === 'F12' || event.code === 'F12' || keyCode === 123;
+
+      if (isF9) {
+        event.preventDefault();
+        event.stopPropagation();
+        closeBillingActivityPanels();
+        restoreScannerFocusSoon();
+      }
+
+      if (isF8) {
+        event.preventDefault();
+        event.stopPropagation();
+        setIsLastBillOpen(false);
+        setIsHeldBillsOpen(false);
+        refreshHistory(true);
+      }
+
+      if (isF6) {
+        event.preventDefault();
+        event.stopPropagation();
+        setShowHistory(false);
+        setIsLastBillOpen(false);
+        setIsHeldBillsOpen((current) => {
+          const nextOpen = !current;
+          if (!nextOpen) restoreScannerFocusSoon();
+          return nextOpen;
+        });
+        refreshHeldBills(counterNo);
+      }
+
+      if (isF10) {
+        event.preventDefault();
+        event.stopPropagation();
+        preparePayment('Card', true);
+      }
+
+      if (isF11) {
+        event.preventDefault();
+        event.stopPropagation();
+        preparePayment('UPI', true);
+      }
+
+      if (isF12) {
+        event.preventDefault();
+        event.stopPropagation();
+        prepareExactCashPayment();
+      }
+    };
+
+    const handleShortcutKeyUp = (event) => {
+      if (event.key === 'Control' || !event.ctrlKey) holdBillShortcutKeysRef.current.ctrl = false;
+      if (event.key === 'Alt' || !event.altKey) holdBillShortcutKeysRef.current.alt = false;
+      if (!event.ctrlKey || !event.altKey) {
+        holdBillShortcutPressedRef.current = false;
+      }
+    };
+
+    window.addEventListener('keydown', handleShortcut, true);
+    window.addEventListener('keyup', handleShortcutKeyUp);
+    window.addEventListener('blur', resetHoldBillShortcut);
+    document.addEventListener('visibilitychange', resetHoldBillShortcut);
+    return () => {
+      window.removeEventListener('keydown', handleShortcut, true);
+      window.removeEventListener('keyup', handleShortcutKeyUp);
+      window.removeEventListener('blur', resetHoldBillShortcut);
+      document.removeEventListener('visibilitychange', resetHoldBillShortcut);
+    };
+  });
+
+  useEffect(() => {
+    if (!showPriceCheck) return undefined;
+    const cleaned = String(priceCheckQuery || '').trim();
+    if (!/^[A-Z0-9._-]{6,}$/i.test(cleaned)) return undefined;
+    const timer = window.setTimeout(() => autoRunScannedPriceCheck(cleaned), 70);
+    return () => window.clearTimeout(timer);
+  }, [priceCheckQuery, showPriceCheck]);
+
+  useEffect(() => {
+    if (!isActive || (!isLastBillOpen && !isHeldBillsOpen)) return undefined;
+
+    const closeActivityPanelsOnOutsideClick = (event) => {
+      const target = event.target;
+      if (isLastBillOpen && lastBillDetailsRef.current && !lastBillDetailsRef.current.contains(target)) {
+        setIsLastBillOpen(false);
+      }
+      if (isHeldBillsOpen && heldBillsDetailsRef.current && !heldBillsDetailsRef.current.contains(target)) {
+        setIsHeldBillsOpen(false);
+        restoreScannerFocusSoon();
+      }
+    };
+
+    document.addEventListener('pointerdown', closeActivityPanelsOnOutsideClick);
+    return () => document.removeEventListener('pointerdown', closeActivityPanelsOnOutsideClick);
+  }, [isActive, isHeldBillsOpen, isLastBillOpen]);
+
+  useEffect(() => {
+    if (!isActive || suggestions.length === 0) return undefined;
+
+    const closeSuggestionsOnOutsideClick = (event) => {
+      const target = event.target;
+      if (scannerRef.current?.contains(target)) return;
+      if (target?.closest?.('.suggestions')) return;
+      clearPendingSuggestionClick();
+      setSuggestions([]);
+      setSelectedSuggestion(0);
+    };
+
+    document.addEventListener('pointerdown', closeSuggestionsOnOutsideClick);
+    return () => document.removeEventListener('pointerdown', closeSuggestionsOnOutsideClick);
+  }, [isActive, suggestions.length]);
+
+  useEffect(() => {
+    selectedSuggestionRef.current = selectedSuggestion;
+    if (!suggestions.length) return;
+    const selectedRow = suggestionRowRefs.current[selectedSuggestion];
+    selectedRow?.scrollIntoView?.({ block: 'nearest' });
+  }, [selectedSuggestion, suggestions.length]);
+
+  useEffect(() => {
+    const { search: cleaned } = parseQuantitySearch(exchangeQuery);
+    if (!exchangeMode || !cleaned || !SCANNER_BARCODE_PATTERN.test(cleaned)) return undefined;
+    if (exchangeScannerInputModeRef.current !== 'keyboard') return undefined;
+
+    const timer = window.setTimeout(async () => {
+      if (exchangeScannerInputModeRef.current !== 'keyboard') return;
+      if (exchangeScannerBufferRef.current || exchangeScannerBufferTimerRef.current) return;
+      if (String(exchangeScannerRef.current?.value || '').trim().toUpperCase() !== cleaned.toUpperCase()) return;
+      await addExchangeProductByExactScan(cleaned);
+    }, TYPED_BARCODE_AUTO_ADD_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [exchangeMode, exchangeQuery]);
+
+  const totals = useMemo(() => {
+    let taxable = 0;
+    let tax = 0;
+    let discount = 0;
+
+    cart.forEach((item) => {
+      const quantity = toNumber(item.quantity, 1);
+      const unitPrice = getUnitPrice(item, billingMode);
+      const lineTotal = unitPrice * quantity;
+      const gstPercent = toNumber(item.gst_percent);
+      const rowTax = lineTotal * (gstPercent / (100 + gstPercent));
+
+      taxable += lineTotal - rowTax;
+      tax += rowTax;
+      discount += Math.max(toNumber(item.mrp) - unitPrice, 0) * quantity;
+    });
+
+    const saleGrand = taxable + tax;
+    const exchangeTotal = exchangeItems.reduce((sum, item) => {
+      const quantity = toNumber(item.quantity, 1);
+      return sum + toNumber(item.unitPrice || item.sale_price || item.mrp) * quantity;
+    }, 0);
+    const netGrand = Math.max(saleGrand - exchangeTotal, 0);
+    const loyaltyEnabled = shopSettings.loyalty_enabled === true || shopSettings.loyalty_enabled === '1';
+    const redeemRulePoints = loyaltyEnabled ? Math.max(toNumber(shopSettings.loyalty_redeem_points || 10), 0) : 0;
+    const redeemRuleAmount = Math.max(toNumber(shopSettings.loyalty_redeem_amount || 0.5), 0);
+    const availablePoints = Math.floor(toNumber(loyaltyCustomer?.loyalty_points || 0));
+    const requestedRedeemPoints = useLoyaltyPoints ? Math.min(Math.floor(toNumber(loyaltyRedeemPoints)), availablePoints) : 0;
+    const loyaltyRedeemAmount = redeemRulePoints > 0 && redeemRuleAmount > 0 && requestedRedeemPoints > 0
+      ? Math.min((requestedRedeemPoints / redeemRulePoints) * redeemRuleAmount, netGrand)
+      : 0;
+    const unroundedGrand = Math.max(netGrand - loyaltyRedeemAmount, 0);
+    const roundedGrand = Math.round(unroundedGrand);
+    const isInterstate = BILLING_MODES[billingMode].taxType === 'INTERSTATE';
+    return {
+      taxable,
+      tax,
+      discount,
+      saleGrand,
+      exchangeTotal,
+      loyaltyBaseTotal: netGrand,
+      loyaltyRedeemPoints: loyaltyRedeemAmount > 0 ? requestedRedeemPoints : 0,
+      loyaltyRedeemAmount,
+      unroundedGrand,
+      grand: roundedGrand,
+      roundOff: roundedGrand - unroundedGrand,
+      cgst: isInterstate ? 0 : tax / 2,
+      sgst: isInterstate ? 0 : tax / 2,
+      igst: isInterstate ? tax : 0
+    };
+  }, [cart, billingMode, exchangeItems, loyaltyCustomer, loyaltyRedeemPoints, shopSettings, useLoyaltyPoints]);
+
+  const mixedPaidTotal = toNumber(mixedPayment.cash) + toNumber(mixedPayment.upi) + toNumber(mixedPayment.card);
+  const mixedPaymentModeCount = [mixedPayment.cash, mixedPayment.upi, mixedPayment.card]
+    .filter((amount) => toNumber(amount) > 0).length;
+  const mixedHasDigital = toNumber(mixedPayment.upi) > 0 || toNumber(mixedPayment.card) > 0;
+  const payableTotal = paiseToMoney(totals.grand);
+  const mixedPaidPaise = moneyToPaise(mixedPaidTotal);
+  const cashReceivedAmount = toNumber(cashReceived);
+  const cashReceivedPaise = moneyToPaise(cashReceived);
+  const paidPaise = paymentMode === 'Mixed' ? mixedPaidPaise : cashReceivedPaise;
+  const payablePaise = moneyToPaise(payableTotal);
+  const changeDue = Math.max(paidPaise - payablePaise, 0) / 100;
+  const isCashReady = paymentMode === 'Mixed'
+    ? mixedPaymentModeCount >= 2 && mixedPaidPaise >= payablePaise
+    : paymentMode !== 'Cash' || payablePaise <= 0 || (cashReceivedAmount > 0 && cashReceivedPaise >= payablePaise);
+  const canCompleteSale = cart.length > 0 && isCashReady && !cart.some((item) => item.isUnknown) && !isCheckoutSubmitting;
+  const hasUnknownLine = cart.some((item) => item.isUnknown);
+
+  useEffect(() => {
+    if (!isActive || !restoredDraftRef.current || restoredDraftCheckedRef.current) return undefined;
+    const restoredInvoiceNo = String(restoredDraftInvoiceNoRef.current || '').trim();
+    if (!restoredInvoiceNo || restoredInvoiceNo === 'Draft' || restoredInvoiceNo === 'Loading...') return undefined;
+
+    restoredDraftCheckedRef.current = true;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const details = await fetchInvoiceDetails(restoredInvoiceNo);
+        if (cancelled) return;
+
+        const savedInvoice = details?.invoice || {};
+        const sameInvoice = String(savedInvoice.invoice_no || '') === restoredInvoiceNo;
+        const savedCounter = String(savedInvoice.billing_counter || '').trim().toLowerCase();
+        const sameCounter = counterLabelMatches(savedCounter, counterNo);
+        const sameTotal = Math.abs(moneyToPaise(savedInvoice.grand_total) - moneyToPaise(totals.grand)) <= 1;
+        const savedStatus = String(savedInvoice.invoice_status || '').toUpperCase();
+
+        if (sameInvoice && sameCounter && sameTotal && savedStatus !== 'VOID') {
+          suppressDraftPersistenceRef.current = true;
+          resetBill({ closeActiveWindow: false });
+          setStatusMessage(`Invoice ${restoredInvoiceNo} already saved. Old screen bill cleared.`);
+          refreshInvoicePreview(counterNo);
+        }
+      } catch (err) {
+        // If the invoice is not found, keep the restored draft as an unsaved bill.
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [counterNo, isActive, totals.grand]);
+  const latestInvoice = invoiceHistory[0];
+  const filteredInvoiceHistory = useMemo(() => {
+    const search = historySearch.trim().toLowerCase();
+
+    return invoiceHistory.filter((invoice) => {
+      const createdAt = invoice.created_at ? new Date(invoice.created_at) : null;
+      const hasValidDate = createdAt && !Number.isNaN(createdAt.getTime());
+      const displayDate = hasValidDate ? createdAt.toLocaleString().toLowerCase() : '';
+      const searchableText = [
+        invoice.invoice_no,
+        invoice.customer_name,
+        invoice.payment_mode,
+        invoice.invoice_status,
+        displayDate
+      ].filter(Boolean).join(' ').toLowerCase();
+
+      const matchesSearch = !search || searchableText.includes(search);
+      const matchesPaymentMode = !historyPaymentMode
+        || (historyPaymentMode === 'Exchange'
+          ? Number(invoice.exchange_total || 0) > 0
+          : String(invoice.payment_mode || '').toLowerCase() === historyPaymentMode.toLowerCase());
+
+      return matchesSearch && matchesPaymentMode;
+    });
+  }, [historySearch, historyPaymentMode, invoiceHistory]);
+  const invoiceDate = useMemo(() => {
+    const now = new Date();
+    return {
+      date: now.toLocaleDateString('en-IN'),
+      time: now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })
+    };
+  }, [invoiceNo]);
+  const printableDraft = useMemo(() => {
+    const isInterstate = BILLING_MODES[billingMode].taxType === 'INTERSTATE';
+
+    return {
+      invoiceNo,
+      counterNo,
+      counterLabel: billingCounterLabelForUser(currentUser, counterNo),
+      date: invoiceDate.date,
+      time: invoiceDate.time,
+      shop: shopSettings,
+      customerName: isBusinessBillingMode(billingMode) ? companyName : customerName,
+      customerAddress,
+      customerPhone,
+      customerGstin,
+      paymentMode,
+      paymentReference,
+      paymentSplits: paymentMode === 'Mixed' ? [
+        { mode: 'Cash', amount: toNumber(mixedPayment.cash) },
+        { mode: 'UPI', amount: toNumber(mixedPayment.upi), reference: mixedPayment.upi_reference },
+        { mode: 'Card', amount: toNumber(mixedPayment.card), reference: mixedPayment.card_reference }
+      ].filter((row) => row.amount > 0) : [],
+      cashReceived: paymentMode === 'Mixed' ? mixedPaidTotal : toNumber(cashReceived),
+      changeReturned: changeDue,
+      taxType: BILLING_MODES[billingMode].taxType,
+      itemCount: cart.reduce((sum, item) => sum + toNumber(item.quantity, 1), 0),
+      items: cart.map((item) => {
+        const unitPrice = getUnitPrice(item, billingMode);
+        const quantity = toNumber(item.quantity, 1);
+        const gstPercent = toNumber(item.gst_percent);
+        const lineTotal = unitPrice * quantity;
+        const taxableRate = unitPrice / (1 + gstPercent / 100);
+
+        return {
+          ...item,
+          unitPrice,
+          quantity,
+          gst_percent: gstPercent,
+          lineTotal,
+          taxableRate,
+          taxAmount: lineTotal - taxableRate * quantity
+        };
+      }),
+      exchangeItems: exchangeItems.map((item) => ({
+        ...item,
+        quantity: toNumber(item.quantity, 1),
+        unitPrice: toNumber(item.unitPrice || item.sale_price || item.mrp),
+        lineTotal: toNumber(item.unitPrice || item.sale_price || item.mrp) * toNumber(item.quantity, 1)
+      })),
+      totals: {
+        ...totals,
+        cgst: isInterstate ? 0 : totals.tax / 2,
+        sgst: isInterstate ? 0 : totals.tax / 2,
+        igst: isInterstate ? totals.tax : 0
+      }
+    };
+  }, [billingMode, cart, cashReceived, changeDue, companyName, counterNo, currentUser?.login_counter_no, currentUser?.role, currentUser?.system_no, currentUser?.username, customerAddress, customerGstin, customerName, customerPhone, exchangeItems, invoiceDate, invoiceNo, mixedPaidTotal, mixedPayment, paymentMode, shopSettings, totals]);
+
+  function closeBillingActivityPanels() {
+    setShowHistory(false);
+    setIsLastBillOpen(false);
+    setIsHeldBillsOpen(false);
+  }
+
+  function restoreScannerFocusSoon() {
+    const focusScanner = () => {
+      if (!isActive) return;
+      const scanner = scannerRef.current;
+      if (!scanner) return;
+      scanner.focus();
+    };
+
+    window.requestAnimationFrame?.(focusScanner);
+    window.setTimeout(focusScanner, 20);
+    window.setTimeout(focusScanner, 80);
+  }
+
+  function closeHoldBillDialog() {
+    setHoldBillDialogOpen(false);
+    restoreScannerFocusSoon();
+  }
+
+  function closeHeldBillsPanel() {
+    setIsHeldBillsOpen(false);
+    restoreScannerFocusSoon();
+  }
+
+  function closeHeldBillPreview() {
+    setHeldBillPreview(null);
+    restoreScannerFocusSoon();
+  }
+
+  function showHoverBillPreview(anchorEvent, preview) {
+    const rect = anchorEvent.currentTarget.getBoundingClientRect();
+    setHoverBillPreview({
+      ...preview,
+      x: Math.max(8, Math.min(rect.left, window.innerWidth - 420)),
+      y: Math.max(96, Math.min(rect.top - 12, window.innerHeight - 24))
+    });
+  }
+
+  function hideHoverBillPreview() {
+    setHoverBillPreview(null);
+  }
+
+  function readHeldBillSavedState(heldBill) {
+    try {
+      return typeof heldBill.saved_state === 'string'
+        ? JSON.parse(heldBill.saved_state || '{}')
+        : (heldBill.saved_state || {});
+    } catch (err) {
+      return {};
+    }
+  }
+
+  function invoiceDetailsToPrintable(details, duplicate = false) {
+    const invoice = details.invoice;
+    const isInterstate = invoice.tax_type === 'INTERSTATE';
+    let exchangeItemsFromInvoice = [];
+    try {
+      const rawExchange = invoice.exchange_items_json;
+      exchangeItemsFromInvoice = Array.isArray(rawExchange)
+        ? rawExchange
+        : JSON.parse(rawExchange || '[]');
+    } catch (err) {
+      exchangeItemsFromInvoice = [];
+    }
+    const items = details.items.map((item) => {
+      const unitPrice = toNumber(item.sale_price);
+      const quantity = toNumber(item.quantity);
+      const gstPercent = toNumber(item.gst_percent);
+      const lineTotal = unitPrice * quantity;
+      const taxableRate = unitPrice / (1 + gstPercent / 100);
+
+      return {
+        ...item,
+        is_free_bonus: Boolean(item.is_free_bonus),
+        unitPrice,
+        quantity,
+        gst_percent: gstPercent,
+        lineTotal,
+        taxableRate,
+        taxAmount: lineTotal - taxableRate * quantity
+      };
+    });
+    const saleGrand = toNumber(invoice.sub_total) + toNumber(invoice.gst_total);
+    const customerGain = items.reduce((sum, item) => (
+      item.is_free_bonus
+        ? sum
+        : sum + Math.max(toNumber(item.mrp) - toNumber(item.unitPrice), 0) * toNumber(item.quantity, 1)
+    ), 0);
+    const exchangeTotal = toNumber(invoice.exchange_total);
+    const loyaltyRedeemAmount = toNumber(invoice.loyalty_redeemed_amount);
+    const rawPayableTotal = Math.max(saleGrand - exchangeTotal - loyaltyRedeemAmount, 0);
+    const roundedGrand = Math.round(toNumber(invoice.grand_total));
+
+    return {
+      invoiceNo: invoice.invoice_no,
+      isDuplicate: duplicate,
+      counterNo: parseCounterNoFromLabel(invoice.billing_counter, 1),
+      counterLabel: counterDisplayLabel(invoice.billing_counter),
+      date: invoice.created_at ? new Date(invoice.created_at).toLocaleDateString('en-IN') : '',
+      time: invoice.created_at ? new Date(invoice.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }) : '',
+      shop: shopSettings,
+      customerName: invoice.customer_name,
+      customerAddress: invoice.customer_address || '',
+      customerPhone: invoice.customer_phone,
+      customerGstin: invoice.customer_gstin,
+      paymentMode: invoice.payment_mode,
+      paymentReference: invoice.payment_reference || '',
+      paymentSplits: (details.payments || []).map((payment) => ({
+        mode: payment.payment_mode,
+        amount: toNumber(payment.amount),
+        reference: payment.payment_reference || ''
+      })),
+      cashReceived: toNumber(invoice.cash_received),
+      changeReturned: toNumber(invoice.change_returned),
+      taxType: invoice.tax_type,
+      itemCount: items.reduce((sum, item) => sum + toNumber(item.quantity), 0),
+      items,
+      exchangeItems: exchangeItemsFromInvoice.map((item) => ({
+        ...item,
+        quantity: toNumber(item.quantity, 1),
+        unitPrice: toNumber(item.sale_price || item.unitPrice),
+        lineTotal: toNumber(item.line_total || item.lineTotal || (toNumber(item.sale_price || item.unitPrice) * toNumber(item.quantity, 1)))
+      })),
+      totals: {
+        taxable: toNumber(invoice.sub_total),
+        tax: toNumber(invoice.gst_total),
+        discount: customerGain,
+        saleGrand,
+        exchangeTotal,
+        loyaltyRedeemPoints: toNumber(invoice.loyalty_redeemed_points),
+        loyaltyRedeemAmount,
+        grand: roundedGrand,
+        roundOff: roundedGrand - rawPayableTotal,
+        cgst: isInterstate ? 0 : toNumber(invoice.gst_total) / 2,
+        sgst: isInterstate ? 0 : toNumber(invoice.gst_total) / 2,
+        igst: isInterstate ? toNumber(invoice.gst_total) : 0
+      }
+    };
+  }
+
+  useEffect(() => {
+    if (!hasUnknownLine && errorMessage.includes('Unknown barcode/product')) {
+      setErrorMessage('');
+    }
+  }, [hasUnknownLine, errorMessage]);
+
+  useEffect(() => {
+    if (isCashReady && errorMessage.includes('Cash received')) {
+      setErrorMessage('');
+    }
+  }, [isCashReady, errorMessage]);
+
+  useEffect(() => {
+    if (isDigitalPaymentContactReady(customerPhone) && errorMessage.includes('customer phone number or type NO')) {
+      setErrorMessage('');
+    }
+  }, [customerPhone, errorMessage]);
+
+  useEffect(() => {
+    if (!errorMessage.includes('Add at least one item before holding a bill')) return undefined;
+    if (cart.length > 0) {
+      setErrorMessage('');
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => setErrorMessage(''), 2500);
+    return () => window.clearTimeout(timer);
+  }, [cart.length, errorMessage]);
+
+  useEffect(() => {
+    const query = (isBusinessBillingMode(billingMode) ? companyName : customerName).trim();
+    if (query.length < 3) {
+      setCustomerSuggestions([]);
+      setIsCustomerLookupOpen(false);
+      setIsCustomerSuggestionLoading(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      setIsCustomerSuggestionLoading(true);
+      try {
+        const [rows, exactCustomer] = await Promise.all([
+          fetchCustomers(query),
+          matchCustomerFromPreviousBill({ name: query }).catch(() => null)
+        ]);
+        if (!cancelled) {
+          setCustomerSuggestions(rows.slice(0, 3));
+          setIsCustomerLookupOpen(rows.length > 0);
+          if (exactCustomer) {
+            setCustomerPhone(exactCustomer.phone || '');
+            setCustomerAddress(exactCustomer.address || '');
+            setCustomerGstin(String(exactCustomer.gstin || '').toUpperCase());
+            setLoyaltyCustomer(exactCustomer);
+            setUseLoyaltyPoints(false);
+            setLoyaltyRedeemPoints('');
+            setStatusMessage(`${exactCustomer.customer_name || query} details loaded from previous bill.`);
+          }
+        }
+      } catch (err) {
+        if (!cancelled) {
+          setCustomerSuggestions([]);
+          setIsCustomerLookupOpen(false);
+        }
+      } finally {
+        if (!cancelled) setIsCustomerSuggestionLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [billingMode, companyName, customerName]);
+
+  useEffect(() => {
+    const phoneText = String(customerPhone || '').trim();
+    const digits = phoneText.replace(/\D/g, '');
+    if (phoneText.toUpperCase() === 'NO' || digits.length < 10) {
+      setLoyaltyCustomer(null);
+      setUseLoyaltyPoints(false);
+      setLoyaltyRedeemPoints('');
+      return undefined;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        const customer = await matchCustomerFromPreviousBill({ phone: phoneText })
+          .catch(() => lookupCustomer(phoneText));
+        if (cancelled) return;
+        setLoyaltyCustomer(customer);
+        if (isBusinessBillingMode(billingMode)) {
+          setCompanyName(customer.customer_name || companyName);
+        } else {
+          setCustomerName(customer.customer_name || customerName);
+        }
+        setCustomerAddress(customer.address || '');
+        setCustomerGstin(String(customer.gstin || '').toUpperCase());
+        setUseLoyaltyPoints(false);
+        setLoyaltyRedeemPoints('');
+      } catch (err) {
+        if (cancelled) return;
+        setLoyaltyCustomer(null);
+        setUseLoyaltyPoints(false);
+        setLoyaltyRedeemPoints('');
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [customerPhone]);
+
+  async function loadSettings() {
+    try {
+      const settings = await fetchSettings();
+      setShopSettings(settings);
+      setPrintMode(canUseA4Print ? (settings.default_print_mode || 'Thermal') : 'Thermal');
+      const nextCounterCount = Number(settings.counter_count || 6);
+      setCounterCount(nextCounterCount);
+      setCounterNo((current) => {
+        if (!canSelectCounter && currentUser?.counter_no) {
+          return Math.min(Number(currentUser.counter_no), nextCounterCount);
+        }
+        return Math.min(current, nextCounterCount);
+      });
+    } catch (err) {
+      setCounterCount(6);
+    }
+  }
+
+  async function handleCustomerLookup() {
+    if (!customerPhone || customerPhone.replace(/\D/g, '').length < 10) {
+      setErrorMessage('Enter customer phone number for loyalty lookup.');
+      return;
+    }
+
+    try {
+      const customer = await lookupCustomer(customerPhone);
+      setLoyaltyCustomer(customer);
+      setCustomerName(customer.customer_name || customerName);
+      setCustomerAddress(customer.address || customerAddress);
+      setCustomerGstin(customer.gstin || customerGstin);
+      setUseLoyaltyPoints(false);
+      setLoyaltyRedeemPoints('');
+      setStatusMessage(`Customer loaded. Bills: ${customer.billing_count || customer.visit_count || 0}. Points: ${customer.loyalty_points || 0}`);
+    } catch (err) {
+      setLoyaltyCustomer(null);
+      setUseLoyaltyPoints(false);
+      setLoyaltyRedeemPoints('');
+      setStatusMessage('New loyalty customer. Complete bill or save customer to start points.');
+    }
+  }
+
+  function selectCustomerSuggestion(customer) {
+    const nextName = customer.customer_name || '';
+    if (isBusinessBillingMode(billingMode)) {
+      setCompanyName(nextName);
+    } else {
+      setCustomerName(nextName);
+    }
+    setCustomerPhone(customer.phone || '');
+    setCustomerAddress(customer.address || '');
+    setCustomerGstin(String(customer.gstin || '').toUpperCase());
+    setLoyaltyCustomer(customer);
+    setUseLoyaltyPoints(false);
+    setLoyaltyRedeemPoints('');
+    setCustomerSuggestions([]);
+    setIsCustomerLookupOpen(false);
+    setStatusMessage(`${nextName || 'Customer'} loaded from customer master.`);
+  }
+
+  async function handleCustomerSave() {
+    if (!customerPhone || customerPhone.replace(/\D/g, '').length < 10) {
+      setErrorMessage('Enter valid customer phone number before saving loyalty customer.');
+      return;
+    }
+
+    try {
+      const customer = await saveCustomer({
+        customer_name: isBusinessBillingMode(billingMode) ? companyName : customerName,
+        phone: customerPhone,
+        gstin: customerGstin,
+        address: customerAddress
+      });
+      setLoyaltyCustomer(customer);
+      setUseLoyaltyPoints(false);
+      setLoyaltyRedeemPoints('');
+      setStatusMessage(`Customer saved. Loyalty points: ${customer.loyalty_points}`);
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || 'Unable to save customer.');
+    }
+  }
+
+  async function refreshInvoicePreview(activeCounterNo = counterNo, force = false) {
+    if (!force && cart.length > 0) return;
+    try {
+      const nextInvoice = await fetchNextInvoice(activeCounterNo);
+      setInvoiceNo(nextInvoice.invoice_no || 'Draft');
+    } catch (err) {
+      setInvoiceNo('Draft');
+    }
+  }
+
+  function parseQuantitySearch(rawValue) {
+    const cleaned = String(rawValue || '').trim();
+    const match = cleaned.match(/^(\d+(?:\.\d+)?)\s*\*\s*(.+)$/) || cleaned.match(/^(.+?)\s*\*\s*(\d+(?:\.\d+)?)$/);
+    if (!match) return { search: cleaned, quantity: 1 };
+
+    const firstIsQuantity = /^\d+(?:\.\d+)?$/.test(match[1]);
+    const quantity = toNumber(firstIsQuantity ? match[1] : match[2], 1);
+    const search = String(firstIsQuantity ? match[2] : match[1]).trim();
+    return {
+      search,
+      quantity: quantity > 0 ? quantity : 1
+    };
+  }
+
+  async function findExactProductFast(searchValue) {
+    const key = String(searchValue || '').trim().toUpperCase();
+    if (!key) return null;
+    const cached = exactProductShortCacheRef.current.get(key);
+    if (cached && Date.now() - cached.at < EXACT_PRODUCT_CACHE_TTL_MS) {
+      return cached.product;
+    }
+
+    const product = await lookupExactProduct(key);
+    if (product) {
+      exactProductShortCacheRef.current.set(key, { at: Date.now(), product });
+    } else {
+      exactProductShortCacheRef.current.delete(key);
+    }
+    return product;
+  }
+
+  async function findProductForScan(searchValue) {
+    const key = String(searchValue || '').trim().toUpperCase();
+    if (!key) return null;
+
+    try {
+      const exactProduct = await findExactProductFast(key);
+      if (exactProduct) return exactProduct;
+    } catch (exactErr) {
+      console.warn('Exact product lookup failed, trying search fallback:', exactErr.message || exactErr);
+    }
+
+    const results = await searchProducts(key, { timeoutMs: 3500, retry: false });
+    const exactFromSearch = findExactSaleProduct(results, key);
+    if (exactFromSearch) {
+      exactProductShortCacheRef.current.set(key, { at: Date.now(), product: exactFromSearch });
+      return exactFromSearch;
+    }
+    return null;
+  }
+
+  function markRapidInputKey(event, targetRef = scannerKeyTimesRef) {
+    if (event.key.length !== 1) return;
+    const now = Date.now();
+    targetRef.current = [...targetRef.current.filter((time) => now - time < 450), now];
+  }
+
+  function isLikelyScannerInput(value, targetRef = scannerKeyTimesRef) {
+    const cleaned = String(value || '').trim();
+    if (!SCANNER_BARCODE_PATTERN.test(cleaned)) return false;
+    if (cleaned.length < SCANNER_MIN_BARCODE_LENGTH) return false;
+    const times = targetRef.current;
+    if (times.length < Math.min(cleaned.length, SCANNER_MIN_BARCODE_LENGTH)) return false;
+    const first = times[0];
+    const last = times[times.length - 1];
+    return last - first <= SCANNER_TOTAL_KEY_MS;
+  }
+
+  function scheduleScannedBarcodeAutoAdd(rawValue, options = {}) {
+    if (scannerAutoAddTimerRef.current) {
+      window.clearTimeout(scannerAutoAddTimerRef.current);
+    }
+    const scanToken = scannerScanTokenRef.current + 1;
+    scannerScanTokenRef.current = scanToken;
+    scannerAutoAddTimerRef.current = window.setTimeout(() => {
+      scannerAutoAddTimerRef.current = null;
+      autoAddScannedBarcode(rawValue, { ...options, scanToken });
+    }, SCANNER_SETTLE_MS);
+  }
+
+  function enqueueScannerRead(rawValue) {
+    const { search: cleaned, quantity } = parseQuantitySearch(rawValue);
+    const normalized = cleaned.toUpperCase();
+    if (!SCANNER_BARCODE_PATTERN.test(cleaned)) return;
+    if (normalized.length < SCANNER_MIN_BARCODE_LENGTH) return;
+
+    scannerReadQueueRef.current.push({ barcode: normalized, quantity, attempts: 0 });
+    if (scannerInputModeRef.current !== 'scan') {
+      resetScannerBuffer();
+    }
+    scannerInputModeRef.current = 'keyboard';
+    suppressSuggestionsUntilKeyboardInputRef.current = true;
+    scannerKeyTimesRef.current = [];
+    setQuery('');
+    setSuggestions([]);
+    setSelectedSuggestion(0);
+    processScannerReadQueue();
+  }
+
+  function resetScannerBuffer() {
+    scannerBufferRef.current = '';
+    scannerBufferLastKeyAtRef.current = 0;
+    if (scannerBufferTimerRef.current) {
+      window.clearTimeout(scannerBufferTimerRef.current);
+      scannerBufferTimerRef.current = null;
+    }
+  }
+
+  function commitScannerBuffer() {
+    const bufferedValue = scannerBufferRef.current;
+    resetScannerBuffer();
+    const { search: cleaned } = parseQuantitySearch(bufferedValue);
+    if (!SCANNER_BARCODE_PATTERN.test(cleaned)) return;
+    if (String(cleaned || '').trim().length < SCANNER_MIN_BARCODE_LENGTH) return;
+    enqueueScannerRead(bufferedValue);
+  }
+
+  function scheduleScannerBufferCommit() {
+    if (scannerBufferTimerRef.current) {
+      window.clearTimeout(scannerBufferTimerRef.current);
+    }
+    scannerBufferTimerRef.current = window.setTimeout(() => {
+      scannerBufferTimerRef.current = null;
+      if (scannerBufferRef.current.length >= SCANNER_MIN_BARCODE_LENGTH) {
+        commitScannerBuffer();
+      }
+    }, SCANNER_SETTLE_MS);
+  }
+
+  function bufferScannerKey(event) {
+    const now = Date.now();
+
+    if (event.key === 'Enter' || event.key === 'Tab') {
+      if (scannerBufferRef.current) {
+        event.preventDefault();
+        commitScannerBuffer();
+        return true;
+      }
+      return false;
+    }
+
+    if (event.key.length !== 1 || !SCANNER_BARCODE_PATTERN.test(event.key)) return false;
+
+    const gap = now - scannerBufferLastKeyAtRef.current;
+    if (!scannerBufferRef.current || gap <= SCANNER_FAST_KEY_MS || scannerInputModeRef.current === 'scan') {
+      scannerBufferRef.current += event.key;
+    } else {
+      scannerBufferRef.current = event.key;
+    }
+    scannerBufferLastKeyAtRef.current = now;
+
+    if (scannerBufferRef.current.length >= SCANNER_MIN_BARCODE_LENGTH && (gap <= SCANNER_FAST_KEY_MS || scannerInputModeRef.current === 'scan')) {
+      scannerInputModeRef.current = 'scan';
+      suppressSuggestionsUntilKeyboardInputRef.current = true;
+      setSuggestions([]);
+      setSelectedSuggestion(0);
+      scheduleScannerBufferCommit();
+    }
+
+    return scannerInputModeRef.current === 'scan';
+  }
+
+  async function processScannerReadQueue() {
+    if (isScannerReadQueueProcessingRef.current) return;
+    isScannerReadQueueProcessingRef.current = true;
+
+    try {
+      while (scannerReadQueueRef.current.length > 0) {
+        const scanRead = scannerReadQueueRef.current.shift();
+        try {
+          const exactProduct = await findProductForScan(scanRead.barcode);
+          if (exactProduct) {
+            addProduct(exactProduct, scanRead.quantity);
+          } else {
+            addUnknownProductLine(scanRead.barcode, scanRead.quantity);
+          }
+        } catch (err) {
+          if (toNumber(scanRead.attempts) < 2) {
+            scannerReadQueueRef.current.unshift({
+              ...scanRead,
+              attempts: toNumber(scanRead.attempts) + 1
+            });
+            await new Promise((resolve) => setTimeout(resolve, 180));
+            continue;
+          }
+          setQuery(scanRead.barcode);
+          setSuggestions([]);
+          setSelectedSuggestion(0);
+          setErrorMessage(`Product lookup failed for ${scanRead.barcode}. Delete this line or scan again after network is ready.`);
+        }
+      }
+    } finally {
+      isScannerReadQueueProcessingRef.current = false;
+    }
+  }
+
+  async function autoAddScannedBarcode(rawValue, { forceExact = false, scanToken = null } = {}) {
+    const { search: cleaned } = parseQuantitySearch(rawValue);
+    if (!SCANNER_BARCODE_PATTERN.test(cleaned)) return;
+    if (!forceExact && !isLikelyScannerInput(cleaned, scannerKeyTimesRef)) return;
+    if (scanToken !== null && scanToken !== scannerScanTokenRef.current) return;
+    enqueueScannerRead(rawValue);
+  }
+
+  function handleSearchChange(event) {
+    const nextQuery = event.target.value;
+    const nativeEvent = event.nativeEvent || {};
+    const insertedText = String(nativeEvent.data || '');
+    const isPasteLikeInput = nativeEvent.inputType === 'insertFromPaste'
+      || insertedText.length > 1
+      || Math.abs(nextQuery.length - query.length) > 1;
+    const { search: cleaned } = parseQuantitySearch(nextQuery);
+
+    releaseScannerWakeBlockForInput();
+
+    if (isPasteLikeInput && SCANNER_BARCODE_PATTERN.test(cleaned)) {
+      scannerInputModeRef.current = 'scan';
+      suppressSuggestionsUntilKeyboardInputRef.current = true;
+      setQuery(nextQuery);
+      setSuggestions([]);
+      setSelectedSuggestion(0);
+      scheduleScannedBarcodeAutoAdd(nextQuery, { forceExact: true });
+      return;
+    }
+
+    scannerInputModeRef.current = 'keyboard';
+    suppressSuggestionsUntilKeyboardInputRef.current = false;
+    setQuery(nextQuery);
+
+    if (isLikelyScannerInput(cleaned, scannerKeyTimesRef)) {
+      scannerInputModeRef.current = 'scan';
+      suppressSuggestionsUntilKeyboardInputRef.current = true;
+      setSuggestions([]);
+      setSelectedSuggestion(0);
+    }
+  }
+
+  function handleSearchPaste(event) {
+    const pastedValue = event.clipboardData?.getData('text') || '';
+    const { search: cleaned } = parseQuantitySearch(pastedValue);
+    if (!SCANNER_BARCODE_PATTERN.test(cleaned)) return;
+
+    event.preventDefault();
+    releaseScannerWakeBlockForInput();
+    scannerInputModeRef.current = 'scan';
+    suppressSuggestionsUntilKeyboardInputRef.current = true;
+    setQuery(pastedValue);
+    setSuggestions([]);
+    setSelectedSuggestion(0);
+    scheduleScannedBarcodeAutoAdd(pastedValue, { forceExact: true });
+  }
+
+  function addProduct(product, quantityToAdd = 1) {
+    const addQty = Math.max(toNumber(quantityToAdd, 1), 0.001);
+    const productBarcode = String(product.barcode || '').trim().toUpperCase();
+    const productCode = String(product.product_code || '').trim().toUpperCase();
+    setCart((current) => {
+      const existingIndex = current.findIndex((item) => {
+        const itemBarcode = String(item.barcode || '').trim().toUpperCase();
+        const itemCode = String(item.product_code || '').trim().toUpperCase();
+        return itemBarcode === productBarcode || Boolean(productCode && itemCode === productCode);
+      });
+      if (existingIndex >= 0) {
+        setSelectedCartIndex(existingIndex);
+        return current.map((item, index) => {
+          if (index !== existingIndex) return item;
+
+          if (item.isUnknown) {
+            return {
+              ...product,
+              barcode: productBarcode || product.barcode,
+              product_name: String(product.product_name || '').toUpperCase(),
+              quantity: toNumber(item.quantity, 1),
+              sale_price: toNumber(product.sale_price || product.mrp),
+              wholesale_price: toNumber(product.wholesale_price || product.sale_price || product.mrp),
+              mrp: toNumber(product.mrp),
+              gst_percent: toNumber(product.gst_percent),
+              stock_qty: toNumber(product.stock_qty)
+            };
+          }
+
+          const refreshedSalePrice = toNumber(product.sale_price || product.mrp);
+          return {
+            ...item,
+            ...product,
+            barcode: productBarcode || product.barcode,
+            product_name: String(product.product_name || item.product_name || '').toUpperCase(),
+            quantity: toNumber(item.quantity, 1) + addQty,
+            sale_price: refreshedSalePrice,
+            unitPrice: refreshedSalePrice,
+            wholesale_price: toNumber(product.wholesale_price || product.sale_price || product.mrp),
+            mrp: toNumber(product.mrp),
+            gst_percent: toNumber(product.gst_percent),
+            stock_qty: toNumber(product.stock_qty)
+          };
+        });
+      }
+
+      setSelectedCartIndex(current.length);
+      return [
+        ...current,
+        {
+          ...product,
+          barcode: productBarcode || product.barcode,
+          product_name: String(product.product_name || '').toUpperCase(),
+          quantity: addQty,
+          sale_price: toNumber(product.sale_price || product.mrp),
+          wholesale_price: toNumber(product.wholesale_price || product.sale_price || product.mrp),
+          mrp: toNumber(product.mrp),
+          gst_percent: toNumber(product.gst_percent),
+          stock_qty: toNumber(product.stock_qty)
+        }
+      ];
+    });
+
+    setQuery('');
+    setSuggestions([]);
+    setErrorMessage('');
+    setStatusMessage(`${product.product_name} x ${addQty} added to bill.`);
+    scannerRef.current?.focus();
+  }
+
+  function addUnknownProductLine(barcode, quantityToAdd = 1) {
+    const cleaned = String(barcode || '').trim().toUpperCase();
+    if (!cleaned) return;
+
+    const addQty = Math.max(toNumber(quantityToAdd, 1), 0.001);
+    setCart((current) => {
+      const existingIndex = current.findIndex((item) => (
+        item.isUnknown && String(item.barcode || '').trim().toUpperCase() === cleaned
+      ));
+
+      if (existingIndex >= 0) {
+        setSelectedCartIndex(existingIndex);
+        return current.map((item, index) => (
+          index === existingIndex ? { ...item, quantity: toNumber(item.quantity, 1) + addQty } : item
+        ));
+      }
+
+      setSelectedCartIndex(current.length);
+      return [
+        ...current,
+        {
+          barcode: cleaned,
+          product_code: cleaned,
+          product_name: 'PRODUCT NOT FOUND',
+          hsn_code: '',
+          gst_percent: 0,
+          mrp: 0,
+          sale_price: 0,
+          wholesale_price: 0,
+          quantity: addQty,
+          isUnknown: true
+        }
+      ];
+    });
+
+    setQuery('');
+    setSuggestions([]);
+    setSelectedSuggestion(0);
+    setErrorMessage('');
+    setStatusMessage('');
+    scannerRef.current?.focus();
+  }
+
+  function isGeneralProductLine(item) {
+    const barcode = String(item?.barcode || '').trim().toUpperCase();
+    const productCode = String(item?.product_code || '').trim().toUpperCase();
+    const productName = String(item?.product_name || '').trim().toUpperCase();
+    return barcode === '35' || productCode === '35' || productName.includes('GENERAL');
+  }
+
+  function updateProductDetail(index, value) {
+    const nextName = String(value || '').toUpperCase().slice(0, 120);
+    setCart((current) => current.map((item, itemIndex) => (
+      itemIndex === index ? { ...item, product_name: nextName } : item
+    )));
+  }
+
+  function clearPendingSuggestionClick() {
+    if (!suggestionClickTimerRef.current) return;
+    window.clearTimeout(suggestionClickTimerRef.current);
+    suggestionClickTimerRef.current = null;
+  }
+
+  function focusSearchInputAtEnd() {
+    const scanner = scannerRef.current;
+    if (!scanner) return;
+    scanner.focus();
+    const cursorAt = String(scanner.value || '').length;
+    scanner.setSelectionRange?.(cursorAt, cursorAt);
+  }
+
+  function focusSearchFromSuggestionScroll(event) {
+    clearPendingSuggestionClick();
+    event.preventDefault();
+    event.stopPropagation();
+    focusSearchInputAtEnd();
+  }
+
+  function handleSuggestionMouseDownCapture(event) {
+    if (event.detail < 2) return;
+    focusSearchFromSuggestionScroll(event);
+  }
+
+  function handleSuggestionClick(product, event) {
+    event.preventDefault();
+    clearPendingSuggestionClick();
+    const quantity = parseQuantitySearch(query).quantity;
+    suggestionClickTimerRef.current = window.setTimeout(() => {
+      suggestionClickTimerRef.current = null;
+      addProduct(product, quantity);
+    }, 360);
+  }
+
+  function openPriceCheck() {
+    setShowPriceCheck(true);
+    setPriceCheckQuery('');
+    setPriceCheckProduct(null);
+    setPriceCheckError('');
+    setIsCheckingPrice(false);
+    window.setTimeout(() => priceCheckInputRef.current?.focus(), 50);
+  }
+
+  function closePriceCheck() {
+    setShowPriceCheck(false);
+    setPriceCheckQuery('');
+    setPriceCheckProduct(null);
+    setPriceCheckError('');
+    setIsCheckingPrice(false);
+    scannerRef.current?.focus();
+  }
+
+  function getProductOfferText(product) {
+    const discountValue = toNumber(product?.discount_value);
+    const bulkDiscount = toNumber(product?.bulk_discount_value);
+    const discountType = product?.discount_type === 'VALUE' ? 'Rs' : '%';
+    if (discountValue > 0 && bulkDiscount > 0) {
+      return `${discountValue}${discountType} retail, ${bulkDiscount}% wholesale`;
+    }
+    if (discountValue > 0) return `${discountValue}${discountType} discount`;
+    if (bulkDiscount > 0) return `${bulkDiscount}% wholesale discount`;
+    const mrp = toNumber(product?.mrp);
+    const salePrice = toNumber(product?.sale_price);
+    if (mrp > salePrice && salePrice > 0) return `${formatMoney(mrp - salePrice)} less than MRP`;
+    return 'No active offer';
+  }
+
+  async function runPriceCheck(searchValue = priceCheckQuery) {
+    const cleaned = String(searchValue || '').trim();
+    if (!cleaned) {
+      setPriceCheckError('Scan barcode or type product name.');
+      setPriceCheckProduct(null);
+      return;
+    }
+
+    setIsCheckingPrice(true);
+    setPriceCheckError('');
+    try {
+      const results = await searchProducts(cleaned);
+      if (results.length === 1) {
+        setPriceCheckProduct(results[0]);
+        setPriceCheckError('');
+        return;
+      }
+      if (results.length > 1) {
+        const exact = results.find((product) => (
+          String(product.barcode || '').toUpperCase() === cleaned.toUpperCase()
+          || String(product.product_code || '').toUpperCase() === cleaned.toUpperCase()
+        ));
+        if (exact) {
+          setPriceCheckProduct(exact);
+          setPriceCheckError('');
+          return;
+        }
+        setPriceCheckProduct(null);
+        setPriceCheckError('Multiple products found. Scan exact barcode or type full product name.');
+        return;
+      }
+      setPriceCheckProduct(null);
+      setPriceCheckError('Product not found.');
+    } catch (err) {
+      setPriceCheckProduct(null);
+      setPriceCheckError(err.response?.data?.error || 'Unable to check price.');
+    } finally {
+      setIsCheckingPrice(false);
+    }
+  }
+
+  async function autoRunScannedPriceCheck(rawValue) {
+    const cleaned = String(rawValue || '').trim();
+    const normalized = cleaned.toUpperCase();
+    if (!isLikelyScannerInput(cleaned, priceCheckKeyTimesRef) || lastPriceCheckScanRef.current === normalized) return;
+    lastPriceCheckScanRef.current = normalized;
+
+    try {
+      const exactProduct = await findExactProductFast(cleaned);
+      if (exactProduct) {
+        setPriceCheckProduct(exactProduct);
+        setPriceCheckError('');
+        return;
+      }
+      await runPriceCheck(cleaned);
+    } finally {
+      window.setTimeout(() => {
+        if (lastPriceCheckScanRef.current === normalized) lastPriceCheckScanRef.current = '';
+      }, 250);
+    }
+  }
+
+  function handlePriceCheckKeyDown(event) {
+    markRapidInputKey(event, priceCheckKeyTimesRef);
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      runPriceCheck();
+    }
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closePriceCheck();
+    }
+  }
+
+  async function handleSearchKeyDown(event) {
+    if (isScannerWakeBlocked()) {
+      if (event.key.length === 1 || event.key === 'Enter' || event.key === 'Tab') {
+        releaseScannerWakeBlockForInput();
+      }
+    }
+    markRapidInputKey(event, scannerKeyTimesRef);
+    const handledScannerKey = event.key === 'Enter' ? false : bufferScannerKey(event);
+    if (handledScannerKey && (event.key === 'Enter' || event.key === 'Tab')) return;
+
+    if (event.key === 'ArrowDown' && suggestions.length) {
+      event.preventDefault();
+      const nextIndex = Math.min(selectedSuggestionRef.current + 1, suggestions.length - 1);
+      selectedSuggestionRef.current = nextIndex;
+      setSelectedSuggestion(nextIndex);
+    }
+
+    if (event.key === 'ArrowUp' && suggestions.length) {
+      event.preventDefault();
+      const nextIndex = Math.max(selectedSuggestionRef.current - 1, 0);
+      selectedSuggestionRef.current = nextIndex;
+      setSelectedSuggestion(nextIndex);
+    }
+
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      resetScannerBuffer();
+      if (scannerAutoAddTimerRef.current) {
+        window.clearTimeout(scannerAutoAddTimerRef.current);
+        scannerAutoAddTimerRef.current = null;
+      }
+      scannerInputModeRef.current = 'keyboard';
+      suppressSuggestionsUntilKeyboardInputRef.current = false;
+      const { search: cleaned, quantity } = parseQuantitySearch(query);
+      const selectedProduct = suggestions[selectedSuggestionRef.current] || suggestions[selectedSuggestion];
+
+      // A typed numeric value is a barcode/product-code lookup, not a fuzzy
+      // suggestion selection. Only an exact saved code may be added on Enter.
+      if (/^\d+$/.test(cleaned)) {
+        try {
+          const exactCodeProduct = await findExactProductFast(cleaned);
+          if (exactCodeProduct) {
+            addProduct(exactCodeProduct, quantity);
+            return;
+          }
+          setSuggestions([]);
+          setSelectedSuggestion(0);
+          setErrorMessage(`No product found for code ${cleaned}.`);
+        } catch (err) {
+          setSuggestions([]);
+          setSelectedSuggestion(0);
+          setErrorMessage(`Product lookup failed for ${cleaned}. Check LAN and try again.`);
+        }
+        return;
+      }
+
+      if (selectedProduct) {
+        addProduct(selectedProduct, quantity);
+        return;
+      }
+
+      if (!cleaned) {
+        setErrorMessage('Enter barcode digits or product name.');
+        return;
+      }
+
+      if (cleaned.length < 3) {
+        try {
+          const exactShortProduct = SCANNER_BARCODE_PATTERN.test(cleaned)
+            ? await findExactProductFast(cleaned)
+            : null;
+          if (exactShortProduct) {
+            addProduct(exactShortProduct, quantity);
+            return;
+          }
+          setErrorMessage('Enter at least 3 letters for product search, or scan/enter an exact barcode.');
+        } catch (err) {
+          setErrorMessage(`Product lookup failed for ${cleaned}. Check LAN and scan again.`);
+        }
+        return;
+      }
+
+      if (isLikelyScannerInput(cleaned, scannerKeyTimesRef)) {
+        if (scannerAutoAddTimerRef.current) {
+          window.clearTimeout(scannerAutoAddTimerRef.current);
+          scannerAutoAddTimerRef.current = null;
+        }
+        scannerInputModeRef.current = 'scan';
+        autoAddScannedBarcode(query, { forceExact: true });
+        return;
+      }
+
+      try {
+        const exactProduct = await findExactProductFast(cleaned);
+        if (exactProduct) {
+          addProduct(exactProduct, quantity);
+          return;
+        }
+
+        const results = await searchProducts(cleaned);
+        const exactFromSearch = findExactSaleProduct(results, cleaned);
+        if (exactFromSearch) {
+          addProduct(exactFromSearch, quantity);
+          return;
+        }
+        if (results.length === 1) addProduct(results[0], quantity);
+        if (results.length > 1) {
+          setSuggestions(results.slice(0, POS_SUGGESTION_LIMIT));
+          setSelectedSuggestion(0);
+        }
+        if (results.length === 0) {
+          addUnknownProductLine(cleaned, quantity);
+        }
+      } catch (err) {
+        if (SCANNER_BARCODE_PATTERN.test(cleaned)) {
+          setQuery(cleaned);
+          setSuggestions([]);
+          setSelectedSuggestion(0);
+          setErrorMessage(`Product lookup failed for ${cleaned}. Check LAN and scan again.`);
+        } else {
+          setErrorMessage(err.response?.data?.error || 'Product lookup failed.');
+        }
+      }
+    }
+  }
+
+  function updateQuantity(index, quantity) {
+    setErrorMessage('');
+    setCart((current) => current.map((item, itemIndex) => (
+      itemIndex === index ? { ...item, quantity: Math.max(toNumber(quantity), 0) } : item
+    )));
+  }
+
+  function removeLine(index) {
+    setErrorMessage('');
+    setCart((current) => {
+      const next = current.filter((_, itemIndex) => itemIndex !== index);
+      setSelectedCartIndex(next.length ? Math.min(index, next.length - 1) : -1);
+      return next;
+    });
+    window.setTimeout(() => {
+      scannerRef.current?.focus();
+      scannerRef.current?.select?.();
+    }, 50);
+  }
+
+  function addExchangeProduct(product) {
+    const unitPrice = toNumber(product.sale_price || product.mrp);
+    setExchangeItems((current) => {
+      const existingIndex = current.findIndex((item) => item.barcode === product.barcode);
+      if (existingIndex >= 0) {
+        return current.map((item, index) => (
+          index === existingIndex ? { ...item, quantity: toNumber(item.quantity, 1) + 1 } : item
+        ));
+      }
+
+      return [
+        ...current,
+        {
+          barcode: product.barcode,
+          product_name: String(product.product_name || '').toUpperCase(),
+          hsn_code: product.hsn_code || '',
+          unit_type: product.unit_type || product.unit || '',
+          pack_measure: product.pack_measure || '',
+          gst_percent: toNumber(product.gst_percent),
+          mrp: toNumber(product.mrp),
+          sale_price: unitPrice,
+          unitPrice,
+          quantity: 1
+        }
+      ];
+    });
+    setExchangeQuery('');
+    setErrorMessage('');
+    setStatusMessage(`${product.product_name} added to exchange.`);
+    window.setTimeout(() => {
+      scannerRef.current?.focus();
+      scannerRef.current?.select?.();
+    }, 60);
+  }
+
+  async function addExchangeProductByExactScan(rawValue) {
+    const { search: cleaned } = parseQuantitySearch(rawValue);
+    if (!SCANNER_BARCODE_PATTERN.test(cleaned)) return;
+    if (exchangeScannerInputModeRef.current !== 'scan') {
+      resetExchangeScannerBuffer();
+    }
+    exchangeScannerInputModeRef.current = 'keyboard';
+    setExchangeQuery('');
+
+    try {
+      const exactProduct = await findExactProductFast(cleaned);
+      if (exactProduct) {
+        addExchangeProduct(exactProduct);
+        return;
+      }
+      setErrorMessage(`Exchange barcode ${cleaned.toUpperCase()} not found.`);
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || 'Exchange product lookup failed.');
+    }
+  }
+
+  function resetExchangeScannerBuffer() {
+    exchangeScannerBufferRef.current = '';
+    exchangeScannerBufferLastKeyAtRef.current = 0;
+    if (exchangeScannerBufferTimerRef.current) {
+      window.clearTimeout(exchangeScannerBufferTimerRef.current);
+      exchangeScannerBufferTimerRef.current = null;
+    }
+  }
+
+  function commitExchangeScannerBuffer() {
+    const bufferedValue = exchangeScannerBufferRef.current;
+    resetExchangeScannerBuffer();
+    const { search: cleaned } = parseQuantitySearch(bufferedValue);
+    if (!SCANNER_BARCODE_PATTERN.test(cleaned)) return;
+    addExchangeProductByExactScan(bufferedValue);
+  }
+
+  function scheduleExchangeScannerBufferCommit() {
+    if (exchangeScannerBufferTimerRef.current) {
+      window.clearTimeout(exchangeScannerBufferTimerRef.current);
+    }
+    exchangeScannerBufferTimerRef.current = window.setTimeout(() => {
+      exchangeScannerBufferTimerRef.current = null;
+      if (exchangeScannerBufferRef.current.length >= 2) {
+        commitExchangeScannerBuffer();
+      }
+    }, SCANNER_SETTLE_MS);
+  }
+
+  function bufferExchangeScannerKey(event) {
+    const now = Date.now();
+
+    if (event.key === 'Enter' || event.key === 'Tab') {
+      if (exchangeScannerBufferRef.current) {
+        event.preventDefault();
+        commitExchangeScannerBuffer();
+        return true;
+      }
+      return false;
+    }
+
+    if (event.key.length !== 1 || !SCANNER_BARCODE_PATTERN.test(event.key)) return false;
+
+    const gap = now - exchangeScannerBufferLastKeyAtRef.current;
+    if (!exchangeScannerBufferRef.current || gap <= SCANNER_FAST_KEY_MS || exchangeScannerInputModeRef.current === 'scan') {
+      exchangeScannerBufferRef.current += event.key;
+    } else {
+      exchangeScannerBufferRef.current = event.key;
+    }
+    exchangeScannerBufferLastKeyAtRef.current = now;
+
+    if (exchangeScannerBufferRef.current.length >= 2 && (gap <= SCANNER_FAST_KEY_MS || exchangeScannerInputModeRef.current === 'scan')) {
+      exchangeScannerInputModeRef.current = 'scan';
+      scheduleExchangeScannerBufferCommit();
+    }
+
+    return exchangeScannerInputModeRef.current === 'scan';
+  }
+
+  async function handleExchangeSearchKeyDown(event) {
+    const handledScannerKey = event.key === 'Enter' ? false : bufferExchangeScannerKey(event);
+    if (handledScannerKey && (event.key === 'Enter' || event.key === 'Tab')) return;
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    resetExchangeScannerBuffer();
+    exchangeScannerInputModeRef.current = 'keyboard';
+    const cleaned = exchangeQuery.trim();
+    if (!cleaned) {
+      setErrorMessage('Enter exchange product barcode or product name.');
+      return;
+    }
+
+    try {
+      if (SCANNER_BARCODE_PATTERN.test(cleaned)) {
+        const exactProduct = await findExactProductFast(cleaned);
+        if (exactProduct) {
+          addExchangeProduct(exactProduct);
+          return;
+        }
+      }
+      if (cleaned.length < 3) {
+        setErrorMessage('Enter exchange product barcode or at least 3 letters.');
+        return;
+      }
+      const results = await searchProducts(cleaned);
+      if (results.length === 0) {
+        setErrorMessage('Exchange product not found.');
+        return;
+      }
+      addExchangeProduct(results[0]);
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || 'Exchange product lookup failed.');
+    }
+  }
+
+  function handleExchangeSearchChange(event) {
+    const nextQuery = event.target.value;
+    const nativeEvent = event.nativeEvent || {};
+    const insertedText = String(nativeEvent.data || '');
+    const isPasteLikeInput = nativeEvent.inputType === 'insertFromPaste'
+      || insertedText.length > 1
+      || Math.abs(nextQuery.length - exchangeQuery.length) > 1;
+    const { search: cleaned } = parseQuantitySearch(nextQuery);
+
+    if (isPasteLikeInput && SCANNER_BARCODE_PATTERN.test(cleaned)) {
+      exchangeScannerInputModeRef.current = 'scan';
+      setExchangeQuery(nextQuery);
+      window.setTimeout(() => addExchangeProductByExactScan(nextQuery), 0);
+      return;
+    }
+
+    exchangeScannerInputModeRef.current = 'keyboard';
+    setExchangeQuery(nextQuery);
+  }
+
+  function handleExchangeSearchPaste(event) {
+    const pastedValue = event.clipboardData?.getData('text') || '';
+    const { search: cleaned } = parseQuantitySearch(pastedValue);
+    if (!SCANNER_BARCODE_PATTERN.test(cleaned)) return;
+
+    event.preventDefault();
+    exchangeScannerInputModeRef.current = 'scan';
+    setExchangeQuery(pastedValue);
+    window.setTimeout(() => addExchangeProductByExactScan(pastedValue), 0);
+  }
+
+  function updateExchangeQuantity(index, quantity) {
+    setExchangeItems((current) => current.map((item, itemIndex) => (
+      itemIndex === index ? { ...item, quantity: Math.max(toNumber(quantity), 0) } : item
+    )));
+  }
+
+  function removeExchangeLine(index) {
+    setExchangeItems((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  }
+
+  function requestExchangeMode() {
+    setErrorMessage('');
+    setStatusMessage('');
+    setApprovalError('');
+
+    if (exchangeMode) {
+      setExchangeMode(false);
+      setExchangeItems([]);
+      setStatusMessage('Exchange bill mode removed.');
+      scannerRef.current?.focus();
+      return;
+    }
+
+    setExchangeMode(true);
+    setStatusMessage('Exchange bill enabled.');
+    window.setTimeout(() => exchangeScannerRef.current?.focus(), 50);
+  }
+
+  function closeApprovalDialog() {
+    setApprovalDialog(null);
+    setApprovalPassword('');
+    setApprovalError('');
+    setIsApprovingMode(false);
+    scannerRef.current?.focus();
+  }
+
+  function requestBillingMode(targetMode) {
+    setErrorMessage('');
+    setStatusMessage('');
+    setApprovalError('');
+
+    if (targetMode === billingMode) {
+      scannerRef.current?.focus();
+      return;
+    }
+
+    if (targetMode === RETAIL_MODE) {
+      setBillingMode(RETAIL_MODE);
+      setStatusMessage('Billing mode reset to Retail.');
+      scannerRef.current?.focus();
+      return;
+    }
+
+    setApprovalDialog({
+      action: 'MODE',
+      targetMode,
+      title: `Approve ${BILLING_MODES[targetMode].label} bill`,
+      message: `${BILLING_MODES[targetMode].label} is allowed for this bill only. After complete sale or hold, POS will return to Retail.`
+    });
+  }
+
+  function requestPrintMode(targetPrintMode) {
+    setErrorMessage('');
+    setStatusMessage('');
+    setApprovalError('');
+
+    if (!canUseA4Print) {
+      setPrintMode('Thermal');
+      setStatusMessage('Counter billing print format is fixed to Thermal.');
+      scannerRef.current?.focus();
+      return;
+    }
+
+    if (targetPrintMode === printMode) {
+      scannerRef.current?.focus();
+      return;
+    }
+
+    if (!isSensitivePrintMode(targetPrintMode)) {
+      setPrintMode('Thermal');
+      setStatusMessage('Print format reset to Thermal.');
+      scannerRef.current?.focus();
+      return;
+    }
+
+    setApprovalDialog({
+      action: 'PRINT_MODE',
+      targetPrintMode,
+      targetMode: billingMode,
+      title: 'Approve A4 print',
+      message: 'A4 print is allowed for this bill only. After complete sale, hold, or reset, POS will return to Thermal.'
+    });
+  }
+
+  async function applyHeldBill(savedState, holdToken) {
+    setInvoiceNo(savedState.invoiceNo || 'Draft');
+    setCounterNo(canSelectCounter ? savedState.counterNo || 1 : Number(currentUser?.counter_no || counterNo));
+    setCart(savedState.cart || []);
+    setExchangeMode(Boolean(savedState.exchangeMode));
+    setExchangeItems(savedState.exchangeItems || []);
+    setBillingMode(normalizeBillingMode(savedState.billingMode));
+    setCustomerName(savedState.customerName || '');
+    setCustomerAddress(savedState.customerAddress || '');
+    setCustomerPhone(savedState.customerPhone || '');
+    setCompanyName(savedState.companyName || '');
+    setCustomerGstin(savedState.customerGstin || '');
+    setPaymentMode(savedState.paymentMode || 'Cash');
+    setMixedPayment(savedState.mixedPayment || EMPTY_MIXED_PAYMENT);
+    setPaymentReference(savedState.paymentReference || '');
+    setPaymentConfirmed(Boolean(savedState.paymentConfirmed));
+    setPrintMode(canUseA4Print ? (savedState.printMode || 'Thermal') : 'Thermal');
+    setCashReceived('');
+    await deleteHeldBill(holdToken);
+    refreshHeldBills(savedState.counterNo || counterNo);
+    scannerRef.current?.focus();
+  }
+
+  function currentBillCustomerLabel() {
+    return (isBusinessBillingMode(billingMode) ? companyName : customerName).trim() || 'Walk-in Customer';
+  }
+
+  function currentBillSavedState() {
+    return {
+      invoiceNo,
+      counterNo,
+      cart,
+      exchangeMode,
+      exchangeItems,
+      billingMode,
+      customerName,
+      customerAddress,
+      customerPhone,
+      companyName,
+      customerGstin,
+      paymentMode,
+      mixedPayment,
+      paymentReference,
+      paymentConfirmed,
+      printMode: canUseA4Print ? printMode : 'Thermal',
+      cashReceived
+    };
+  }
+
+  function billWindowTitle(savedState = currentBillSavedState()) {
+    const customerLabel = (isBusinessBillingMode(savedState.billingMode) ? savedState.companyName : savedState.customerName)
+      || 'Walk-in';
+    const itemCount = (savedState.cart || []).length + (savedState.exchangeItems || []).length;
+    return `${savedState.invoiceNo || 'Bill'} - ${customerLabel} (${itemCount})`;
+  }
+
+  function saveActiveBillWindowState() {
+    if (!activeBillWindowId) return;
+    const savedState = currentBillSavedState();
+    setBillWindows((current) => current.map((billWindow) => (
+      billWindow.id === activeBillWindowId
+        ? { ...billWindow, title: billWindowTitle(savedState), savedState, minimized: true }
+        : billWindow
+    )));
+  }
+
+  function saveCurrentBillAsWindow() {
+    if (!hasRunningBill()) return;
+    const savedState = currentBillSavedState();
+
+    const id = `bill-window-${Date.now()}-${billWindowSeqRef.current}`;
+    billWindowSeqRef.current += 1;
+    setBillWindows((current) => [
+      ...current,
+      { id, title: billWindowTitle(savedState), savedState, minimized: true }
+    ]);
+  }
+
+  function applyBillWindowState(savedState) {
+    setInvoiceNo(savedState.invoiceNo || 'Draft');
+    setCounterNo(canSelectCounter ? savedState.counterNo || 1 : Number(currentUser?.counter_no || counterNo));
+    setCart(savedState.cart || []);
+    setSelectedCartIndex(savedState.cart?.length ? savedState.cart.length - 1 : -1);
+    setExchangeMode(Boolean(savedState.exchangeMode));
+    setExchangeItems(savedState.exchangeItems || []);
+    setExchangeQuery('');
+    setBillingMode(normalizeBillingMode(savedState.billingMode));
+    setCustomerName(savedState.customerName || '');
+    setCustomerAddress(savedState.customerAddress || '');
+    setCustomerPhone(savedState.customerPhone || '');
+    setCompanyName(savedState.companyName || '');
+    setCustomerGstin(savedState.customerGstin || '');
+    setPaymentMode(savedState.paymentMode || 'Cash');
+    setMixedPayment(savedState.mixedPayment || EMPTY_MIXED_PAYMENT);
+    setPaymentReference(savedState.paymentReference || '');
+    setPaymentConfirmed(Boolean(savedState.paymentConfirmed));
+    setPrintMode(canUseA4Print ? (savedState.printMode || 'Thermal') : 'Thermal');
+    setCashReceived(savedState.cashReceived || '');
+    setQuery('');
+    setSuggestions([]);
+    setErrorMessage('');
+    setStatusMessage('');
+    restoreScannerFocusSoon();
+  }
+
+  function openNewBillTab() {
+    hideHoverBillPreview();
+    saveCurrentBillAsWindow();
+    setActiveBillWindowId(null);
+    resetBill({ closeActiveWindow: false });
+    setErrorMessage('');
+    setStatusMessage('');
+    restoreScannerFocusSoon();
+  }
+
+  function switchToBillWindow(targetWindow) {
+    hideHoverBillPreview();
+    saveCurrentBillAsWindow();
+    setActiveBillWindowId(null);
+    setBillWindows((current) => current.filter((billWindow) => billWindow.id !== targetWindow.id));
+    applyBillWindowState(targetWindow.savedState);
+  }
+
+  function closeBillWindow(windowId, event) {
+    event?.stopPropagation?.();
+    hideHoverBillPreview();
+    const isActiveWindow = activeBillWindowId === windowId;
+    setBillWindows((current) => current.filter((billWindow) => billWindow.id !== windowId));
+    if (isActiveWindow) {
+      setActiveBillWindowId(null);
+      resetBill();
+    }
+    restoreScannerFocusSoon();
+  }
+
+  async function submitModeApproval(event) {
+    event.preventDefault();
+    if (!approvalDialog) return;
+
+    setErrorMessage('');
+    setStatusMessage('');
+    setIsApprovingMode(true);
+
+    try {
+      const result = await approveSensitiveBillingMode({
+        username: approvalUsername,
+        password: approvalPassword,
+        reason: approvalDialog.action === 'RESUME'
+            ? `Resume held ${BILLING_MODES[approvalDialog.targetMode].label} bill`
+            : `Start ${BILLING_MODES[approvalDialog.targetMode].label} bill`
+      });
+
+      if (approvalDialog.action === 'RESUME') {
+        if (hasRunningBill()) {
+          setApprovalError('Running bill is open. Close preview and finish current bill before resuming.');
+          setIsApprovingMode(false);
+          return;
+        }
+        await applyHeldBill(approvalDialog.savedState, approvalDialog.holdToken);
+        setStatusMessage(`${BILLING_MODES[approvalDialog.targetMode].label} held bill resumed. Approved by ${result.approved_by}.`);
+      } else if (approvalDialog.action === 'PRINT_MODE') {
+        if (!canUseA4Print) {
+          setPrintMode('Thermal');
+          setStatusMessage('Counter billing print format is fixed to Thermal.');
+          closeApprovalDialog();
+          return;
+        }
+        setPrintMode(approvalDialog.targetPrintMode);
+        setStatusMessage(`${approvalDialog.targetPrintMode} enabled for this bill. Approved by ${result.approved_by}.`);
+        scannerRef.current?.focus();
+      } else {
+        setBillingMode(approvalDialog.targetMode);
+        setStatusMessage(`${BILLING_MODES[approvalDialog.targetMode].label} enabled for this bill. Approved by ${result.approved_by}.`);
+        scannerRef.current?.focus();
+      }
+
+      closeApprovalDialog();
+    } catch (err) {
+      setApprovalError(err.response?.data?.error || 'Supervisor approval failed.');
+      setIsApprovingMode(false);
+    }
+  }
+
+  function resetBill(options = {}) {
+    const { closeActiveWindow = true } = options;
+    hideHoverBillPreview();
+    suppressDraftPersistenceRef.current = true;
+    checkoutRequestIdRef.current = '';
+    clearActivePosDraft();
+    if (closeActiveWindow && activeBillWindowId) {
+      setBillWindows((current) => current.filter((billWindow) => billWindow.id !== activeBillWindowId));
+      setActiveBillWindowId(null);
+    }
+    setCart([]);
+    setExchangeMode(false);
+    setExchangeItems([]);
+    setExchangeQuery('');
+    setBillingMode(RETAIL_MODE);
+    setCustomerName('');
+    setCustomerAddress('');
+    setCustomerPhone('');
+    setCompanyName('');
+    setCustomerGstin('');
+    setLoyaltyCustomer(null);
+    setLoyaltyRedeemPoints('');
+    setCashReceived('');
+    setPaymentMode('Cash');
+    setMixedPayment(EMPTY_MIXED_PAYMENT);
+    setPaymentReference('');
+    setPaymentConfirmed(false);
+    setPrintMode('Thermal');
+    setInvoiceNo('Draft');
+    scannerRef.current?.focus();
+    restoreScannerFocusSoon();
+    refreshInvoicePreview(counterNo, true);
+  }
+
+  function hasRunningBill() {
+    return cart.length > 0 || exchangeItems.length > 0;
+  }
+
+  function printBill(invoice = printableDraft) {
+    if (!invoice.items.length) {
+      setErrorMessage('Add at least one item before printing.');
+      return;
+    }
+
+    setPrintableInvoice(invoice);
+    schedulePrint(printMode, null, invoice);
+  }
+
+  async function printCounterSaleSlip() {
+    try {
+      const printedAt = new Date();
+      const thermalWidthMm = getThermalReceiptWidthMm();
+      const defaultSlipHeightMm = 125;
+      const thermalFeedMarginMm = getThermalFeedMarginMm(shopSettings);
+      const slip = await fetchCounterSaleSlip({ date: localIsoDate(printedAt), counterNo });
+      const counterLabel = billingCounterLabelForUser(currentUser, counterNo);
+      const slipMarkup = renderToStaticMarkup(<CounterSaleSlip slip={{ ...slip, counterLabel }} shop={shopSettings} printedAt={printedAt} />);
+      const slipPrintHtml = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Counter Sale Slip</title>
+  <style>
+    html, body {
+      width: ${thermalWidthMm}mm;
+      min-width: ${thermalWidthMm}mm;
+      max-width: ${thermalWidthMm}mm;
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      color: #000;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    .counter-sale-slip {
+      width: ${thermalWidthMm}mm;
+      box-sizing: border-box;
+      position: relative;
+      padding: 3mm 5mm ${thermalFeedMarginMm}mm;
+      font-size: 12px;
+      line-height: 1.2;
+    }
+    .thermal-brand-edge {
+      position: absolute;
+      top: 0.4mm;
+      left: 10mm;
+      font-size: 8px;
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: 0;
+      color: #111;
+    }
+    .counter-sale-slip-title,
+    .counter-sale-slip-heading,
+    .counter-sale-slip-footer {
+      text-align: center;
+    }
+    .counter-sale-slip-title strong {
+      display: block;
+      font-size: 15px;
+      text-transform: uppercase;
+    }
+    .counter-sale-slip-title span {
+      display: block;
+      margin-top: 2px;
+      font-size: 11px;
+    }
+    .counter-sale-slip-heading {
+      margin: 4px 0;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .counter-sale-slip-rule {
+      border-top: 1px dashed #000;
+      margin: 5px 0;
+    }
+    .counter-detail-rule {
+      margin: 2px 0 4px;
+    }
+    .counter-sale-slip-line,
+    .counter-sale-slip-total {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 3px 0;
+      font-size: 12px;
+    }
+    .counter-sale-slip-line strong,
+    .counter-sale-slip-total strong {
+      text-align: right;
+      white-space: nowrap;
+    }
+    .sale-report-gst-detail {
+      padding: 3px 0;
+      border-bottom: 1px dotted #555;
+    }
+    .sale-report-gst-taxes {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3px;
+      padding: 1px 0 3px;
+      font-size: 9px;
+      text-align: right;
+      white-space: nowrap;
+    }
+    .sale-report-gst-taxes span:first-child {
+      text-align: left;
+    }    .sale-report-bill-range {
+      align-items: flex-start;
+      gap: 5px;
+      font-size: 10px;
+    }
+    .sale-report-bill-range strong {
+      max-width: 44mm;
+      overflow-wrap: anywhere;
+      white-space: normal;
+    }
+    .counter-sale-slip-total {
+      border-top: 1px solid #000;
+      margin-top: 3px;
+      padding-top: 5px;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .counter-sale-slip-total.all-sale {
+      border-top: 0;
+      margin-top: 0;
+    }
+    .counter-sale-slip-footer {
+      padding-top: 4px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    @media print {
+      @page { size: ${thermalWidthMm}mm ${defaultSlipHeightMm}mm; margin: 0; }
+      html, body {
+        width: ${thermalWidthMm}mm !important;
+        min-width: ${thermalWidthMm}mm !important;
+        max-width: ${thermalWidthMm}mm !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+      }
+    }
+  </style>
+</head>
+<body>${slipMarkup}</body>
+</html>`;
+
+      const printFrame = document.createElement('iframe');
+      printFrame.title = 'Counter sale print frame';
+      printFrame.style.position = 'fixed';
+      printFrame.style.left = '-10000px';
+      printFrame.style.top = '0';
+      printFrame.style.width = `${thermalWidthMm}mm`;
+      printFrame.style.height = `${defaultSlipHeightMm}mm`;
+      printFrame.style.border = '0';
+      printFrame.style.visibility = 'hidden';
+      document.body.appendChild(printFrame);
+
+      const frameDocument = printFrame.contentDocument || printFrame.contentWindow?.document;
+      if (!frameDocument) {
+        printFrame.remove();
+        return;
+      }
+
+      frameDocument.open();
+      frameDocument.write(slipPrintHtml);
+      frameDocument.close();
+
+      const cleanup = () => window.setTimeout(() => printFrame.remove(), 300);
+      const frameWindow = printFrame.contentWindow;
+      frameWindow?.addEventListener('afterprint', cleanup, { once: true });
+      window.setTimeout(async () => {
+        try {
+          const slipElement = frameDocument.querySelector('.counter-sale-slip');
+          const contentHeightPx = Math.max(
+            slipElement?.scrollHeight || 0,
+            slipElement?.getBoundingClientRect?.().height || 0,
+            frameDocument.body?.scrollHeight || 0
+          );
+          const contentHeightMm = Math.max(45, Math.ceil((contentHeightPx * 25.4) / 96) + thermalFeedMarginMm);
+          const dynamicStyle = frameDocument.createElement('style');
+          dynamicStyle.textContent = `@media print { @page { size: ${thermalWidthMm}mm ${contentHeightMm}mm; margin: 0; } }`;
+          frameDocument.head.appendChild(dynamicStyle);
+          printFrame.style.height = `${contentHeightMm}mm`;
+
+          if (window.badizoDesktop?.printThermalHtml) {
+            await window.badizoDesktop.printThermalHtml({
+              html: frameDocument.documentElement.outerHTML,
+              widthMm: thermalWidthMm,
+              heightMm: contentHeightMm,
+              feedMarginMm: 0
+            });
+            cleanup();
+            setStatusMessage(`Counter ${counterNo} sale slip printed.`);
+            return;
+          }
+
+          frameWindow?.focus();
+          frameWindow?.print();
+          window.setTimeout(() => {
+            if (document.body.contains(printFrame)) printFrame.remove();
+          }, 120000);
+        } catch (err) {
+          cleanup();
+          setErrorMessage(err.response?.data?.error || err.message || 'Unable to print counter sale slip.');
+        }
+      }, 250);
+      setStatusMessage(`Counter ${counterNo} sale slip ready.`);
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || 'Unable to print counter sale slip.');
+    }
+  }
+
+  function getSaleReportRequest(event) {
+    const form = event?.currentTarget?.form || saleReportFormRef.current;
+    const formData = form ? new FormData(form) : null;
+    const selectedFrom = formData?.get('sale_report_from') || saleReportFromDate;
+    const selectedTo = formData?.get('sale_report_to') || saleReportToDate || selectedFrom;
+    const { from, to } = normalizeDateRange(selectedFrom, selectedTo);
+    if (from !== saleReportFromDate) setSaleReportFromDate(from);
+    if (to !== saleReportToDate) setSaleReportToDate(to);
+
+    return {
+      from,
+      to,
+      reportType: String(formData?.get('sale_report_type') || saleReportType).toUpperCase(),
+      counterNo: currentUser?.role === 'COUNTER' ? counterNo : String(formData?.get('sale_report_scope') || saleReportScope) === 'CURRENT'
+        ? counterNo
+        : (String(formData?.get('sale_report_scope') || saleReportScope) === 'ALL' ? '' : String(formData?.get('sale_report_scope') || saleReportScope))
+    };
+  }
+
+  async function loadSaleReportForPos(event) {
+    setIsSaleReportLoading(true);
+    setSaleReportError('');
+    setSaleReport(null);
+    setErrorMessage('');
+    try {
+      const reportRequest = getSaleReportRequest(event);
+      const report = await fetchPosSaleReport(reportRequest);
+      const reportWithCounterLabel = reportRequest.counterNo
+        ? { ...report, counter: billingCounterLabelForUser(currentUser, reportRequest.counterNo) }
+        : report;
+      setSaleReport(reportWithCounterLabel);
+      setStatusMessage(`Sale report loaded: ${report.from} to ${report.to}.`);
+      return reportWithCounterLabel;
+    } catch (err) {
+      const message = err.response?.data?.error || err.message || 'Unable to load sale report.';
+      setSaleReportError(message);
+      setErrorMessage(message);
+      return null;
+    } finally {
+      setIsSaleReportLoading(false);
+    }
+  }
+
+  async function handleViewSaleReport(event) {
+    event?.preventDefault?.();
+    await loadSaleReportForPos(event);
+  }
+
+  async function handlePrintSaleReport(event) {
+    event?.preventDefault?.();
+    const report = await loadSaleReportForPos(event);
+    if (report) await printSaleReportSlip(report);
+  }
+
+  async function printSaleReportSlip(reportToPrint = saleReport) {
+    if (!reportToPrint) {
+      await handlePrintSaleReport();
+      return;
+    }
+
+    try {
+      const printedAt = new Date();
+      const thermalWidthMm = getThermalReceiptWidthMm();
+      const defaultSlipHeightMm = reportToPrint.reportType === 'GST' ? 175 : 130;
+      const thermalFeedMarginMm = getThermalFeedMarginMm(shopSettings);
+      const slipMarkup = renderToStaticMarkup(<SaleReportSlip report={reportToPrint} shop={shopSettings} printedAt={printedAt} />);
+      const slipPrintHtml = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Sale Report</title>
+  <style>
+    html, body {
+      width: ${thermalWidthMm}mm;
+      min-width: ${thermalWidthMm}mm;
+      max-width: ${thermalWidthMm}mm;
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      color: #000;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    .counter-sale-slip {
+      width: ${thermalWidthMm}mm;
+      box-sizing: border-box;
+      position: relative;
+      padding: 3mm 5mm ${thermalFeedMarginMm}mm;
+      font-size: 12px;
+      line-height: 1.2;
+    }
+    .thermal-brand-edge {
+      position: absolute;
+      top: 0.4mm;
+      left: 10mm;
+      font-size: 8px;
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: 0;
+      color: #111;
+    }
+    .counter-sale-slip-title,
+    .counter-sale-slip-heading,
+    .counter-sale-slip-footer {
+      text-align: center;
+    }
+    .counter-sale-slip-title strong {
+      display: block;
+      font-size: 15px;
+      text-transform: uppercase;
+    }
+    .counter-sale-slip-title span {
+      display: block;
+      margin-top: 2px;
+      font-size: 11px;
+    }
+    .counter-sale-slip-heading {
+      margin: 4px 0;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .counter-sale-slip-rule {
+      border-top: 1px dashed #000;
+      margin: 5px 0;
+    }
+    .counter-sale-slip-line,
+    .counter-sale-slip-total,
+    .sale-report-gst-head,
+    .sale-report-gst-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 3px 0;
+      font-size: 12px;
+    }
+    .counter-sale-slip-line strong,
+    .counter-sale-slip-total strong {
+      text-align: right;
+      white-space: nowrap;
+    }
+    .counter-sale-slip-total {
+      border-top: 1px solid #000;
+      margin-top: 3px;
+      padding-top: 5px;
+      font-size: 14px;
+      font-weight: 800;
+    }
+    .sale-report-gst-head {
+      border-bottom: 1px solid #000;
+      font-weight: 800;
+    }
+    .sale-report-gst-head span,
+    .sale-report-gst-row span {
+      width: 25%;
+      text-align: right;
+      white-space: nowrap;
+    }
+    .sale-report-gst-head span:first-child,
+    .sale-report-gst-row span:first-child {
+      text-align: left;
+    }
+    .sale-report-gst-detail {
+      padding: 3px 0;
+      border-bottom: 1px dotted #555;
+    }
+    .sale-report-gst-taxes {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 3px;
+      padding: 1px 0 3px;
+      font-size: 9px;
+      text-align: right;
+      white-space: nowrap;
+    }
+    .sale-report-gst-taxes span:first-child {
+      text-align: left;
+    }    .sale-report-bill-range {
+      align-items: flex-start;
+      gap: 5px;
+      font-size: 10px;
+    }
+    .sale-report-bill-range strong {
+      max-width: 44mm;
+      overflow-wrap: anywhere;
+      white-space: normal;
+    }
+    .counter-sale-slip-footer {
+      padding-top: 4px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    @media print {
+      @page { size: ${thermalWidthMm}mm ${defaultSlipHeightMm}mm; margin: 0; }
+      html, body {
+        width: ${thermalWidthMm}mm !important;
+        min-width: ${thermalWidthMm}mm !important;
+        max-width: ${thermalWidthMm}mm !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+      }
+    }
+  </style>
+</head>
+<body>${slipMarkup}</body>
+</html>`;
+
+      const printFrame = document.createElement('iframe');
+      printFrame.title = 'Sale report print frame';
+      printFrame.style.position = 'fixed';
+      printFrame.style.left = '-10000px';
+      printFrame.style.top = '0';
+      printFrame.style.width = `${thermalWidthMm}mm`;
+      printFrame.style.height = `${defaultSlipHeightMm}mm`;
+      printFrame.style.border = '0';
+      printFrame.style.visibility = 'hidden';
+      document.body.appendChild(printFrame);
+
+      const frameDocument = printFrame.contentDocument || printFrame.contentWindow?.document;
+      if (!frameDocument) {
+        printFrame.remove();
+        return;
+      }
+
+      frameDocument.open();
+      frameDocument.write(slipPrintHtml);
+      frameDocument.close();
+
+      const cleanup = () => window.setTimeout(() => printFrame.remove(), 300);
+      const frameWindow = printFrame.contentWindow;
+      frameWindow?.addEventListener('afterprint', cleanup, { once: true });
+      window.setTimeout(async () => {
+        try {
+          const slipElement = frameDocument.querySelector('.sale-report-slip');
+          const contentHeightPx = Math.max(
+            slipElement?.scrollHeight || 0,
+            slipElement?.getBoundingClientRect?.().height || 0,
+            frameDocument.body?.scrollHeight || 0
+          );
+          const contentHeightMm = Math.max(55, Math.ceil((contentHeightPx * 25.4) / 96) + thermalFeedMarginMm);
+          const dynamicStyle = frameDocument.createElement('style');
+          dynamicStyle.textContent = `@media print { @page { size: ${thermalWidthMm}mm ${contentHeightMm}mm; margin: 0; } }`;
+          frameDocument.head.appendChild(dynamicStyle);
+          printFrame.style.height = `${contentHeightMm}mm`;
+
+          if (window.badizoDesktop?.printThermalHtml) {
+            await window.badizoDesktop.printThermalHtml({
+              html: frameDocument.documentElement.outerHTML,
+              widthMm: thermalWidthMm,
+              heightMm: contentHeightMm,
+              feedMarginMm: 0
+            });
+            cleanup();
+            setStatusMessage('Sale report printed.');
+            return;
+          }
+
+          frameWindow?.focus();
+          frameWindow?.print();
+          window.setTimeout(() => {
+            if (document.body.contains(printFrame)) printFrame.remove();
+          }, 120000);
+          setStatusMessage('Sale report ready to print.');
+        } catch (err) {
+          cleanup();
+          setErrorMessage(err.response?.data?.error || err.message || 'Unable to print sale report.');
+        }
+      }, 250);
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || 'Unable to print sale report.');
+    }
+  }
+
+  async function printGatePassSlip(invoiceToPrint) {
+    if (!invoiceToPrint) {
+      setErrorMessage('Select a bill before printing gate pass.');
+      return;
+    }
+
+    try {
+      const printedAt = new Date();
+      const thermalWidthMm = getThermalReceiptWidthMm();
+      const defaultSlipHeightMm = 120;
+      const thermalFeedMarginMm = getThermalFeedMarginMm(shopSettings);
+      const slipMarkup = renderToStaticMarkup(<GatePassSlip invoice={invoiceToPrint} printedAt={printedAt} />);
+      const slipPrintHtml = `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Gate Pass</title>
+  <style>
+    html, body {
+      width: ${thermalWidthMm}mm;
+      min-width: ${thermalWidthMm}mm;
+      max-width: ${thermalWidthMm}mm;
+      margin: 0;
+      padding: 0;
+      background: #fff;
+      color: #000;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+    .gate-pass-slip {
+      width: ${thermalWidthMm}mm;
+      box-sizing: border-box;
+      position: relative;
+      padding: 3mm 5mm ${thermalFeedMarginMm}mm;
+      font-size: 12px;
+      line-height: 1.2;
+      font-weight: 700;
+    }
+    .thermal-brand-edge {
+      position: absolute;
+      top: 0.4mm;
+      left: 10mm;
+      font-size: 8px;
+      line-height: 1;
+      font-weight: 800;
+      letter-spacing: 0;
+      color: #111;
+    }
+    .gate-pass-brand {
+      text-align: center;
+    }
+    .gate-pass-brand strong,
+    .gate-pass-brand span {
+      display: block;
+    }
+    .gate-pass-brand strong {
+      font-size: 15px;
+      text-transform: uppercase;
+    }
+    .gate-pass-brand span {
+      margin-top: 2px;
+      font-size: 14px;
+      font-weight: 900;
+    }
+    .gate-pass-rule {
+      border-top: 1px dashed #000;
+      margin: 5px 0;
+    }
+    .gate-pass-row,
+    .gate-pass-total {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 3px 0;
+    }
+    .gate-pass-row strong,
+    .gate-pass-total strong {
+      text-align: right;
+      overflow-wrap: anywhere;
+    }
+    .gate-pass-customer {
+      display: grid;
+      gap: 2px;
+    }
+    .gate-pass-customer span,
+    .gate-pass-customer em {
+      font-style: normal;
+      font-size: 11px;
+    }
+    .gate-pass-customer strong {
+      font-size: 13px;
+      overflow-wrap: anywhere;
+    }
+    .gate-pass-total {
+      border-top: 1px solid #000;
+      margin-top: 3px;
+      padding-top: 5px;
+      font-size: 14px;
+      font-weight: 900;
+    }
+    .gate-pass-extra {
+      display: grid;
+      gap: 3px;
+      padding: 3px 0;
+    }
+    .gate-pass-extra > strong {
+      font-size: 12px;
+      text-align: center;
+      text-transform: uppercase;
+    }
+    .gate-pass-extra-row {
+      display: grid;
+      grid-template-columns: 88px 1fr;
+      gap: 6px;
+      font-size: 11px;
+      line-height: 1.18;
+    }
+    .gate-pass-extra-row span {
+      font-weight: 700;
+    }
+    .gate-pass-extra-row em {
+      font-style: normal;
+      font-weight: 900;
+      overflow-wrap: anywhere;
+    }
+    .gate-pass-note {
+      padding: 4px 0 12mm;
+      text-align: center;
+      font-size: 11px;
+    }
+    .gate-pass-signatures {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12mm;
+      padding-top: 7mm;
+    }
+    .gate-pass-signatures div {
+      border-top: 1px solid #000;
+      min-height: 8mm;
+      font-size: 11px;
+    }
+    .gate-pass-signatures div:last-child {
+      text-align: right;
+    }
+    @media print {
+      @page { size: ${thermalWidthMm}mm ${defaultSlipHeightMm}mm; margin: 0; }
+      html, body {
+        width: ${thermalWidthMm}mm !important;
+        min-width: ${thermalWidthMm}mm !important;
+        max-width: ${thermalWidthMm}mm !important;
+        height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        overflow: visible !important;
+      }
+    }
+  </style>
+</head>
+<body>${slipMarkup}</body>
+</html>`;
+
+      const printFrame = document.createElement('iframe');
+      printFrame.title = 'Gate pass print frame';
+      printFrame.style.position = 'fixed';
+      printFrame.style.left = '-10000px';
+      printFrame.style.top = '0';
+      printFrame.style.width = `${thermalWidthMm}mm`;
+      printFrame.style.height = `${defaultSlipHeightMm}mm`;
+      printFrame.style.border = '0';
+      printFrame.style.visibility = 'hidden';
+      document.body.appendChild(printFrame);
+
+      const frameDocument = printFrame.contentDocument || printFrame.contentWindow?.document;
+      if (!frameDocument) {
+        printFrame.remove();
+        return;
+      }
+
+      frameDocument.open();
+      frameDocument.write(slipPrintHtml);
+      frameDocument.close();
+
+      const cleanup = () => window.setTimeout(() => printFrame.remove(), 300);
+      const frameWindow = printFrame.contentWindow;
+      frameWindow?.addEventListener('afterprint', cleanup, { once: true });
+      window.setTimeout(async () => {
+        try {
+          const slipElement = frameDocument.querySelector('.gate-pass-slip');
+          const contentHeightPx = Math.max(
+            slipElement?.scrollHeight || 0,
+            slipElement?.getBoundingClientRect?.().height || 0,
+            frameDocument.body?.scrollHeight || 0
+          );
+          const contentHeightMm = Math.max(70, Math.ceil((contentHeightPx * 25.4) / 96) + thermalFeedMarginMm);
+          const dynamicStyle = frameDocument.createElement('style');
+          dynamicStyle.textContent = `@media print { @page { size: ${thermalWidthMm}mm ${contentHeightMm}mm; margin: 0; } }`;
+          frameDocument.head.appendChild(dynamicStyle);
+          printFrame.style.height = `${contentHeightMm}mm`;
+
+          if (window.badizoDesktop?.printThermalHtml) {
+            try {
+              await window.badizoDesktop.printThermalHtml({
+                html: frameDocument.documentElement.outerHTML,
+                widthMm: thermalWidthMm,
+                heightMm: contentHeightMm,
+                feedMarginMm: 0
+              });
+              cleanup();
+              setStatusMessage(`${invoiceToPrint.invoiceNo} gate pass printed.`);
+              return;
+            } catch (nativePrintError) {
+              console.warn('Direct gate pass print failed, falling back to browser print.', nativePrintError);
+            }
+          }
+
+          frameWindow?.focus();
+          frameWindow?.print();
+          window.setTimeout(() => {
+            if (document.body.contains(printFrame)) printFrame.remove();
+          }, 120000);
+          setStatusMessage(`${invoiceToPrint.invoiceNo} gate pass ready to print.`);
+        } catch (err) {
+          cleanup();
+          setErrorMessage(err.response?.data?.error || err.message || 'Unable to print gate pass.');
+        }
+      }, 250);
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || 'Unable to print gate pass.');
+    }
+  }
+
+  function schedulePrint(mode = printMode, afterPrint, invoiceForPrint = printableInvoice || printableDraft) {
+    const printClass = mode === 'A4' ? 'printing-a4' : 'printing-thermal';
+    const thermalWidthMm = getThermalReceiptWidthMm();
+    const thermalContentWidthMm = getThermalContentWidthMm();
+    const thermalFeedMarginMm = getThermalFeedMarginMm(shopSettings);
+    const canUseElectronThermalPrint = mode === 'Thermal' && typeof window !== 'undefined' && Boolean(window.badizoDesktop?.printThermalHtml);
+    let cleanupTimer;
+    let printFrame = null;
+    let didCleanup = false;
+    const cleanup = () => {
+      if (didCleanup) return;
+      didCleanup = true;
+      window.clearTimeout(cleanupTimer);
+      if (printFrame) {
+        printFrame.remove();
+        printFrame = null;
+      }
+      if (afterPrint) afterPrint();
+    };
+
+    const styleMarkup = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+      .map((node) => node.outerHTML)
+      .join('\n');
+    const hostClass = mode === 'A4' ? 'print-host print-host-a4' : 'print-host print-host-thermal';
+    const invoiceMarkup = renderToStaticMarkup(<PrintableInvoice invoice={invoiceForPrint} mode={mode} />);
+
+    printFrame = document.createElement('iframe');
+    printFrame.title = 'Bill print frame';
+    printFrame.style.position = 'fixed';
+    printFrame.style.left = '-10000px';
+    printFrame.style.top = '0';
+    printFrame.style.width = mode === 'A4' ? '210mm' : `${thermalWidthMm}mm`;
+    printFrame.style.height = mode === 'A4' ? '297mm' : '360mm';
+    printFrame.style.border = '0';
+    printFrame.style.visibility = 'hidden';
+    document.body.appendChild(printFrame);
+
+    const frameDocument = printFrame.contentDocument || printFrame.contentWindow?.document;
+    if (!frameDocument) {
+      cleanup();
+      return;
+    }
+
+    frameDocument.open();
+    frameDocument.write(`<!doctype html>
+<html class="${printClass}">
+<head>
+  <meta charset="utf-8" />
+  <title>Print Bill</title>
+  <base href="${window.location.origin}/" />
+  ${styleMarkup}
+  <style>
+    html.${printClass}, html.${printClass} body {
+      margin: 0 !important;
+      padding: 0 !important;
+      background: #fff !important;
+      display: block !important;
+      align-items: flex-start !important;
+      justify-content: flex-start !important;
+      height: auto !important;
+      min-height: 0 !important;
+      max-height: none !important;
+    }
+    .print-host {
+      display: block !important;
+      visibility: visible !important;
+      background: #fff !important;
+    }
+    .print-host * {
+      visibility: visible !important;
+    }
+    .print-host-thermal {
+      width: ${thermalWidthMm}mm !important;
+      min-width: ${thermalWidthMm}mm !important;
+      max-width: ${thermalWidthMm}mm !important;
+      box-sizing: border-box !important;
+      overflow: visible !important;
+    }
+    .print-host-a4 {
+      width: 190mm !important;
+      min-width: 190mm !important;
+      max-width: 190mm !important;
+      height: auto !important;
+      min-height: 0 !important;
+      max-height: none !important;
+      margin: 0 auto !important;
+      overflow: hidden !important;
+    }
+    html.printing-a4,
+    html.printing-a4 body,
+    body.printing-a4 {
+      width: 210mm !important;
+      min-width: 210mm !important;
+      max-width: 210mm !important;
+      height: 277mm !important;
+      min-height: 277mm !important;
+      max-height: 277mm !important;
+      overflow: hidden !important;
+    }
+    body.printing-a4 .print-host-a4,
+    body.printing-a4 .a4-paper.a4-one-page {
+      height: 277mm !important;
+      min-height: 0 !important;
+      max-height: 277mm !important;
+      page-break-before: avoid !important;
+      page-break-after: avoid !important;
+      page-break-inside: avoid !important;
+      break-before: avoid !important;
+      break-after: avoid !important;
+      break-inside: avoid !important;
+    }
+    body.printing-a4 .a4-paper.a4-one-page {
+      overflow: hidden !important;
+    }
+    html.printing-a4:has(.a4-multi-page),
+    html.printing-a4:has(.a4-multi-page) body,
+    body.printing-a4:has(.a4-multi-page) {
+      height: auto !important;
+      min-height: 0 !important;
+      max-height: none !important;
+      overflow: visible !important;
+    }
+    body.printing-a4 .print-host-a4:has(.a4-multi-page) {
+      height: auto !important;
+      min-height: 0 !important;
+      max-height: none !important;
+      overflow: visible !important;
+      page-break-before: avoid !important;
+      page-break-after: auto !important;
+      page-break-inside: auto !important;
+      break-before: avoid !important;
+      break-after: auto !important;
+      break-inside: auto !important;
+    }
+    body.printing-a4 .a4-multi-page {
+      display: block !important;
+      width: 190mm !important;
+      min-width: 190mm !important;
+      max-width: 190mm !important;
+      height: auto !important;
+      max-height: none !important;
+      overflow: visible !important;
+    }
+    body.printing-a4 .a4-page-sheet {
+      width: 190mm !important;
+      min-width: 190mm !important;
+      max-width: 190mm !important;
+      height: 277mm !important;
+      min-height: 277mm !important;
+      max-height: 277mm !important;
+      overflow: hidden !important;
+      margin: 0 auto !important;
+      outline: 0.35mm solid #c9c9c9 !important;
+      outline-offset: -0.35mm !important;
+      page-break-after: always !important;
+      break-after: page !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+    body.printing-a4 .a4-page-sheet:last-child {
+      page-break-after: avoid !important;
+      break-after: avoid !important;
+    }
+    html.printing-thermal,
+    html.printing-thermal body,
+    body.printing-thermal {
+      width: ${thermalWidthMm}mm !important;
+      min-width: ${thermalWidthMm}mm !important;
+      max-width: ${thermalWidthMm}mm !important;
+      box-sizing: border-box !important;
+      height: auto !important;
+      min-height: 0 !important;
+      max-height: none !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      display: block !important;
+      align-items: flex-start !important;
+      justify-content: flex-start !important;
+      overflow: visible !important;
+    }
+    body.printing-thermal .print-host-thermal {
+      display: block !important;
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: ${thermalWidthMm}mm !important;
+      min-width: ${thermalWidthMm}mm !important;
+      max-width: ${thermalWidthMm}mm !important;
+      height: auto !important;
+      min-height: 0 !important;
+      max-height: none !important;
+      overflow: visible !important;
+      page-break-before: avoid !important;
+      page-break-after: auto !important;
+      page-break-inside: auto !important;
+      break-before: avoid !important;
+      break-after: auto !important;
+      break-inside: auto !important;
+    }
+    body.printing-thermal .thermal-paper {
+      display: block !important;
+      width: ${thermalContentWidthMm}mm !important;
+      min-width: ${thermalContentWidthMm}mm !important;
+      max-width: ${thermalContentWidthMm}mm !important;
+      box-sizing: border-box !important;
+      margin-left: auto !important;
+      margin-right: auto !important;
+      height: auto !important;
+      min-height: 0 !important;
+      max-height: none !important;
+      overflow: visible !important;
+      page-break-before: avoid !important;
+      page-break-after: auto !important;
+      page-break-inside: auto !important;
+      break-before: avoid !important;
+      break-after: auto !important;
+      break-inside: auto !important;
+      padding: 0 1.5mm ${thermalFeedMarginMm}mm !important;
+      font-size: 10px !important;
+      line-height: 1.05 !important;
+    }
+    body.printing-thermal .thermal-logo-slot {
+      height: 25mm !important;
+      margin-bottom: 1mm !important;
+    }
+    body.printing-thermal .thermal-logo-slot-text {
+      height: 25mm !important;
+      min-height: 25mm !important;
+      overflow: visible !important;
+    }
+    body.printing-thermal .thermal-logo-fallback {
+      display: block !important;
+      width: 100% !important;
+      text-align: center !important;
+      font-weight: 900 !important;
+      letter-spacing: 0 !important;
+      color: #111 !important;
+      font-size: 16px !important;
+      line-height: 1.15 !important;
+    }
+    body.printing-thermal .thermal-brand-edge {
+      position: absolute !important;
+      top: 0.4mm !important;
+      left: 10mm !important;
+      font-size: 8px !important;
+      line-height: 1 !important;
+      font-weight: 800 !important;
+    }
+    body.printing-thermal .thermal-logo-slot img {
+      width: 22mm !important;
+      height: 22mm !important;
+      max-height: 22mm !important;
+      max-width: 22mm !important;
+      object-fit: contain !important;
+    }
+    body.printing-thermal .print-rule {
+      margin: 2px 0 !important;
+    }
+    body.printing-thermal .print-meta-grid,
+    body.printing-thermal .thermal-customer-block {
+      gap: 2px 5px !important;
+      margin: 2px 0 !important;
+      padding: 2px 0 !important;
+    }
+    body.printing-thermal .print-table th,
+    body.printing-thermal .print-table td,
+    body.printing-thermal .thermal-items th,
+    body.printing-thermal .thermal-items td,
+    body.printing-thermal .gst-summary-table th,
+    body.printing-thermal .gst-summary-table td {
+      padding: 1.5px 1px !important;
+      font-size: 8.2px !important;
+      line-height: 1.02 !important;
+    }
+    body.printing-thermal .gst-summary-table {
+      table-layout: fixed !important;
+      width: 100% !important;
+    }
+    body.printing-thermal .gst-summary-table th:first-child,
+    body.printing-thermal .gst-summary-table td:first-child {
+      width: 12mm !important;
+      text-align: left !important;
+    }
+    body.printing-thermal .gst-summary-table th,
+    body.printing-thermal .gst-summary-table td {
+      text-align: right !important;
+      white-space: nowrap !important;
+    }
+    body.printing-thermal .thermal-total-box {
+      gap: 1px !important;
+      font-size: 10px !important;
+    }
+    body.printing-thermal .thermal-total-box strong {
+      font-size: 13px !important;
+    }
+    body.printing-thermal .print-terms {
+      gap: 2px !important;
+      margin-top: 2px !important;
+    }
+    body.printing-thermal .thermal-bill-qr-wrap {
+      gap: 0.5mm !important;
+      margin-top: 0.5mm !important;
+      page-break-before: avoid !important;
+      page-break-after: avoid !important;
+      page-break-inside: auto !important;
+      break-before: avoid !important;
+      break-after: avoid !important;
+      break-inside: auto !important;
+    }
+    body.printing-thermal .thermal-bill-qr {
+      width: 18mm !important;
+      height: 18mm !important;
+    }
+    @media print {
+      @page {
+        size: ${mode === 'A4' ? 'A4 portrait' : `${thermalWidthMm}mm auto`};
+        margin: 0;
+      }
+      @page thermal-receipt {
+        size: ${thermalWidthMm}mm auto;
+        margin: 0;
+      }
+      body.${printClass} {
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      html.printing-a4,
+      html.printing-a4 body,
+      body.printing-a4 {
+        width: 210mm !important;
+        min-width: 210mm !important;
+        max-width: 210mm !important;
+        height: 277mm !important;
+        min-height: 277mm !important;
+        max-height: 277mm !important;
+        overflow: hidden !important;
+      }
+      body.${printClass} .print-host {
+        display: block !important;
+        position: static !important;
+        visibility: visible !important;
+      }
+      body.printing-thermal .print-host-thermal {
+        position: absolute !important;
+        top: 0 !important;
+        left: 0 !important;
+      }
+      body.printing-a4 .print-host-a4,
+      body.printing-a4 .a4-paper.a4-one-page {
+        height: 277mm !important;
+        min-height: 0 !important;
+        max-height: 277mm !important;
+        overflow: hidden !important;
+        page-break-before: avoid !important;
+        page-break-after: avoid !important;
+        page-break-inside: avoid !important;
+        break-before: avoid !important;
+        break-after: avoid !important;
+        break-inside: avoid !important;
+      }
+      html.printing-a4:has(.a4-multi-page),
+      html.printing-a4:has(.a4-multi-page) body,
+      body.printing-a4:has(.a4-multi-page) {
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: visible !important;
+      }
+      body.printing-a4 .print-host-a4:has(.a4-multi-page) {
+        height: auto !important;
+        min-height: 0 !important;
+        max-height: none !important;
+        overflow: visible !important;
+        page-break-before: avoid !important;
+        page-break-after: auto !important;
+        page-break-inside: auto !important;
+        break-before: avoid !important;
+        break-after: auto !important;
+        break-inside: auto !important;
+      }
+      body.printing-a4 .a4-multi-page {
+        display: block !important;
+        width: 190mm !important;
+        min-width: 190mm !important;
+        max-width: 190mm !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+      }
+      body.printing-a4 .a4-page-sheet {
+        width: 190mm !important;
+        min-width: 190mm !important;
+        max-width: 190mm !important;
+        height: 277mm !important;
+        min-height: 277mm !important;
+        max-height: 277mm !important;
+        overflow: hidden !important;
+        margin: 0 auto !important;
+        outline: 0.35mm solid #c9c9c9 !important;
+        outline-offset: -0.35mm !important;
+        page-break-after: always !important;
+        break-after: page !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+      }
+      body.printing-a4 .a4-page-sheet:last-child {
+        page-break-after: avoid !important;
+        break-after: avoid !important;
+      }
+      body.${printClass} .print-host * {
+        visibility: visible !important;
+      }
+    }
+  </style>
+</head>
+<body class="${printClass}">
+  <div class="${hostClass}">${invoiceMarkup}</div>
+</body>
+</html>`);
+    frameDocument.close();
+
+    cleanupTimer = window.setTimeout(cleanup, 120000);
+
+    const waitForFrameAssets = async (doc) => {
+      const stylesheets = Array.from(doc.querySelectorAll('link[rel="stylesheet"]'));
+      await Promise.all(stylesheets.map((link) => {
+        if (link.sheet) return Promise.resolve();
+        return new Promise((resolve) => {
+          let settled = false;
+          const finish = () => {
+            if (settled) return;
+            settled = true;
+            resolve();
+          };
+          link.addEventListener('load', finish, { once: true });
+          link.addEventListener('error', finish, { once: true });
+          window.setTimeout(finish, 5000);
+        });
+      }));
+      try {
+        await doc.fonts?.ready;
+      } catch (err) {
+        // Printing can continue even when browser font readiness is unavailable.
+      }
+      const images = Array.from(doc.images || []);
+      await Promise.all(images.map((image) => {
+        if (image.complete) return Promise.resolve();
+        return new Promise((resolve) => {
+          image.addEventListener('load', resolve, { once: true });
+          image.addEventListener('error', resolve, { once: true });
+        });
+      }));
+    };
+
+    const startPrint = async () => {
+      const frameWindow = printFrame?.contentWindow;
+      const doc = printFrame?.contentDocument || frameWindow?.document;
+      if (!frameWindow || !doc) {
+        cleanup();
+        return;
+      }
+
+      await waitForFrameAssets(doc);
+
+      let thermalDirectPrintHtml = '';
+      let thermalDirectPrintHeightMm = 0;
+
+      if (mode === 'Thermal') {
+        const printHost = doc.querySelector('.print-host-thermal');
+        if (printHost) {
+          const receipt = printHost.querySelector('.thermal-paper');
+          const contentHeightPx = Math.max(
+            receipt?.scrollHeight || 0,
+            receipt?.getBoundingClientRect?.().height || 0,
+            printHost.scrollHeight || 0
+          );
+          const contentHeightMm = Math.max(40, Math.ceil((contentHeightPx * 25.4) / 96));
+          const printPageHeightMm = contentHeightMm + thermalFeedMarginMm;
+          const dynamicPrintStyle = doc.createElement('style');
+          dynamicPrintStyle.textContent = `
+            @media print {
+              @page { size: ${thermalWidthMm}mm ${printPageHeightMm}mm; margin: 0; }
+              @page thermal-receipt { size: ${thermalWidthMm}mm ${printPageHeightMm}mm; margin: 0; }
+              html.printing-thermal,
+              html.printing-thermal body,
+              html.printing-thermal #root {
+                width: ${thermalWidthMm}mm !important;
+                min-width: ${thermalWidthMm}mm !important;
+                max-width: ${thermalWidthMm}mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                box-sizing: border-box !important;
+                height: ${printPageHeightMm}mm !important;
+                min-height: ${printPageHeightMm}mm !important;
+                max-height: ${printPageHeightMm}mm !important;
+                display: block !important;
+                align-items: flex-start !important;
+                justify-content: flex-start !important;
+                overflow: hidden !important;
+              }
+              html.printing-thermal .print-host-thermal,
+              body.printing-thermal .print-host-thermal {
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: ${thermalWidthMm}mm !important;
+                min-width: ${thermalWidthMm}mm !important;
+                max-width: ${thermalWidthMm}mm !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                box-sizing: border-box !important;
+                height: ${printPageHeightMm}mm !important;
+                min-height: 0 !important;
+                max-height: ${printPageHeightMm}mm !important;
+                overflow: hidden !important;
+              }
+              html.printing-thermal .thermal-paper,
+              body.printing-thermal .thermal-paper {
+                width: ${thermalContentWidthMm}mm !important;
+                min-width: ${thermalContentWidthMm}mm !important;
+                max-width: ${thermalContentWidthMm}mm !important;
+                margin-left: auto !important;
+                margin-right: auto !important;
+                box-sizing: border-box !important;
+                height: auto !important;
+                min-height: 0 !important;
+                max-height: ${printPageHeightMm}mm !important;
+                overflow: hidden !important;
+                padding-bottom: ${thermalFeedMarginMm}mm !important;
+              }
+            }
+          `;
+          doc.head.appendChild(dynamicPrintStyle);
+
+          const receiptMarkup = receipt?.outerHTML || printHost.innerHTML;
+          thermalDirectPrintHeightMm = printPageHeightMm;
+          thermalDirectPrintHtml = `<!doctype html>
+<html class="printing-thermal">
+<head>
+  <meta charset="utf-8" />
+  <base href="${window.location.origin}/" />
+  ${styleMarkup}
+  <style>
+    @page { size: ${thermalWidthMm}mm ${printPageHeightMm}mm; margin: 0; }
+    html,
+    body {
+      width: ${thermalWidthMm}mm !important;
+      min-width: ${thermalWidthMm}mm !important;
+      max-width: ${thermalWidthMm}mm !important;
+      height: ${printPageHeightMm}mm !important;
+      min-height: ${printPageHeightMm}mm !important;
+      max-height: ${printPageHeightMm}mm !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+      background: #fff !important;
+      display: block !important;
+      align-items: flex-start !important;
+      justify-content: flex-start !important;
+    }
+    * {
+      visibility: visible !important;
+      box-sizing: border-box !important;
+    }
+    body *,
+    .thermal-paper,
+    .thermal-paper * {
+      visibility: visible !important;
+    }
+    .thermal-paper {
+      display: block !important;
+      position: static !important;
+      width: ${thermalContentWidthMm}mm !important;
+      min-width: ${thermalContentWidthMm}mm !important;
+      max-width: ${thermalContentWidthMm}mm !important;
+      height: auto !important;
+      min-height: 0 !important;
+      max-height: ${printPageHeightMm}mm !important;
+      margin: 0 auto !important;
+      padding: 0 1.5mm ${thermalFeedMarginMm}mm !important;
+      overflow: hidden !important;
+      page-break-before: avoid !important;
+      page-break-after: auto !important;
+      page-break-inside: auto !important;
+      break-before: avoid !important;
+      break-after: auto !important;
+      break-inside: auto !important;
+      font-family: Arial, sans-serif !important;
+      color: #111 !important;
+      background: #fff !important;
+      font-size: 10px !important;
+      line-height: 1.05 !important;
+    }
+    .thermal-logo-slot {
+      height: 25mm !important;
+      margin-bottom: 1mm !important;
+    }
+    .thermal-logo-slot-text {
+      height: 25mm !important;
+      min-height: 25mm !important;
+      overflow: visible !important;
+    }
+    .thermal-logo-fallback {
+      display: block !important;
+      width: 100% !important;
+      text-align: center !important;
+      font-weight: 900 !important;
+      letter-spacing: 0 !important;
+      color: #111 !important;
+      font-size: 16px !important;
+      line-height: 1.15 !important;
+    }
+    .thermal-brand-edge {
+      position: absolute !important;
+      top: 0.4mm !important;
+      left: 10mm !important;
+      font-size: 8px !important;
+      line-height: 1 !important;
+      font-weight: 800 !important;
+      letter-spacing: 0 !important;
+      color: #111 !important;
+    }
+    .thermal-logo-slot img {
+      width: 22mm !important;
+      height: 22mm !important;
+      max-width: 22mm !important;
+      max-height: 22mm !important;
+      object-fit: contain !important;
+    }
+    .print-rule {
+      margin: 2px 0 !important;
+    }
+    .print-meta-grid,
+    .thermal-customer-block {
+      gap: 2px 5px !important;
+      margin: 2px 0 !important;
+      padding: 2px 0 !important;
+    }
+    .print-table th,
+    .print-table td,
+    .thermal-items th,
+    .thermal-items td,
+    .gst-summary-table th,
+    .gst-summary-table td {
+      padding: 1.5px 1px !important;
+      font-size: 8.2px !important;
+      line-height: 1.02 !important;
+    }
+    .gst-summary-table {
+      table-layout: fixed !important;
+      width: 100% !important;
+    }
+    .gst-summary-table th:first-child,
+    .gst-summary-table td:first-child {
+      width: 12mm !important;
+      text-align: left !important;
+    }
+    .gst-summary-table th,
+    .gst-summary-table td {
+      text-align: right !important;
+      white-space: nowrap !important;
+    }
+    table {
+      border-collapse: collapse !important;
+    }
+    .thermal-product-row td {
+      padding-top: 2px !important;
+      padding-bottom: 1px !important;
+      border-bottom: 0 !important;
+    }
+    .thermal-hsn-row td {
+      padding-top: 0.5px !important;
+      padding-bottom: 0.5px !important;
+      font-size: 8.5px !important;
+      border-bottom: 0 !important;
+    }
+    .thermal-detail-row td {
+      padding-top: 1px !important;
+      padding-bottom: 2px !important;
+      border-bottom: 0 !important;
+    }
+    .thermal-product-separator-row td {
+      padding: 0 !important;
+      height: 1px !important;
+      border-bottom: 1px dashed #111 !important;
+    }
+    .thermal-product-name {
+      display: block !important;
+      max-height: none !important;
+      overflow: visible !important;
+      -webkit-line-clamp: unset !important;
+      font-size: 10px !important;
+      line-height: 1.1 !important;
+    }
+    .thermal-total-box {
+      gap: 1px !important;
+      font-size: 10px !important;
+    }
+    .thermal-total-box strong {
+      font-size: 13px !important;
+    }
+    .print-terms {
+      gap: 2px !important;
+      margin-top: 2px !important;
+    }
+    .thermal-bill-qr-wrap {
+      gap: 0.5mm !important;
+      margin-top: 0.5mm !important;
+      page-break-inside: auto !important;
+      break-inside: auto !important;
+    }
+    .thermal-bill-qr {
+      width: 18mm !important;
+      height: 18mm !important;
+    }
+    table,
+    thead,
+    tbody,
+    tr,
+    th,
+    td {
+      page-break-inside: auto !important;
+      break-inside: auto !important;
+    }
+  </style>
+</head>
+<body class="printing-thermal">${receiptMarkup}</body>
+</html>`;
+
+          if (canUseElectronThermalPrint) {
+            try {
+              await waitForFrameAssets(doc);
+              await window.badizoDesktop.printThermalHtml({
+                html: thermalDirectPrintHtml,
+                widthMm: thermalWidthMm,
+                heightMm: printPageHeightMm,
+                feedMarginMm: 0
+              });
+              cleanup();
+              return;
+            } catch (err) {
+              console.error('Electron thermal print failed; falling back to browser print.', err);
+              setErrorMessage(`Direct thermal print failed. Browser print opened instead. ${err.message || err}`);
+            }
+          }
+        }
+      }
+
+      if (mode === 'Thermal' && thermalDirectPrintHtml && !canUseElectronThermalPrint) {
+        doc.open();
+        doc.write(thermalDirectPrintHtml);
+        doc.close();
+        printFrame.style.height = `${thermalDirectPrintHeightMm || 80}mm`;
+        printFrame.style.visibility = 'visible';
+        printFrame.style.opacity = '1';
+        printFrame.style.pointerEvents = 'none';
+        await waitForFrameAssets(doc);
+      }
+
+      frameWindow.addEventListener('afterprint', cleanup, { once: true });
+      frameWindow.focus();
+      frameWindow.print();
+    };
+
+    window.setTimeout(startPrint, 350);
+  }
+
+  function openQuotationDialog() {
+    setErrorMessage('');
+    if (!window.badizoDesktop?.saveA4PdfHtml) {
+      setErrorMessage('Quotation is A4 PDF-only and works in the BADIZO desktop app.');
+      return;
+    }
+    if (!cart.length) {
+      setErrorMessage('Add at least one product before creating quotation.');
+      return;
+    }
+    if (cart.some((item) => item.isUnknown)) {
+      setErrorMessage('Remove or correct unknown red product lines before creating quotation.');
+      return;
+    }
+    setQuotationDraft({
+      customerName: (isBusinessBillingMode(billingMode) ? companyName : customerName) || '',
+      customerPhone: customerPhone || '',
+      customerAddress: customerAddress || '',
+      validityDays: '7',
+      notes: 'Prices and stock are subject to confirmation.',
+      username: '',
+      password: ''
+    });
+    setQuotationDialogOpen(true);
+  }
+
+  function buildQuotationHtml(quotation) {
+    const styleMarkup = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+      .map((node) => node.outerHTML)
+      .join('\n');
+    const quotationMarkup = renderToStaticMarkup(<PrintableQuotation quotation={quotation} />);
+    return `<!doctype html>
+<html class="printing-quotation">
+<head>
+  <meta charset="utf-8" />
+  <title>${quotation.quotationNo || 'Badizo Quotation'} A4 PDF</title>
+  <base href="${window.location.origin}/" />
+  ${styleMarkup}
+  <style>
+    @page { size: A4 portrait; margin: 10mm; }
+    html, body { width: 210mm !important; margin: 0 !important; padding: 0 !important; background: #fff !important; }
+    .quotation-print-host { width: 190mm !important; margin: 0 auto !important; }
+    .printable-quotation { width: 190mm !important; min-height: 277mm !important; margin: 0 !important; border: 0 !important; }
+  </style>
+</head>
+<body><div class="quotation-print-host">${quotationMarkup}</div></body>
+</html>`;
+  }
+
+  async function saveQuotationPdf(quotation) {
+    const result = await window.badizoDesktop.saveA4PdfHtml({
+      html: buildQuotationHtml(quotation),
+      filename: `BADIZO-${quotation.quotationNo}-QUOTATION-A4`
+    });
+    if (result?.canceled) {
+      setStatusMessage(`Quotation ${quotation.quotationNo} saved securely; PDF save was cancelled.`);
+      return false;
+    }
+    setStatusMessage(`Quotation ${quotation.quotationNo} A4 PDF saved. No sale, stock, or invoice entry was created.`);
+    return true;
+  }
+
+  async function submitQuotation(event) {
+    event.preventDefault();
+    if (!quotationDraft.customerName.trim()) {
+      setErrorMessage('Customer name is required for quotation.');
+      return;
+    }
+    setIsQuotationSaving(true);
+    setErrorMessage('');
+    try {
+      const mode = BILLING_MODES[billingMode];
+      const result = await createQuotation({
+        customer_name: quotationDraft.customerName,
+        customer_phone: quotationDraft.customerPhone,
+        customer_address: quotationDraft.customerAddress,
+        customer_gstin: customerGstin,
+        billing_counter: printableDraft.counterLabel,
+        billing_tier: mode.tier,
+        tax_type: mode.taxType,
+        validity_days: quotationDraft.validityDays,
+        notes: quotationDraft.notes,
+        items: cart.map((item) => ({
+          barcode: item.barcode,
+          product_name: item.product_name,
+          hsn_code: item.hsn_code,
+          unit_type: item.unit_type || item.unit,
+          pack_measure: item.pack_measure,
+          quantity: toNumber(item.quantity, 1),
+          mrp: toNumber(item.mrp),
+          sale_price: getUnitPrice(item, billingMode),
+          gst_percent: toNumber(item.gst_percent)
+        })),
+        approval: { username: quotationDraft.username, password: quotationDraft.password }
+      });
+      const quotation = {
+        ...printableDraft,
+        quotationNo: result.quotation_no,
+        invoiceNo: result.quotation_no,
+        customerName: quotationDraft.customerName,
+        customerPhone: quotationDraft.customerPhone,
+        customerAddress: quotationDraft.customerAddress,
+        validityDays: Number(quotationDraft.validityDays) || 7,
+        notes: quotationDraft.notes,
+        paymentMode: 'Quotation',
+        totals: { ...printableDraft.totals, grand: toNumber(result.grand_total) }
+      };
+      setQuotationDialogOpen(false);
+      setQuotationPreview(quotation);
+      await saveQuotationPdf(quotation);
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || err.message || 'Unable to create quotation.');
+    } finally {
+      setIsQuotationSaving(false);
+    }
+  }
+  function buildA4InvoiceHtml(invoiceForPdf) {
+    const styleMarkup = Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+      .map((node) => node.outerHTML)
+      .join('\n');
+    const invoiceMarkup = renderToStaticMarkup(<PrintableInvoice invoice={invoiceForPdf} mode="A4" />);
+
+    return `<!doctype html>
+<html class="printing-a4">
+<head>
+  <meta charset="utf-8" />
+  <title>${invoiceForPdf.invoiceNo || 'Badizo Bill'} A4 PDF</title>
+  <base href="${window.location.origin}/" />
+  ${styleMarkup}
+  <style>
+    @page { size: A4 portrait; margin: 0; }
+    html,
+    body {
+      width: 210mm !important;
+      min-width: 210mm !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      background: #fff !important;
+    }
+    .print-host-a4 {
+      display: block !important;
+      width: 190mm !important;
+      min-width: 190mm !important;
+      max-width: 190mm !important;
+      margin: 0 auto !important;
+      background: #fff !important;
+      visibility: visible !important;
+    }
+    .print-host-a4 * {
+      visibility: visible !important;
+    }
+    html:has(.a4-multi-page),
+    html:has(.a4-multi-page) body,
+    body:has(.a4-multi-page) {
+      height: auto !important;
+      min-height: 0 !important;
+      max-height: none !important;
+      overflow: visible !important;
+    }
+    .print-host-a4:has(.a4-multi-page) {
+      height: auto !important;
+      min-height: 0 !important;
+      max-height: none !important;
+      overflow: visible !important;
+      page-break-inside: auto !important;
+      break-inside: auto !important;
+    }
+    .a4-multi-page {
+      display: block !important;
+      width: 190mm !important;
+      min-width: 190mm !important;
+      max-width: 190mm !important;
+      height: auto !important;
+      max-height: none !important;
+      overflow: visible !important;
+    }
+    .a4-page-sheet {
+      width: 190mm !important;
+      min-width: 190mm !important;
+      max-width: 190mm !important;
+      height: 277mm !important;
+      min-height: 277mm !important;
+      max-height: 277mm !important;
+      margin: 0 auto !important;
+      overflow: hidden !important;
+      outline: 0.35mm solid #c9c9c9 !important;
+      outline-offset: -0.35mm !important;
+      page-break-after: always !important;
+      break-after: page !important;
+      page-break-inside: avoid !important;
+      break-inside: avoid !important;
+    }
+    .a4-page-sheet:last-child {
+      page-break-after: avoid !important;
+      break-after: avoid !important;
+    }
+  </style>
+</head>
+<body class="printing-a4">
+  <div class="print-host print-host-a4">${invoiceMarkup}</div>
+</body>
+</html>`;
+  }
+
+  async function handleOpenA4PdfPreview(invoiceNoForPdf) {
+    setIsHistoryInvoiceLoading(true);
+    setErrorMessage('');
+    try {
+      const details = await fetchInvoiceDetails(invoiceNoForPdf);
+      setA4PdfPreviewInvoice(invoiceDetailsToPrintable(details, true));
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || err.message || 'Unable to load A4 PDF preview.');
+    } finally {
+      setIsHistoryInvoiceLoading(false);
+    }
+  }
+
+  async function handleDownloadA4Pdf(invoiceNoForPdf, preparedInvoice = null) {
+    if (!window.badizoDesktop?.saveA4PdfHtml) {
+      setErrorMessage('A4 PDF download works in BADIZO desktop app only. Use A4 Print and choose Save as PDF in browser.');
+      return;
+    }
+
+    setIsHistoryInvoiceLoading(true);
+    setErrorMessage('');
+    try {
+      let invoiceForPdf = preparedInvoice;
+      if (!invoiceForPdf) {
+        const details = await fetchInvoiceDetails(invoiceNoForPdf);
+        invoiceForPdf = invoiceDetailsToPrintable(details, true);
+      }
+      const result = await window.badizoDesktop.saveA4PdfHtml({
+        html: buildA4InvoiceHtml(invoiceForPdf),
+        filename: `BADIZO-${invoiceForPdf.invoiceNo || invoiceNoForPdf}-A4`
+      });
+      if (result?.canceled) {
+        setStatusMessage('A4 PDF save cancelled.');
+        return;
+      }
+      await recordInvoiceReprint(invoiceNoForPdf, 'A4');
+      setStatusMessage(`${invoiceNoForPdf} A4 PDF saved in Desktop > Badizo A4 Bills. Forward/share the saved file from that folder.`);
+      refreshHistory(false);
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || err.message || 'Unable to save A4 PDF.');
+    } finally {
+      setIsHistoryInvoiceLoading(false);
+    }
+  }
+
+  function focusInput(ref, delay = 0) {
+    window.setTimeout(() => {
+      ref.current?.focus();
+      ref.current?.select?.();
+    }, delay);
+  }
+
+  function handleCustomerFieldEnter(event, nextRef) {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    focusInput(nextRef, 0);
+  }
+
+  function openDigitalContactModal(mode, submitAfter = false, options = {}) {
+    setPaymentMode(mode);
+    setDigitalContactError('');
+    setDigitalContactDraft({
+      name: (isBusinessBillingMode(billingMode) ? companyName : customerName) || '',
+      phone: customerPhone || ''
+    });
+    setDigitalContactModal({ mode, submitAfter, ...options });
+    focusInput(digitalContactNameRef, 60);
+  }
+
+  function handleDigitalContactFieldEnter(event, nextRef) {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    if (nextRef) {
+      focusInput(nextRef, 0);
+      return;
+    }
+    confirmDigitalContactModal();
+  }
+
+  function confirmDigitalContactModal() {
+    if (!digitalContactModal) return;
+
+    const nextName = digitalContactDraft.name.trim();
+    const nextPhone = digitalContactDraft.phone.trim();
+
+    if (digitalContactModal.requireName && !isExchangeCustomerNameReady(nextName)) {
+      setDigitalContactError('Exchange bill requires customer name.');
+      focusInput(digitalContactNameRef, 0);
+      return;
+    }
+
+    if (digitalContactModal.requireRealPhone && !isTenDigitPhoneReady(nextPhone)) {
+      setDigitalContactError('Exchange bill requires exact 10 digit phone number. NO is not allowed.');
+      focusInput(digitalContactPhoneRef, 0);
+      return;
+    }
+
+    if (!digitalContactModal.requireRealPhone && !isDigitalPaymentContactReady(nextPhone)) {
+      setDigitalContactError('Enter exactly 10 digit phone number or type NO.');
+      focusInput(digitalContactPhoneRef, 0);
+      return;
+    }
+
+    if (isBusinessBillingMode(billingMode)) {
+      setCompanyName(nextName);
+    } else {
+      setCustomerName(nextName);
+    }
+    setCustomerPhone(nextPhone);
+    setPaymentMode(digitalContactModal.mode);
+    setPaymentConfirmed(true);
+    setErrorMessage('');
+    setDigitalContactModal(null);
+
+    const overrides = {
+      customerName: nextName,
+      customerPhone: nextPhone,
+      paymentReference,
+      paymentConfirmed: true
+    };
+
+    if (digitalContactModal.submitAfter) {
+      submitCheckout(digitalContactModal.mode, overrides);
+      return;
+    }
+
+    if (digitalContactModal.mode === 'Mixed') {
+      focusInput(mixedUpiRef, 50);
+    } else {
+      focusInput(paymentReferenceRef, 50);
+    }
+  }
+
+  function selectPaymentMode(mode) {
+    setPaymentMode(mode);
+    setErrorMessage('');
+    setStatusMessage('');
+    setPaymentReference('');
+    setPaymentConfirmed(false);
+
+    if (mode === 'Cash') {
+      window.setTimeout(() => {
+        cashReceivedRef.current?.focus();
+        cashReceivedRef.current?.select();
+      }, 50);
+      return;
+    }
+
+    if (mode === 'Mixed') {
+      window.setTimeout(() => {
+        mixedCashRef.current?.focus();
+        mixedCashRef.current?.select();
+      }, 50);
+      return;
+    }
+
+    window.setTimeout(() => {
+      if (!isDigitalPaymentContactReady(customerPhone)) {
+        openDigitalContactModal(mode, false);
+        return;
+      }
+      paymentReferenceRef.current?.focus();
+      paymentReferenceRef.current?.select();
+    }, 50);
+  }
+
+  function preparePayment(mode, submitAfterContact = false) {
+    const isDigitalMode = mode !== 'Cash' && mode !== 'Mixed';
+    if (isDigitalMode && cart.length > 0 && !isDigitalPaymentContactReady(customerPhone)) {
+      openDigitalContactModal(mode, submitAfterContact);
+      return;
+    }
+
+    if (
+      submitAfterContact
+      && isDigitalMode
+      && cart.length > 0
+    ) {
+      setPaymentMode(mode);
+      setPaymentConfirmed(true);
+      setErrorMessage('');
+      setStatusMessage('');
+      submitCheckout(mode, {
+        customerPhone,
+        paymentReference,
+        paymentConfirmed: true
+      });
+      return;
+    }
+
+    selectPaymentMode(mode);
+  }
+
+  function prepareExactCashPayment() {
+    selectPaymentMode('Cash');
+    setCashReceivedFlashToken((current) => current + 1);
+    window.setTimeout(() => {
+      cashReceivedRef.current?.focus();
+      cashReceivedRef.current?.scrollIntoView?.({ behavior: 'smooth', block: 'center' });
+    }, 50);
+  }
+
+  function toggleMixedPayment(checked) {
+    selectPaymentMode(checked ? 'Mixed' : 'Cash');
+  }
+
+  function handlePaymentEnter(event, mode = paymentMode) {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    submitCheckout(mode);
+  }
+
+  function openHoldBillDialog() {
+    if (cart.length === 0) {
+      setErrorMessage('Add at least one item before holding a bill.');
+      return;
+    }
+
+    const currentCustomerLabel = (isBusinessBillingMode(billingMode) ? companyName : customerName).trim();
+    setHoldCustomerName(currentCustomerLabel);
+    setHoldBillDialogOpen(true);
+    setErrorMessage('');
+    window.setTimeout(() => {
+      holdCustomerNameRef.current?.focus();
+      holdCustomerNameRef.current?.select?.();
+    }, 50);
+  }
+
+  async function refreshHistory(openModal, filters = {}) {
+    const nextFromDate = filters.from ?? historyFromDate;
+    const nextToDate = filters.to ?? historyToDate;
+    const nextSearch = filters.search ?? historySearch.trim();
+    const nextPaymentMode = filters.paymentMode ?? historyPaymentMode;
+    setIsHistoryLoading(true);
+    try {
+      const rows = await fetchInvoiceHistory({
+        from: nextFromDate,
+        to: nextToDate,
+        search: nextSearch,
+        paymentMode: nextPaymentMode
+      });
+      setInvoiceHistory(rows);
+      setSelectedHistoryInvoice(null);
+      if (openModal) setShowHistory(true);
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || 'Unable to load old bills.');
+      if (openModal) setShowHistory(true);
+    } finally {
+      setIsHistoryLoading(false);
+    }
+  }
+
+  async function refreshHeldBills(activeCounterNo = counterNo) {
+    try {
+      setHeldBills(await fetchHeldBills(activeCounterNo));
+    } catch (err) {
+      setHeldBills([]);
+    }
+  }
+
+  async function holdCurrentBill() {
+    if (cart.length === 0) {
+      setErrorMessage('Add at least one item before holding a bill.');
+      return;
+    }
+
+    const customerLabel = String(holdCustomerName || '').trim() || currentBillCustomerLabel();
+    const holdToken = buildHoldToken({ invoiceNo, counterNo, customerLabel });
+
+    try {
+      const savedState = currentBillSavedState();
+      await holdBill(holdToken, savedState, {
+        counter_no: counterNo,
+        customer_name: customerLabel,
+        customer_address: customerAddress,
+        customer_phone: customerPhone,
+        bill_total: totals.grand.toFixed(2),
+        item_count: cart.length
+      });
+      setStatusMessage(`Bill held as ${holdToken}. Ready for next customer.`);
+      setHoldBillDialogOpen(false);
+      setHoldCustomerName('');
+      resetBill();
+      restoreScannerFocusSoon();
+      refreshHeldBills(counterNo);
+      setIsHeldBillsOpen(true);
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || 'Unable to hold bill.');
+    }
+  }
+
+  async function resumeHeldBill(heldBill) {
+    try {
+      const savedState = typeof heldBill.saved_state === 'string'
+        ? JSON.parse(heldBill.saved_state)
+        : heldBill.saved_state;
+
+      const heldMode = normalizeBillingMode(savedState.billingMode);
+      savedState.billingMode = heldMode;
+
+      if (hasRunningBill()) {
+        setHeldBillPreview({ heldBill, savedState });
+        setIsHeldBillsOpen(false);
+        setErrorMessage('');
+        setStatusMessage('Held bill preview opened. Current running bill is still active.');
+        return;
+      }
+
+      if (isSensitiveBillingMode(heldMode)) {
+        setApprovalError('');
+        setApprovalDialog({
+          action: 'RESUME',
+          targetMode: heldMode,
+          savedState,
+          holdToken: heldBill.hold_token,
+          title: `Approve held ${BILLING_MODES[heldMode].label} bill`,
+          message: `This held bill was saved as ${BILLING_MODES[heldMode].label}. Supervisor approval is required again before resuming.`
+        });
+        return;
+      }
+
+      await applyHeldBill(savedState, heldBill.hold_token);
+      setStatusMessage(`Held bill ${heldBill.hold_token} opened.`);
+    } catch (err) {
+      setErrorMessage('Unable to resume held bill.');
+    }
+  }
+
+  async function deleteHeldBillSafely(heldBill) {
+    const confirmed = window.confirm(`Delete held bill ${heldBill.hold_token}?`);
+    if (!confirmed) {
+      restoreScannerFocusSoon();
+      return;
+    }
+
+    try {
+      await deleteHeldBill(heldBill.hold_token);
+      setStatusMessage(`Held bill ${heldBill.hold_token} deleted.`);
+      refreshHeldBills(counterNo);
+      restoreScannerFocusSoon();
+    } catch (err) {
+      setErrorMessage('Unable to delete held bill.');
+      restoreScannerFocusSoon();
+    }
+  }
+
+  async function handleReprint(invoiceNoForReprint, reprintMode = printMode) {
+    try {
+      const details = await fetchInvoiceDetails(invoiceNoForReprint);
+      await recordInvoiceReprint(invoiceNoForReprint, reprintMode);
+      const invoiceToPrint = invoiceDetailsToPrintable(details, true);
+      setPrintableInvoice(invoiceToPrint);
+      schedulePrint(reprintMode, () => refreshHistory(false), invoiceToPrint);
+      setStatusMessage(`${invoiceNoForReprint} duplicate bill printing in ${reprintMode} format.`);
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || 'Unable to reprint invoice.');
+    }
+  }
+
+  async function handleGatePassPrint(invoiceNoForGatePass) {
+    try {
+      const [details, latestSettings] = await Promise.all([
+        fetchInvoiceDetails(invoiceNoForGatePass),
+        fetchSettings()
+      ]);
+      setShopSettings(latestSettings);
+      const invoiceToPrint = {
+        ...invoiceDetailsToPrintable(details, false),
+        shop: latestSettings
+      };
+      await printGatePassSlip(invoiceToPrint);
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || 'Unable to print gate pass.');
+    }
+  }
+
+  async function handleViewGatePass(invoiceNoForGatePass) {
+    setIsHistoryInvoiceLoading(true);
+    try {
+      const [details, latestSettings] = await Promise.all([
+        fetchInvoiceDetails(invoiceNoForGatePass),
+        fetchSettings()
+      ]);
+      setShopSettings(latestSettings);
+      const invoiceToPreview = {
+        ...invoiceDetailsToPrintable(details, false),
+        shop: latestSettings
+      };
+      setGatePassPreview({
+        invoice: invoiceToPreview,
+        printedAt: new Date()
+      });
+      setSelectedHistoryInvoice(null);
+      setStatusMessage(`${invoiceNoForGatePass} gate pass loaded. Check and print.`);
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || 'Unable to view gate pass.');
+    } finally {
+      setIsHistoryInvoiceLoading(false);
+    }
+  }
+
+  function updateGatePassPreviewDetail(field, value) {
+    setGatePassPreview((current) => {
+      if (!current) return current;
+      const nextDetails = normalizeGatePassDetails({
+        ...(current.invoice.gatePassDetails || {}),
+        [field]: value
+      });
+      return {
+        ...current,
+        invoice: {
+          ...current.invoice,
+          gatePassDetails: nextDetails
+        }
+      };
+    });
+  }
+
+  async function handleViewHistoryInvoice(invoiceNoForView) {
+    setIsHistoryInvoiceLoading(true);
+    setGatePassPreview(null);
+    setErrorMessage('');
+    try {
+      const details = await fetchInvoiceDetails(invoiceNoForView);
+      setSelectedHistoryInvoice(invoiceDetailsToPrintable(details, false));
+      setStatusMessage(`${invoiceNoForView} loaded for view / reprint.`);
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || 'Unable to view invoice.');
+    } finally {
+      setIsHistoryInvoiceLoading(false);
+    }
+  }
+
+  async function handleViewLastBill(invoiceNoForView) {
+    if (!invoiceNoForView) return;
+    setShowHistory(true);
+    setIsLastBillOpen(false);
+    setIsHeldBillsOpen(false);
+    await handleViewHistoryInvoice(invoiceNoForView);
+  }
+
+  async function handleVoidInvoice(invoiceNoForVoid) {
+    const reason = window.prompt(`Cancel invoice ${invoiceNoForVoid}. Enter reason:`);
+    if (!reason) return;
+
+    try {
+      await voidInvoice(invoiceNoForVoid, reason);
+      setStatusMessage(`Invoice ${invoiceNoForVoid} cancelled and stock restored.`);
+      refreshHistory(true);
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || 'Unable to cancel invoice.');
+    }
+  }
+
+  async function openReturnInvoice(invoiceNoForReturn) {
+    try {
+      const details = await fetchInvoiceDetails(invoiceNoForReturn);
+      const quantities = {};
+      details.items.forEach((item) => {
+        const available = Math.max(toNumber(item.quantity) - toNumber(item.returned_qty), 0);
+        quantities[item.id] = available > 0 ? String(available) : '';
+      });
+      setReturnInvoice(details);
+      setReturnQuantities(quantities);
+      setReturnReason('');
+      setRefundMode('Cash');
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || 'Unable to load invoice for return.');
+    }
+  }
+
+  async function submitSalesReturn() {
+    if (!returnInvoice) return;
+
+    const items = returnInvoice.items
+      .map((item) => ({
+        invoice_item_id: item.id,
+        quantity: toNumber(returnQuantities[item.id])
+      }))
+      .filter((item) => item.quantity > 0);
+
+    try {
+      const result = await createSalesReturn({
+        invoice_no: returnInvoice.invoice.invoice_no,
+        reason: returnReason,
+        refund_mode: refundMode,
+        items
+      });
+      setStatusMessage(`Return ${result.return_no} saved. Refund: ${formatMoney(result.refund_total)}`);
+      setReturnInvoice(null);
+      refreshHistory(true);
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || 'Unable to save sales return.');
+    }
+  }
+
+  async function submitCheckout(forcedMode, overrides = {}) {
+    const activePaymentMode = forcedMode || paymentMode;
+    const effectiveCustomerName = overrides.customerName ?? (isBusinessBillingMode(billingMode) ? companyName : customerName);
+    const effectiveCustomerPhone = overrides.customerPhone ?? customerPhone;
+    const effectivePaymentReference = overrides.paymentReference ?? paymentReference;
+    const effectivePaymentConfirmed = overrides.paymentConfirmed ?? paymentConfirmed;
+    const effectiveCashReceived = overrides.cashReceived ?? cashReceived;
+    const effectiveMixedPayment = overrides.mixedPayment ?? mixedPayment;
+    const effectiveMixedPaidTotal = toNumber(effectiveMixedPayment.cash) + toNumber(effectiveMixedPayment.upi) + toNumber(effectiveMixedPayment.card);
+    const effectiveMixedPaymentModeCount = [effectiveMixedPayment.cash, effectiveMixedPayment.upi, effectiveMixedPayment.card]
+      .filter((amount) => toNumber(amount) > 0).length;
+    const effectiveMixedHasDigital = toNumber(effectiveMixedPayment.upi) > 0 || toNumber(effectiveMixedPayment.card) > 0;
+    const payablePaiseForCheckout = moneyToPaise(paiseToMoney(totals.grand));
+    setErrorMessage('');
+    setStatusMessage('');
+
+    if (cart.length === 0) {
+      setErrorMessage('Cart is empty.');
+      return;
+    }
+
+    if (cart.some((item) => item.isUnknown)) {
+      setErrorMessage('Remove or correct unknown red product lines before billing.');
+      return;
+    }
+
+    if (exchangeMode && exchangeItems.length === 0) {
+      setErrorMessage('Exchange mode is active. Add at least one exchange product or remove exchange mode.');
+      exchangeScannerRef.current?.focus();
+      return;
+    }
+
+    if (exchangeMode && (!isExchangeCustomerNameReady(effectiveCustomerName) || !isTenDigitPhoneReady(effectiveCustomerPhone))) {
+      openDigitalContactModal(activePaymentMode, true, {
+        requireName: true,
+        requireRealPhone: true,
+        title: 'Exchange customer detail required',
+        message: 'Exchange bill must have customer name and exact 10 digit phone number. NO is not allowed for exchange bills.'
+      });
+      return;
+    }
+
+    if (isBusinessBillingMode(billingMode) && (!effectiveCustomerName.trim() || !customerGstin.trim())) {
+      setErrorMessage('Company name and GSTIN are required for B2B IGST Wholesale bills.');
+      return;
+    }
+
+    const received = activePaymentMode === 'Cash'
+      ? toNumber(effectiveCashReceived)
+      : activePaymentMode === 'Mixed'
+        ? effectiveMixedPaidTotal
+        : totals.grand;
+    const receivedPaise = moneyToPaise(received);
+    if (!Number.isFinite(received) || received < 0 || received > 99999999.99) {
+      setErrorMessage('Cash received must be between Rs. 0 and Rs. 9,99,99,999.99.');
+      window.setTimeout(() => cashReceivedRef.current?.focus(), 50);
+      return;
+    }
+    if (activePaymentMode === 'Cash' && receivedPaise < payablePaiseForCheckout) {
+      setErrorMessage('Cash received must be equal to or greater than the bill total.');
+      window.setTimeout(() => cashReceivedRef.current?.focus(), 50);
+      return;
+    }
+
+    if (activePaymentMode === 'Mixed' && effectiveMixedPaymentModeCount < 2) {
+      setErrorMessage('Enter amounts in any two payment modes for Mixed payment.');
+      window.setTimeout(() => mixedCashRef.current?.focus(), 50);
+      return;
+    }
+
+    if (activePaymentMode === 'Mixed' && receivedPaise < payablePaiseForCheckout) {
+      setErrorMessage('Mixed payment total must be equal to or greater than the bill total.');
+      window.setTimeout(() => mixedCashRef.current?.focus(), 50);
+      return;
+    }
+
+    if (activePaymentMode !== 'Cash' && activePaymentMode !== 'Mixed' && !isDigitalPaymentContactReady(effectiveCustomerPhone)) {
+      openDigitalContactModal(activePaymentMode, true);
+      return;
+    }
+
+    if (activePaymentMode === 'Mixed' && effectiveMixedHasDigital && !isDigitalPaymentContactReady(effectiveCustomerPhone)) {
+      openDigitalContactModal('Mixed', true);
+      return;
+    }
+
+    if (activePaymentMode !== 'Cash' && !effectivePaymentConfirmed) {
+      setErrorMessage(`Confirm ${activePaymentMode} payment before completing the sale.`);
+      return;
+    }
+
+    const mode = BILLING_MODES[billingMode];
+    if (checkoutInFlightRef.current) return;
+    checkoutInFlightRef.current = true;
+    if (!checkoutRequestIdRef.current) {
+      checkoutRequestIdRef.current = globalThis.crypto?.randomUUID?.()
+        || `checkout-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    }
+    setIsCheckoutSubmitting(true);
+
+    const completeSuccessfulCheckout = (savedInvoiceNo, freeItems = [], recovered = false) => {
+      const freeInvoiceItems = freeItems.map((item) => ({
+        ...item,
+        product_name: String(item.product_name || '').toUpperCase(),
+        quantity: toNumber(item.quantity, 1),
+        unitPrice: 0,
+        sale_price: 0,
+        mrp: 0,
+        unit_type: item.unit_type || item.unit || 'Nos',
+        pack_measure: item.pack_measure || '',
+        gst_percent: 0,
+        lineTotal: 0,
+        taxableRate: 0,
+        taxAmount: 0,
+        is_free_bonus: true
+      }));
+
+      const completedInvoice = {
+        ...printableDraft,
+        invoiceNo: savedInvoiceNo || invoiceNo,
+        customerName: effectiveCustomerName,
+        customerPhone: effectiveCustomerPhone,
+        paymentReference: activePaymentMode === 'Cash' || activePaymentMode === 'Mixed' ? '' : effectivePaymentReference,
+        paymentMode: activePaymentMode,
+        paymentSplits: activePaymentMode === 'Mixed' ? [
+          { mode: 'Cash', amount: toNumber(effectiveMixedPayment.cash) },
+          { mode: 'UPI', amount: toNumber(effectiveMixedPayment.upi), reference: effectiveMixedPayment.upi_reference || '' },
+          { mode: 'Card', amount: toNumber(effectiveMixedPayment.card), reference: effectiveMixedPayment.card_reference || '' }
+        ].filter((row) => row.amount > 0) : [],
+        cashReceived: received,
+        changeReturned: Math.max(receivedPaise - payablePaiseForCheckout, 0) / 100,
+        totals: {
+          ...printableDraft.totals
+        },
+        items: [...printableDraft.items, ...freeInvoiceItems],
+        itemCount: printableDraft.itemCount + freeInvoiceItems.reduce((sum, item) => sum + toNumber(item.quantity), 0),
+        exchangeItems: printableDraft.exchangeItems
+      };
+
+      setPrintableInvoice(completedInvoice);
+      setInvoiceHistory((current) => [
+        {
+          invoice_no: completedInvoice.invoiceNo,
+          customer_name: completedInvoice.customerName,
+          customer_phone: completedInvoice.customerPhone,
+          grand_total: completedInvoice.totals.grand,
+          cash_received: completedInvoice.cashReceived,
+          change_returned: completedInvoice.changeReturned,
+          billing_counter: completedInvoice.counterLabel || `Counter ${completedInvoice.counterNo}`,
+          payment_status: 'PAID',
+          payment_reference: completedInvoice.paymentReference,
+          payment_mode: completedInvoice.paymentMode,
+          transaction_type: mode.transactionType,
+          billing_tier: mode.tier,
+          tax_type: mode.taxType,
+          invoice_status: 'PAID',
+          created_at: new Date().toISOString()
+        },
+        ...current.filter((invoice) => invoice.invoice_no !== completedInvoice.invoiceNo)
+      ].slice(0, 500));
+      setStatusMessage(
+        recovered
+          ? `Invoice ${completedInvoice.invoiceNo} already saved. Printing recovered bill. Change due: ${formatMoney(completedInvoice.changeReturned)}`
+          : `Invoice ${completedInvoice.invoiceNo} saved. Change due: ${formatMoney(completedInvoice.changeReturned)}`
+      );
+      setCashReceived('');
+      setPaymentMode('Cash');
+      setMixedPayment(EMPTY_MIXED_PAYMENT);
+      setPaymentReference('');
+      setPaymentConfirmed(false);
+      setUseLoyaltyPoints(false);
+      setLoyaltyRedeemPoints('');
+      resetBill();
+      schedulePrint(printMode, () => {
+        refreshHistory(false);
+      }, completedInvoice);
+    };
+
+    const checkoutRequestId = checkoutRequestIdRef.current;
+    const checkoutPayload = {
+      checkout_request_id: checkoutRequestId,
+      counter_no: counterNo,
+      customer_name: effectiveCustomerName || 'Walk-in Customer',
+      customer_phone: effectiveCustomerPhone,
+      customer_address: customerAddress,
+      items: cart.map((item) => ({
+        ...item,
+        sale_price: getUnitPrice(item, billingMode)
+      })),
+      sub_total: totals.taxable.toFixed(2),
+      gst_total: totals.tax.toFixed(2),
+      grand_total: totals.grand.toFixed(2),
+      loyalty_base_total: totals.loyaltyBaseTotal.toFixed(2),
+      loyalty_redeem_points: totals.loyaltyRedeemPoints,
+      payment_mode: activePaymentMode,
+      payment_status: 'PAID',
+      payment_reference: activePaymentMode === 'Cash'
+        ? null
+        : activePaymentMode === 'Mixed'
+          ? null
+          : effectivePaymentReference,
+      payment_splits: activePaymentMode === 'Mixed' ? {
+        cash: toNumber(effectiveMixedPayment.cash).toFixed(2),
+        upi: toNumber(effectiveMixedPayment.upi).toFixed(2),
+        card: toNumber(effectiveMixedPayment.card).toFixed(2),
+        upi_reference: effectiveMixedPayment.upi_reference || '',
+        card_reference: effectiveMixedPayment.card_reference || ''
+      } : undefined,
+      cash_received: received.toFixed(2),
+      change_returned: (Math.max(receivedPaise - payablePaiseForCheckout, 0) / 100).toFixed(2),
+      transaction_type: mode.transactionType,
+      billing_tier: mode.tier,
+      tax_type: mode.taxType,
+      customer_company_name: isBusinessBillingMode(billingMode) ? effectiveCustomerName : null,
+      customer_gstin: mode.taxType === 'INTERSTATE' ? customerGstin : null,
+      total_cgst: totals.cgst.toFixed(2),
+      total_sgst: totals.sgst.toFixed(2),
+      total_igst: totals.igst.toFixed(2),
+      exchange_total: totals.exchangeTotal.toFixed(2),
+      exchange_items: exchangeItems.map((item) => ({
+        barcode: item.barcode,
+        product_name: item.product_name,
+        hsn_code: item.hsn_code || '',
+        unit_type: item.unit_type || item.unit || '',
+        pack_measure: item.pack_measure || '',
+        quantity: toNumber(item.quantity, 1),
+        sale_price: toNumber(item.unitPrice || item.sale_price || item.mrp),
+        gst_percent: toNumber(item.gst_percent)
+      })),
+      print_mode: printMode
+    };
+
+    async function recoverCommittedCheckout() {
+      const details = await fetchInvoiceDetails('', {
+        checkoutRequestId,
+        timeoutMs: 8000
+      });
+      const savedInvoice = details?.invoice || {};
+      const savedTotalPaise = moneyToPaise(savedInvoice.grand_total);
+      const savedCounter = String(savedInvoice.billing_counter || '').trim().toLowerCase();
+      const sameCounter = counterLabelMatches(savedCounter, counterNo);
+      const sameTotal = Math.abs(savedTotalPaise - payablePaiseForCheckout) <= 1;
+
+      if (savedInvoice.invoice_no && sameCounter && sameTotal && savedInvoice.invoice_status !== 'VOID') {
+        const recoveredFreeItems = Array.isArray(details?.items)
+          ? details.items.filter((item) => Number(item.is_free_bonus) === 1)
+          : [];
+        completeSuccessfulCheckout(savedInvoice.invoice_no, recoveredFreeItems, true);
+        return true;
+      }
+
+      return false;
+    }
+
+    try {
+      const checkoutResult = await checkout(checkoutPayload);
+
+      completeSuccessfulCheckout(checkoutResult.invoice_no || invoiceNo, checkoutResult.free_items || []);
+    } catch (err) {
+      try {
+        if (checkoutRequestId && await recoverCommittedCheckout()) return;
+        const details = await fetchInvoiceDetails(invoiceNo);
+        const savedInvoice = details?.invoice || {};
+        const savedTotalPaise = moneyToPaise(savedInvoice.grand_total);
+        const savedCounter = String(savedInvoice.billing_counter || '').trim().toLowerCase();
+        const sameInvoice = String(savedInvoice.invoice_no || '') === String(invoiceNo);
+        const sameCounter = counterLabelMatches(savedCounter, counterNo);
+        const sameTotal = Math.abs(savedTotalPaise - payablePaiseForCheckout) <= 1;
+
+        if (sameInvoice && sameCounter && sameTotal && savedInvoice.invoice_status !== 'VOID') {
+          const recoveredFreeItems = Array.isArray(details?.items)
+            ? details.items.filter((item) => Number(item.is_free_bonus) === 1)
+            : [];
+          completeSuccessfulCheckout(savedInvoice.invoice_no, recoveredFreeItems, true);
+          return;
+        }
+      } catch (recoveryErr) {
+        // Keep the original checkout error below; recovery is only for confirmed saved invoices.
+      }
+      setErrorMessage(err.response?.data?.error || err.message || 'Checkout failed.');
+    } finally {
+      checkoutInFlightRef.current = false;
+      setIsCheckoutSubmitting(false);
+    }
+  }
+
+  const backendPingLabel = backendPingOk === null ? 'PING ...' : backendPingOk ? 'PING OK' : 'PING FAIL';
+  const backendPingTitle = lastBackendPingAt
+    ? `Last ping ${lastBackendPingAt.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}`
+    : 'Checking server connection';
+
+  return (
+    <div className={`billing-grid ${isSensitiveBillingMode(billingMode) ? 'sensitive-billing-active' : ''}`}>
+      <section className="panel billing-main-panel">
+        <div className="panel-body billing-panel-body">
+          <div className="billing-sticky-header">
+            <div className="panel-header billing-store-banner">
+              <div>
+                <h2 className="panel-title">{shopSettings.shop_name}</h2>
+                <div className="muted">GST: {shopSettings.gst_number} | {shopSettings.address} | Ph: {shopSettings.phone}</div>
+              </div>
+              <button className="counter-sale-button" type="button" onClick={printCounterSaleSlip}>
+                Counter Sale
+              </button>
+              <div className="billing-header-meta">
+                <span
+                  className={`ping-status-chip ${backendPingOk === false ? 'danger' : backendPingOk === true ? 'success' : 'checking'}`}
+                  title={backendPingTitle}
+                >
+                  <span className="ping-status-dot" />
+                  {backendPingLabel}
+                </span>
+                <span className="live-time-chip">{liveTime.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}</span>
+                <span className="invoice-chip">Invoice {invoiceNo}</span>
+              </div>
+            </div>
+
+            <div className="billing-topline">
+              <div className="mode-toggle-group">
+                <div className="mode-toggle">
+                  <span className="mode-toggle-label">Sale Mode</span>
+                  <div className="mode-option-group" aria-label="Sale mode">
+                    <button className={activeSaleMode === 'RETAIL' ? 'mode-option active retail-active' : 'mode-option'} onClick={() => requestBillingMode(composeBillingMode('RETAIL', activeTaxMode))}>Retail</button>
+                    <button className={activeSaleMode === 'WHOLESALE' ? 'mode-option active sensitive-active' : 'mode-option'} onClick={() => requestBillingMode(composeBillingMode('WHOLESALE', activeTaxMode))}>Wholesale</button>
+                  </div>
+                </div>
+                <div className="mode-toggle">
+                  <span className="mode-toggle-label">Tax Mode</span>
+                  <div className="mode-option-group" aria-label="Tax mode">
+                    <button className={activeTaxMode === 'GST' ? 'mode-option active retail-active' : 'mode-option'} onClick={() => requestBillingMode(composeBillingMode(activeSaleMode, 'GST'))}>GST</button>
+                    <button className={activeTaxMode === 'IGST' ? 'mode-option active sensitive-active' : 'mode-option'} onClick={() => requestBillingMode(composeBillingMode(activeSaleMode, 'IGST'))}>IGST</button>
+                  </div>
+                </div>
+              </div>
+              <div className="billing-top-controls">
+                <span className={`billing-mode-pill ${isSensitiveBillingMode(billingMode) ? 'warning' : ''}`}>
+                  {activeMode.shortLabel || activeMode.label}
+                </span>
+                <button className={exchangeMode ? 'mode-option active exchange-action' : 'mode-option exchange-action'} onClick={requestExchangeMode}>
+                  Exchange
+                </button>
+                <label className="top-control-field">
+                  <span>Counter</span>
+                  {canSelectCounter ? (
+                    <select aria-label="Counter" value={counterNo} onChange={(event) => setCounterNo(Number(event.target.value))}>
+                      {Array.from({ length: counterCount }, (_, index) => index + 1).map((number) => (
+                        <option key={number} value={number}>Counter {number}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <span className="locked-counter-chip">Counter {counterNo}</span>
+                  )}
+                </label>
+                <label className="top-control-field print-control-field">
+                  <span>Print</span>
+                  {canUseA4Print ? (
+                    <select aria-label="Print format" value={printMode} onChange={(event) => requestPrintMode(event.target.value)}>
+                      <option value="Thermal">Thermal</option>
+                      <option value="A4">A4</option>
+                    </select>
+                  ) : (
+                    <span className="locked-counter-chip">Thermal</span>
+                  )}
+                </label>
+              </div>
+            </div>
+
+            {isSensitiveBillingMode(billingMode) && (
+              <div className="sensitive-bill-warning">
+                {activeMode.label} active for this bill only. Complete, Hold, or Reset will return to Retail.
+              </div>
+            )}
+            {exchangeMode && (
+              <div className="sensitive-bill-warning exchange-bill-warning">
+                Exchange bill active. Exchange amount will be deducted from this bill only. Complete, Hold, or Reset will return to normal Retail.
+              </div>
+            )}
+
+            {(hasRunningBill() || activeBillWindowId || billWindows.length > 0) && (
+              <div className="bill-window-titlebar">
+                <span>{activeBillWindowId ? 'Open Bill Window' : 'Current Bill'}</span>
+                <strong>{billWindowTitle()}</strong>
+                <div className="bill-window-controls">
+                  <button type="button" title="Minimize bill and open new bill" onClick={openNewBillTab}>-</button>
+                  <button type="button" title="Bring bill front" onClick={restoreScannerFocusSoon}>□</button>
+                  <button type="button" title="Close current bill" onClick={resetBill}>×</button>
+                </div>
+              </div>
+            )}
+
+            <div className="scanner-row billing-scanner-row">
+              <span className="status-chip">F9 Focus Scanner</span>
+              <div className="search-wrap">
+                <input
+                  ref={scannerRef}
+                  className="field search-input"
+                  autoFocus
+                  value={query}
+                  onPointerDown={closeBillingActivityPanels}
+                  onChange={handleSearchChange}
+                  onKeyDown={handleSearchKeyDown}
+                  onPaste={handleSearchPaste}
+                  placeholder="Type at least 3 letters or barcode digits"
+                />
+                {suggestions.length > 0 && (
+                  <div
+                    className="suggestions"
+                    onMouseDownCapture={handleSuggestionMouseDownCapture}
+                    onDoubleClickCapture={focusSearchFromSuggestionScroll}
+                  >
+                    {suggestions.map((product, index) => (
+                      <button
+                        key={product.barcode}
+                        ref={(element) => { suggestionRowRefs.current[index] = element; }}
+                        className={`suggestion-row ${index === selectedSuggestion ? 'active' : ''}`}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={(event) => handleSuggestionClick(product, event)}
+                      >
+                        <span className="suggestion-code">
+                          <small>Code</small>
+                          <strong className="mono">{product.product_code || product.barcode}</strong>
+                          {product.product_code && <em className="mono">{product.barcode}</em>}
+                        </span>
+                        <span className="suggestion-description">
+                          <small>Description</small>
+                          <strong>{product.product_name}</strong>
+                        </span>
+                        <span>
+                          <small>MRP</small>
+                          <strong>{formatMoney(product.mrp)}</strong>
+                        </span>
+                        <span>
+                          <small>Sale</small>
+                          <strong>{formatMoney(product.sale_price)}</strong>
+                        </span>
+                        <span className={toNumber(product.stock_qty) <= toNumber(product.min_stock_alert, 10) ? 'suggestion-stock stock-low' : 'suggestion-stock'}>
+                          <small>Stock</small>
+                          <strong>
+                            {toNumber(product.stock_qty).toFixed(2)}
+                            <em className="suggestion-unit">{product.unit_type || product.unit || 'Nos'}</em>
+                          </strong>
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button className="secondary-button price-check-button" type="button" onClick={openPriceCheck}>Price Check</button>
+            </div>
+
+          {exchangeMode && (
+            <section className="exchange-panel">
+              <div className="exchange-entry-row">
+                <span className="status-chip">Exchange Product</span>
+                <input
+                  ref={exchangeScannerRef}
+                  className="field search-input"
+                  value={exchangeQuery}
+                  onChange={handleExchangeSearchChange}
+                  onKeyDown={handleExchangeSearchKeyDown}
+                  onPaste={handleExchangeSearchPaste}
+                  placeholder="Scan/type exchange product barcode or name"
+                />
+                <strong className="exchange-total-chip">Less {formatMoney(totals.exchangeTotal)}</strong>
+              </div>
+              {exchangeItems.length > 0 && (
+                <table className="history-table exchange-table">
+                  <thead><tr><th>Code</th><th>Product</th><th>Qty</th><th>Rate</th><th>Amount</th><th>Del</th></tr></thead>
+                  <tbody>
+                    {exchangeItems.map((item, index) => {
+                      const lineUnitPrice = getUnitPrice(item, billingMode);
+                      const lineAmount = lineUnitPrice * toNumber(item.quantity, 1);
+                      return (
+                        <tr key={`${item.barcode}-${index}`}>
+                          <td className="mono">{item.barcode}</td>
+                          <td>{item.product_name}</td>
+                          <td>
+                            <input
+                              className="field qty-input"
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={item.quantity}
+                              onChange={(event) => updateExchangeQuantity(index, event.target.value)}
+                            />
+                          </td>
+                          <td>{formatMoney(lineUnitPrice)}</td>
+                          <td><strong>{formatMoney(lineAmount)}</strong></td>
+                          <td><button className="danger-button" onClick={() => removeExchangeLine(index)}>Del</button></td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </section>
+          )}
+
+          <div className="billing-activity-panel">
+            <div className="activity-action-row">
+              <button
+                className="primary-button hold-current-button"
+                type="button"
+                onClick={openHoldBillDialog}
+                disabled={cart.length === 0}
+                title={cart.length === 0 ? 'Add items before holding a bill' : 'Hold this bill and clear POS for the next customer (Ctrl + Alt)'}
+              >
+                Hold Bill & New Customer
+              </button>
+              <button
+                className="secondary-button"
+                onPointerDown={(event) => event.stopPropagation()}
+                onClick={() => {
+                  setIsLastBillOpen(false);
+                  setIsHeldBillsOpen(false);
+                  const today = localIsoDate();
+                  setHistoryFromDate(today);
+                  setHistoryToDate(today);
+                  refreshHistory(true, { from: today, to: today });
+                }}
+              >
+                Old Bills / Reprint (F8)
+              </button>
+              {latestInvoice ? (
+                <details
+                  ref={lastBillDetailsRef}
+                  className="activity-details activity-last-bill-details"
+                  open={isLastBillOpen}
+                  onToggle={(event) => setIsLastBillOpen(event.currentTarget.open)}
+                >
+                  <summary>
+                    <strong className="last-bill-summary">
+                      <span className="last-bill-summary-line last-bill-title-line">
+                        <span>Last Bill</span>
+                        <span className="mono">{latestInvoice.invoice_no}</span>
+                      </span>
+                      <span className="last-bill-summary-line last-bill-money-line">
+                        <span>Bill {formatMoney(latestInvoice.grand_total)}</span>
+                        <span>
+                          {String(latestInvoice.payment_mode || '').toUpperCase() === 'CASH'
+                            ? `Change ${formatMoney(latestInvoice.change_returned)}`
+                            : `${latestInvoice.payment_mode || 'Other'} ${formatMoney(latestInvoice.grand_total)}`}
+                        </span>
+                      </span>
+                    </strong>
+                  </summary>
+                  <div className="activity-detail-grid">
+                    <span>Bill No</span><strong className="mono">{latestInvoice.invoice_no}</strong>
+                    <span>Total</span><strong>{formatMoney(latestInvoice.grand_total)}</strong>
+                    <span>Mode</span><strong>{latestInvoice.payment_mode || '-'}</strong>
+                    <span>Cash Given</span><strong>{formatMoney(latestInvoice.cash_received)}</strong>
+                    <span>Change</span><strong className="stock-low">{formatMoney(latestInvoice.change_returned)}</strong>
+                    <span>Counter</span><strong>{latestInvoice.billing_counter || '-'}</strong>
+                  </div>
+                  <div className="activity-detail-footer activity-detail-actions">
+                    <button className="secondary-button" type="button" onClick={() => handleViewLastBill(latestInvoice.invoice_no)}>View</button>
+                    <button className="primary-button" type="button" onClick={() => handleReprint(latestInvoice.invoice_no)}>Print</button>
+                    <button className="close-action-button" type="button" onClick={() => setIsLastBillOpen(false)}>Close</button>
+                  </div>
+                </details>
+              ) : (
+                <button className="secondary-button last-bill-empty-button" type="button" disabled>
+                  Last Bill
+                  <span>No bill</span>
+                </button>
+              )}
+              <details
+                ref={heldBillsDetailsRef}
+                className="activity-details activity-held-details"
+                open={isHeldBillsOpen}
+                onToggle={(event) => setIsHeldBillsOpen(event.currentTarget.open)}
+              >
+                <summary>
+                  <span>Held Bills (F6)</span>
+                  <strong>{heldBills.length}</strong>
+                </summary>
+                <div className="activity-held-list">
+                  {heldBills.length === 0 ? (
+                    <span className="muted">No held bills.</span>
+                  ) : (
+                    heldBills.map((heldBill) => {
+                      const savedState = readHeldBillSavedState(heldBill);
+                      return (
+                      <div
+                        key={heldBill.hold_token}
+                        className="activity-held-row"
+                        onMouseEnter={(event) => showHoverBillPreview(event, {
+                          title: heldBill.hold_token,
+                          customer: heldBill.customer_name || savedState.customerName || 'Walk-in Customer',
+                          total: heldBill.bill_total,
+                          items: savedState.cart || [],
+                          billingMode: savedState.billingMode || RETAIL_MODE
+                        })}
+                        onMouseLeave={hideHoverBillPreview}
+                      >
+                        <div>
+                          <strong>{heldBill.hold_token}</strong>
+                          <span className="held-customer-name">{heldBill.customer_name || 'Walk-in Customer'}</span>
+                          <span>{heldBill.item_count} items | {formatMoney(heldBill.bill_total)}</span>
+                        </div>
+                        <div className="activity-held-actions">
+                          <button className="secondary-button" onClick={() => resumeHeldBill(heldBill)}>{hasRunningBill() ? 'View' : 'Resume'}</button>
+                          <button className="danger-button" onClick={() => deleteHeldBillSafely(heldBill)}>Delete</button>
+                        </div>
+                      </div>
+                    );
+                    })
+                  )}
+                </div>
+                <div className="activity-detail-footer">
+                  <button className="close-action-button" type="button" onClick={closeHeldBillsPanel}>Close</button>
+                </div>
+              </details>
+            </div>
+            {errorMessage && <div className="alert-box">{errorMessage}</div>}
+            </div>
+          </div>
+
+          <div
+            className={`billing-table-wrap ${cart.length === 0 ? 'empty-cart' : ''}`}
+            ref={billingTableRef}
+            onWheel={(event) => {
+              const tableWrap = billingTableRef.current;
+              if (!tableWrap || tableWrap.scrollHeight <= tableWrap.clientHeight) return;
+              tableWrap.scrollTop += event.deltaY;
+              event.preventDefault();
+            }}
+          >
+            <table className="product-table billing-product-table">
+              <thead>
+                <tr>
+                  <th>Barcode</th>
+                  <th>Product</th>
+                  <th>HSN</th>
+                  <th>MRP</th>
+                  <th>Disc</th>
+                  <th>Rate</th>
+                  <th>Qty</th>
+                  <th>GST</th>
+                  <th>Line Total</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody>
+                {cart.map((item, index) => {
+                    const unitPrice = getUnitPrice(item, billingMode);
+                    return (
+                      <tr
+                        key={`${item.barcode}-${index}`}
+                        className={`${item.isUnknown ? 'unknown-row' : ''} ${selectedCartIndex === index ? 'selected-cart-row' : ''}`}
+                        onClick={() => setSelectedCartIndex(index)}
+                      >
+                        <td className="mono muted">{item.barcode}</td>
+                        <td>
+                          {isGeneralProductLine(item) ? (
+                            <input
+                              className="field billing-product-detail-input"
+                              value={item.product_name || ''}
+                              onChange={(event) => updateProductDetail(index, event.target.value)}
+                              onClick={(event) => event.stopPropagation()}
+                              placeholder="Enter product detail"
+                            />
+                          ) : (
+                            <strong className="billing-product-name" title={item.product_name}>{item.product_name}</strong>
+                          )}
+                        </td>
+                        <td>{item.hsn_code || '-'}</td>
+                        <td className="muted">{formatMoney(item.mrp)}</td>
+                        <td>{formatMoney(Math.max(toNumber(item.mrp) - unitPrice, 0))}</td>
+                        <td><strong>{formatMoney(unitPrice)}</strong></td>
+                        <td>
+                          <input
+                            className="field qty-input"
+                            type="number"
+                            min="0"
+                            value={item.quantity}
+                            onChange={(event) => updateQuantity(index, event.target.value)}
+                          />
+                        </td>
+                        <td>{item.gst_percent}%</td>
+                        <td><strong>{formatMoney(unitPrice * toNumber(item.quantity, 1))}</strong></td>
+                        <td><button className="danger-button" onClick={() => removeLine(index)}>Del</button></td>
+                      </tr>
+                    );
+                  })}
+                {Array.from({ length: Math.max(MIN_VISIBLE_BILL_ROWS - cart.length, 1) }, (_, blankIndex) => (
+                  <tr key={`blank-billing-row-${blankIndex}`} className="blank-billing-row">
+                    <td className="mono muted">{cart.length === 0 && blankIndex === 0 ? 'SCAN' : ''}</td>
+                    <td>{cart.length === 0 && blankIndex === 0 ? 'Scan barcode or search product name' : ''}</td>
+                    <td />
+                    <td />
+                    <td />
+                    <td />
+                    <td />
+                    <td />
+                    <td />
+                    <td />
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          {billWindows.length > 0 && (
+            <div className="bill-window-taskbar" aria-label="Open bill windows">
+              {billWindows.map((billWindow) => (
+                <button
+                  key={billWindow.id}
+                  type="button"
+                  className="bill-window-tab"
+                  onClick={() => switchToBillWindow(billWindow)}
+                  onMouseEnter={(event) => showHoverBillPreview(event, {
+                    title: billWindow.title,
+                    customer: (isBusinessBillingMode(billWindow.savedState.billingMode) ? billWindow.savedState.companyName : billWindow.savedState.customerName) || 'Walk-in Customer',
+                    total: (billWindow.savedState.cart || []).reduce((sum, item) => (
+                      sum + getUnitPrice(item, billWindow.savedState.billingMode || RETAIL_MODE) * toNumber(item.quantity, 1)
+                    ), 0),
+                    items: billWindow.savedState.cart || [],
+                    billingMode: billWindow.savedState.billingMode || RETAIL_MODE
+                  })}
+                  onMouseLeave={hideHoverBillPreview}
+                  title={billWindow.title}
+                >
+                  <span>{billWindow.title}</span>
+                  <strong>-</strong>
+                  <em onClick={(event) => closeBillWindow(billWindow.id, event)}>x</em>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
+
+      <aside className="sidebar">
+        <section className="panel customer-side-panel">
+          <div className="panel-header compact-panel-header">
+            <h2 className="panel-title">Customer</h2>
+            <span className="status-chip">
+              {loyaltyCustomer
+                ? `${loyaltyCustomer.billing_count || loyaltyCustomer.visit_count || 0} bills`
+                : shopSettings.loyalty_enabled ? 'Walk-in' : 'Visits'}
+            </span>
+          </div>
+          <div className="customer-grid billing-customer-grid">
+            <div className="billing-loyalty-inline">
+              <span>
+                {loyaltyCustomer
+                  ? `Visits: ${loyaltyCustomer.billing_count || loyaltyCustomer.visit_count || 0} | Loyalty: ${shopSettings.loyalty_enabled ? `${loyaltyCustomer.loyalty_points} pts` : 'Off'}`
+                  : `Loyalty: ${shopSettings.loyalty_enabled ? 'None' : 'Off'}`}
+              </span>
+              <button className="secondary-button" onClick={handleCustomerLookup}>Lookup</button>
+              <button className="secondary-button" onClick={handleCustomerSave}>Save</button>
+            </div>
+            {loyaltyCustomer && (
+              <div className="customer-loyalty-summary">
+                <span>Bills: <strong>{loyaltyCustomer.billing_count || loyaltyCustomer.visit_count || 0}</strong></span>
+                <span>Spent: <strong>{formatMoney(loyaltyCustomer.total_spent || 0)}</strong></span>
+                <span>Last: <strong>{loyaltyCustomer.last_invoice_at ? new Date(loyaltyCustomer.last_invoice_at).toLocaleDateString('en-IN') : '-'}</strong></span>
+              </div>
+            )}
+            {shopSettings.loyalty_enabled && loyaltyCustomer && (
+              <div className="loyalty-redeem-box">
+                <label className="loyalty-use-check">
+                  <input
+                    type="checkbox"
+                    checked={useLoyaltyPoints}
+                    onChange={(event) => setUseLoyaltyPoints(event.target.checked)}
+                  />
+                  <span>Use loyalty points</span>
+                </label>
+                <label>
+                  <span className="field-label">Redeem Points</span>
+                  <input
+                    className="field"
+                    type="number"
+                    min="0"
+                    max={Math.floor(toNumber(loyaltyCustomer.loyalty_points || 0))}
+                    value={loyaltyRedeemPoints}
+                    onChange={(event) => setLoyaltyRedeemPoints(event.target.value)}
+                    disabled={!useLoyaltyPoints}
+                    placeholder="0"
+                  />
+                </label>
+                <div>
+                  <span>Value</span>
+                  <strong>{formatMoney(totals.loyaltyRedeemAmount || 0)}</strong>
+                </div>
+              </div>
+            )}
+            <label className="supplier-lookup-field">
+              <span className="field-label">{isBusinessBillingMode(billingMode) ? 'Company name' : 'Customer name'}</span>
+              <input
+                ref={customerNameRef}
+                className="field"
+                value={isBusinessBillingMode(billingMode) ? companyName : customerName}
+                onChange={(event) => (isBusinessBillingMode(billingMode) ? setCompanyName(event.target.value) : setCustomerName(event.target.value))}
+                onFocus={() => {
+                  if (customerSuggestions.length) setIsCustomerLookupOpen(true);
+                }}
+                onBlur={() => setTimeout(() => setIsCustomerLookupOpen(false), 180)}
+                onKeyDown={(event) => handleCustomerFieldEnter(event, customerPhoneRef)}
+                placeholder={isBusinessBillingMode(billingMode) ? 'Company name' : 'Customer name'}
+              />
+              {isCustomerLookupOpen && (
+                <div className="supplier-suggestions">
+                  {isCustomerSuggestionLoading && <div className="supplier-suggestion-empty">Searching customers...</div>}
+                  {!isCustomerSuggestionLoading && customerSuggestions.slice(0, 3).map((match) => (
+                    <button
+                      key={`${match.phone}-${match.customer_name}`}
+                      type="button"
+                      className="supplier-suggestion-row"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => selectCustomerSuggestion(match)}
+                    >
+                      <strong>{match.customer_name}</strong>
+                      <span>Phone: {match.phone || '-'}</span>
+                      <span>GST: {match.gstin || '-'}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </label>
+            <label>
+              <span className="field-label">Phone No</span>
+              <input
+                ref={customerPhoneRef}
+                className="field"
+                value={customerPhone}
+                onChange={(event) => setCustomerPhone(event.target.value)}
+                onKeyDown={(event) => handleCustomerFieldEnter(event, customerGstinRef)}
+                placeholder="10 digit phone or NO"
+              />
+            </label>
+            <label>
+              <span className="field-label">GST No</span>
+              <input
+                ref={customerGstinRef}
+                className="field"
+                maxLength={15}
+                value={customerGstin}
+                onChange={(event) => setCustomerGstin(event.target.value.toUpperCase())}
+                onKeyDown={(event) => handleCustomerFieldEnter(event, customerAddressRef)}
+                placeholder={activeMode.taxType === 'INTERSTATE' ? 'Required for B2B' : 'Optional'}
+              />
+            </label>
+            <label>
+              <span className="field-label">Address</span>
+              <input
+                ref={customerAddressRef}
+                className="field"
+                value={customerAddress}
+                onChange={(event) => setCustomerAddress(event.target.value)}
+                onKeyDown={(event) => handleCustomerFieldEnter(event, scannerRef)}
+                placeholder="Customer address"
+              />
+            </label>
+          </div>
+        </section>
+
+        <section className="panel payment-panel">
+          <div className="panel-header">
+            <h2 className="panel-title">Payment</h2>
+          </div>
+          <div className="panel-body">
+            <div className="total-box">
+              {totals.exchangeTotal > 0 && (
+                <>
+                  <div className="summary-line"><span>Sale total</span><strong>{formatMoney(totals.saleGrand)}</strong></div>
+                  <div className="summary-line exchange-less-line"><span>Exchange less</span><strong>- {formatMoney(totals.exchangeTotal)}</strong></div>
+                </>
+              )}
+              {totals.loyaltyRedeemAmount > 0 && (
+                <div className="summary-line exchange-less-line"><span>Loyalty less ({totals.loyaltyRedeemPoints} pts)</span><strong>- {formatMoney(totals.loyaltyRedeemAmount)}</strong></div>
+              )}
+              {Math.abs(totals.roundOff || 0) >= 0.01 && (
+                <div className="summary-line"><span>Round off</span><strong>{totals.roundOff > 0 ? '+ ' : '- '}{formatMoney(Math.abs(totals.roundOff))}</strong></div>
+              )}
+              <span className="total-label">Net payable</span>
+              <span className="total-value">{formatMoney(totals.grand)}</span>
+              <span className="amount-words">{amountInWords(totals.grand)}</span>
+              {(paymentMode === 'Cash' || paymentMode === 'Mixed') && (
+                <div className="payment-change-line">
+                  <span>Change due</span>
+                  <strong>{formatMoney(changeDue)}</strong>
+                </div>
+              )}
+            </div>
+            <details className="tax-breakup-details">
+              <summary>
+                <span>Tax details</span>
+                <strong>{formatMoney(totals.cgst + totals.sgst + totals.igst)}</strong>
+              </summary>
+              <div className="tax-breakup-body">
+                <div className="summary-line"><span>Taxable</span><strong>{formatMoney(totals.taxable)}</strong></div>
+                <div className="summary-line"><span>CGST</span><strong>{formatMoney(totals.cgst)}</strong></div>
+                <div className="summary-line"><span>SGST</span><strong>{formatMoney(totals.sgst)}</strong></div>
+                <div className="summary-line"><span>IGST</span><strong>{formatMoney(totals.igst)}</strong></div>
+                <div className="summary-line"><span>Discount</span><strong>{formatMoney(totals.discount)}</strong></div>
+              </div>
+            </details>
+
+            <div className="form-stack">
+              <label>
+                <span className="field-label">Payment method</span>
+                <select
+                  className="select"
+                  value={paymentMode}
+                  onChange={(event) => selectPaymentMode(event.target.value)}
+                >
+                  <option value="Cash">Cash</option>
+                  <option value="UPI">UPI</option>
+                  <option value="Card">Card</option>
+                  <option value="Mixed">Mixed</option>
+                </select>
+              </label>
+
+              <label className="change-box mix-payment-toggle">
+                <input
+                  type="checkbox"
+                  checked={paymentMode === 'Mixed'}
+                  onChange={(event) => toggleMixedPayment(event.target.checked)}
+                /> Mix payment
+              </label>
+
+              {paymentMode === 'Cash' && (
+                <>
+                  <label>
+                    <span className="field-label">Cash received</span>
+                    <input
+                      ref={cashReceivedRef}
+                      className={`field cash-received-input ${cashReceivedFlashToken ? 'cash-received-flash' : ''}`}
+                      type="number"
+                      min="0"
+                      max="99999999.99"
+                      value={cashReceived}
+                      onAnimationEnd={() => setCashReceivedFlashToken(0)}
+                      onKeyDown={(event) => handlePaymentEnter(event, 'Cash')}
+                      onChange={(event) => {
+                        setCashReceived(event.target.value);
+                        if (errorMessage.includes('Cash received')) setErrorMessage('');
+                      }}
+                    />
+                  </label>
+                  {!isCashReady && <div className="alert-box">Enter customer cash before completing sale.</div>}
+                </>
+              )}
+
+              {paymentMode === 'Mixed' && (
+                <>
+                  <div className="mixed-payment-grid">
+                    <label>
+                      <span className="field-label">Cash</span>
+                      <input
+                        ref={mixedCashRef}
+                        className="field"
+                        type="number"
+                        min="0"
+                        value={mixedPayment.cash}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            mixedUpiRef.current?.focus();
+                          }
+                        }}
+                        onChange={(event) => setMixedPayment((current) => ({ ...current, cash: event.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      <span className="field-label">UPI</span>
+                      <input
+                        ref={mixedUpiRef}
+                        className="field"
+                        type="number"
+                        min="0"
+                        value={mixedPayment.upi}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            mixedCardRef.current?.focus();
+                          }
+                        }}
+                        onChange={(event) => setMixedPayment((current) => ({ ...current, upi: event.target.value }))}
+                      />
+                    </label>
+                    <label>
+                      <span className="field-label">Card</span>
+                      <input
+                        ref={mixedCardRef}
+                        className="field"
+                        type="number"
+                        min="0"
+                        value={mixedPayment.card}
+                        onKeyDown={(event) => handlePaymentEnter(event, 'Mixed')}
+                        onChange={(event) => setMixedPayment((current) => ({ ...current, card: event.target.value }))}
+                      />
+                    </label>
+                  </div>
+                  <div className="mixed-payment-grid mixed-payment-reference-grid">
+                    <label>
+                      <span className="field-label">UPI Ref</span>
+                      <input
+                        className="field"
+                        value={mixedPayment.upi_reference}
+                        onChange={(event) => setMixedPayment((current) => ({ ...current, upi_reference: event.target.value }))}
+                        placeholder="UPI ID / last 4"
+                      />
+                    </label>
+                    <label>
+                      <span className="field-label">Card Ref</span>
+                      <input
+                        className="field"
+                        value={mixedPayment.card_reference}
+                        onChange={(event) => setMixedPayment((current) => ({ ...current, card_reference: event.target.value }))}
+                        placeholder="Approval / slip no"
+                      />
+                    </label>
+                  </div>
+                  <div className="summary-line mixed-payment-total">
+                    <span>Paid total</span>
+                    <strong>{formatMoney(mixedPaidTotal)}</strong>
+                  </div>
+                  {mixedPaymentModeCount < 2 && <div className="alert-box">Enter amounts in any two payment modes for Mixed payment.</div>}
+                  {mixedPaidPaise < payablePaise && <div className="alert-box">Mixed payment total must be equal to or greater than the bill total.</div>}
+                  {mixedHasDigital && !isDigitalPaymentContactReady(customerPhone) && <div className="alert-box">UPI/Card split ki phone number 10 digits or NO required.</div>}
+                  <label className="change-box">
+                    <input
+                      type="checkbox"
+                      checked={paymentConfirmed}
+                      onChange={(event) => setPaymentConfirmed(event.target.checked)}
+                    /> Mixed payment received
+                  </label>
+                  {!paymentConfirmed && <div className="alert-box">Confirm Mixed payment before completing sale.</div>}
+                </>
+              )}
+
+              {paymentMode !== 'Cash' && paymentMode !== 'Mixed' && (
+                <>
+                  <label>
+                    <span className="field-label">{paymentMode} reference</span>
+                    <input
+                      ref={paymentReferenceRef}
+                      className="field"
+                      value={paymentReference}
+                      onKeyDown={(event) => handlePaymentEnter(event, paymentMode)}
+                      onChange={(event) => setPaymentReference(event.target.value)}
+                      placeholder={paymentMode === 'UPI' ? 'UPI transaction ID / last 4 digits' : 'Card approval code / terminal slip no'}
+                    />
+                  </label>
+                  <label className="change-box">
+                    <input
+                      type="checkbox"
+                      checked={paymentConfirmed}
+                      onChange={(event) => setPaymentConfirmed(event.target.checked)}
+                    /> Payment received on {paymentMode}
+                  </label>
+                  {!paymentConfirmed && <div className="alert-box">Confirm {paymentMode} payment before completing sale.</div>}
+                </>
+              )}
+
+              <button className="primary-button" disabled={!canCompleteSale} onClick={() => submitCheckout(paymentMode)}>
+                {isCheckoutSubmitting ? 'Saving...' : 'Complete Sale'}
+              </button>
+              <div className="quick-actions">
+                <button className="secondary-button" onClick={prepareExactCashPayment} disabled={isCheckoutSubmitting}>F12 Cash</button>
+                <button className="secondary-button" onClick={() => preparePayment('UPI', true)} disabled={isCheckoutSubmitting}>F11 UPI</button>
+                <button className="secondary-button" onClick={() => preparePayment('Card', true)} disabled={isCheckoutSubmitting}>F10 Card</button>
+                <button className="secondary-button" onClick={() => preparePayment('Mixed')}>Mixed</button>
+                <button
+                  className="secondary-button"
+                  onPointerDown={(event) => event.stopPropagation()}
+                  onClick={() => {
+                    setIsLastBillOpen(false);
+                    setIsHeldBillsOpen(false);
+                    refreshHistory(true);
+                  }}
+                >
+                  F8 Old Bills
+                </button>
+                <button className="secondary-button" onPointerDown={(event) => event.stopPropagation()} onClick={() => {
+                  setShowHistory(false);
+                  setIsLastBillOpen(false);
+                  setIsHeldBillsOpen((current) => {
+                    const nextOpen = !current;
+                    if (!nextOpen) restoreScannerFocusSoon();
+                    return nextOpen;
+                  });
+                  refreshHeldBills(counterNo);
+                }}>F6 Held Bills</button>
+                <button className="secondary-button quotation-action-button" type="button" onClick={openQuotationDialog} disabled={isQuotationSaving}>
+                  Quotation A4 PDF
+                </button>
+                <button className="secondary-button" onClick={() => printBill(printableInvoice || printableDraft)}>Print</button>
+                <button
+                  className="secondary-button sale-report-action"
+                  type="button"
+                  onClick={() => {
+                    setSaleReport(null);
+                    setSaleReportError('');
+                    setSaleReportScope(currentUser?.role === 'COUNTER' ? 'CURRENT' : 'ALL');
+                    setShowSaleReport(true);
+                  }}
+                >
+                  Sale Report
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+      </aside>
+
+      {false && billWindows.length > 0 && (
+        <div className="bill-window-taskbar" aria-label="Open bill windows">
+          {billWindows.map((billWindow) => (
+            <button
+              key={billWindow.id}
+              type="button"
+              className={`bill-window-tab ${activeBillWindowId === billWindow.id ? 'active' : ''}`}
+              onClick={() => switchToBillWindow(billWindow)}
+              onMouseEnter={(event) => showHoverBillPreview(event, {
+                title: billWindow.title,
+                customer: (isBusinessBillingMode(billWindow.savedState.billingMode) ? billWindow.savedState.companyName : billWindow.savedState.customerName) || 'Walk-in Customer',
+                total: (billWindow.savedState.cart || []).reduce((sum, item) => (
+                  sum + getUnitPrice(item, billWindow.savedState.billingMode || RETAIL_MODE) * toNumber(item.quantity, 1)
+                ), 0),
+                items: billWindow.savedState.cart || [],
+                billingMode: billWindow.savedState.billingMode || RETAIL_MODE
+              })}
+              onMouseLeave={hideHoverBillPreview}
+              title={billWindow.title}
+            >
+              <span>{billWindow.title}</span>
+              <strong>{activeBillWindowId === billWindow.id ? '□' : '-'}</strong>
+              <em onClick={(event) => closeBillWindow(billWindow.id, event)}>×</em>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {hoverBillPreview && (
+        <div
+          className="bill-hover-preview"
+          style={{ left: `${hoverBillPreview.x}px`, top: `${hoverBillPreview.y}px` }}
+        >
+          <div className="bill-hover-preview-head">
+            <strong>{hoverBillPreview.title}</strong>
+            <span>{hoverBillPreview.customer}</span>
+            <b>{formatMoney(hoverBillPreview.total || 0)}</b>
+          </div>
+          <div className="bill-hover-preview-list">
+            {(hoverBillPreview.items || []).slice(0, 8).map((item, index) => {
+              const qty = toNumber(item.quantity, 1);
+              const rate = getUnitPrice(item, hoverBillPreview.billingMode || RETAIL_MODE);
+              return (
+                <div key={`${item.barcode || index}-${index}`}>
+                  <span>{String(item.product_name || '').toUpperCase()}</span>
+                  <em>{qty.toFixed(3)}</em>
+                  <strong>{formatMoney(rate * qty)}</strong>
+                </div>
+              );
+            })}
+            {(hoverBillPreview.items || []).length === 0 && <p>No products.</p>}
+            {(hoverBillPreview.items || []).length > 8 && <p>+ {(hoverBillPreview.items || []).length - 8} more items</p>}
+          </div>
+        </div>
+      )}
+
+      {showSaleReport && (
+        <div className="modal-backdrop">
+          <div className="modal sale-report-modal">
+            <div className="panel-header">
+              <h2 className="panel-title">Sale Report</h2>
+              <button
+                className="close-action-button"
+                type="button"
+                onClick={() => {
+                  cancelPendingReportApprovals();
+                  setShowSaleReport(false);
+                  scannerRef.current?.focus();
+                }}
+              >
+                Close
+              </button>
+            </div>
+            <div className="panel-body form-stack">
+              <form
+                className="sale-report-pos-form"
+                ref={saleReportFormRef}
+                onSubmit={handleViewSaleReport}
+              >
+                <div className="sale-report-form-line sale-report-title-line">Sale Report</div>
+                <div className="sale-report-form-line">
+                  <label>
+                    <span className="field-label">From Date</span>
+                    <input className="field" type="date" name="sale_report_from" value={saleReportFromDate} onChange={(event) => setSaleReportFromDate(event.target.value)} />
+                  </label>
+                  <label>
+                    <span className="field-label">To Date</span>
+                    <input className="field" type="date" name="sale_report_to" value={saleReportToDate} onChange={(event) => setSaleReportToDate(event.target.value)} />
+                  </label>
+                </div>
+                <div className="sale-report-form-line">
+                  <label>
+                    <span className="field-label">All / GST</span>
+                    <select className="select" name="sale_report_type" value={saleReportType} onChange={(event) => setSaleReportType(event.target.value)}>
+                      <option value="ALL">All Sales</option>
+                      <option value="GST">GST Sale Report</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span className="field-label">Counter</span>
+                    <select className="select" name="sale_report_scope" disabled={currentUser?.role === 'COUNTER'} value={saleReportScope} onChange={(event) => setSaleReportScope(event.target.value)}>
+                      <option value="ALL">All Counters</option>
+                      <option value="CURRENT">Current Counter</option>
+                      <option value="1">Counter 1</option>
+                      <option value="2">Counter 2</option>
+                      <option value="3">Counter 3</option>
+                      <option value="4">Counter 4</option>
+                      <option value="5">Counter 5</option>
+                      <option value="6">Counter 6</option>
+                    </select>
+                  </label>
+                  <div className="sale-report-actions">
+                    <button className="secondary-button" type="button" disabled={isSaleReportLoading} onClick={handleViewSaleReport}>
+                      {isSaleReportLoading ? 'Loading...' : 'View'}
+                    </button>
+                    <button className="primary-button" type="button" disabled={isSaleReportLoading} onClick={handlePrintSaleReport}>
+                      Print
+                    </button>
+                  </div>
+                </div>
+              </form>
+
+              {saleReportError && <div className="alert-box">{saleReportError}</div>}
+
+              {saleReport && (
+                <div className="sale-report-preview">
+                  <div className="report-summary-strip">
+                    <span>Bills: <strong>{Number(saleReport.totals?.billCount || 0)}</strong></span>
+                    <span>Start Bill: <strong>{saleReport.totals?.startingInvoiceNo || '-'}</strong></span>
+                    <span>End Bill: <strong>{saleReport.totals?.endingInvoiceNo || '-'}</strong></span>
+                    <span>Total: <strong>{formatMoney(saleReport.paymentTotals?.total || saleReport.totals?.netTotal || 0)}</strong></span>
+                    <span>GST: <strong>{formatMoney(saleReport.totals?.gst || 0)}</strong></span>
+                  </div>
+                  <div className="sale-report-preview-grid">
+                    <div className="summary-line"><span>UPI Sales</span><strong>{formatMoney(saleReport.paymentTotals?.upi || 0)}</strong></div>
+                    <div className="summary-line"><span>Card Sales</span><strong>{formatMoney(saleReport.paymentTotals?.card || 0)}</strong></div>
+                    <div className="summary-line"><span>Other Sales</span><strong>{formatMoney(saleReport.paymentTotals?.other || 0)}</strong></div>
+                    <div className="summary-line"><span>Cash Sales</span><strong>{formatMoney(saleReport.paymentTotals?.cash || 0)}</strong></div>
+                  </div>
+                  <table className="history-table sale-report-gst-table">
+                    <thead><tr><th>GST</th><th>Bills</th><th>Qty</th><th>Taxable</th><th>CGST</th><th>SGST</th><th>IGST</th><th>Total Tax</th><th>Total</th></tr></thead>
+                    <tbody>
+                      {(saleReport.gst || []).map((row) => (
+                        <tr key={row.gstPercent}>
+                          <td>{Number(row.gstPercent || 0).toFixed(0)}%</td>
+                          <td>{Number(row.billCount || 0)}</td>
+                          <td>{Number(row.quantity || 0).toFixed(2)}</td>
+                          <td>{formatMoney(row.taxable || 0)}</td>
+                          <td>{formatMoney(row.cgst || 0)}</td><td>{formatMoney(row.sgst || 0)}</td><td>{formatMoney(row.igst || 0)}</td><td>{formatMoney(row.gst || 0)}</td>
+                          <td><strong>{formatMoney(row.total || 0)}</strong></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPriceCheck && (
+        <div className="modal-backdrop">
+          <div className="modal price-check-modal">
+            <div className="panel-header">
+              <h2 className="panel-title">Fast Price Check</h2>
+              <button className="close-action-button" type="button" onClick={closePriceCheck}>Close</button>
+            </div>
+            <div className="panel-body form-stack">
+              <div className="price-check-entry">
+                <input
+                  ref={priceCheckInputRef}
+                  className="field search-input"
+                  value={priceCheckQuery}
+                  onChange={(event) => {
+                    setPriceCheckQuery(event.target.value);
+                    if (priceCheckError) setPriceCheckError('');
+                  }}
+                  onKeyDown={handlePriceCheckKeyDown}
+                  placeholder="Scan barcode or type product name"
+                />
+                <button className="primary-button" type="button" onClick={() => runPriceCheck()} disabled={isCheckingPrice}>
+                  {isCheckingPrice ? 'Checking...' : 'Check'}
+                </button>
+              </div>
+              {priceCheckError && <div className="alert-box">{priceCheckError}</div>}
+              {priceCheckProduct && (
+                <div className="price-check-card">
+                  <div>
+                    <span className="mono muted">{priceCheckProduct.barcode}</span>
+                    <h3>{String(priceCheckProduct.product_name || '').toUpperCase()}</h3>
+                    <span className="muted">HSN: {priceCheckProduct.hsn_code || '-'} | GST: {toNumber(priceCheckProduct.gst_percent).toFixed(2)}%</span>
+                  </div>
+                  <div className="price-check-metrics">
+                    <div><span>MRP</span><strong>{formatMoney(priceCheckProduct.mrp)}</strong></div>
+                    <div><span>Retail Price</span><strong>{formatMoney(priceCheckProduct.sale_price)}</strong></div>
+                    <div><span>Wholesale</span><strong>{formatMoney(priceCheckProduct.wholesale_price || priceCheckProduct.sale_price)}</strong></div>
+                    <div className={toNumber(priceCheckProduct.stock_qty) <= toNumber(priceCheckProduct.min_stock_alert, 10) ? 'stock-low' : ''}>
+                      <span>Stock</span><strong>{toNumber(priceCheckProduct.stock_qty).toFixed(2)} {priceCheckProduct.unit_type || 'Nos'}</strong>
+                    </div>
+                  </div>
+                  <div className="price-check-offer">
+                    <span>Offer / Discount</span>
+                    <strong>{getProductOfferText(priceCheckProduct)}</strong>
+                  </div>
+                </div>
+              )}
+              {!priceCheckProduct && !priceCheckError && (
+                <div className="price-check-empty">Product bill lo add avvakunda price, MRP, stock, offer check cheyyachu.</div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {holdBillDialogOpen && (
+        <div className="modal-backdrop">
+          <form
+            className="modal hold-bill-modal"
+            onSubmit={(event) => {
+              event.preventDefault();
+              holdCurrentBill();
+            }}
+          >
+            <div className="panel-header">
+              <h2 className="panel-title">Hold Bill</h2>
+              <button
+                className="close-action-button"
+                type="button"
+                onClick={closeHoldBillDialog}
+              >
+                Cancel
+              </button>
+            </div>
+            <div className="panel-body form-stack">
+              <label>
+                <span className="field-label">Customer name</span>
+                <input
+                  ref={holdCustomerNameRef}
+                  className="field"
+                  value={holdCustomerName}
+                  onChange={(event) => setHoldCustomerName(event.target.value)}
+                  placeholder="Customer name or bill identifier"
+                />
+              </label>
+              <div className="summary-line">
+                <span>Bill total</span>
+                <strong>{formatMoney(totals.grand)}</strong>
+              </div>
+              <button className="primary-button" type="submit">Hold Bill & New Customer</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {heldBillPreview && (
+        <div className="modal-backdrop">
+          <div className="modal held-bill-preview-modal">
+            <div className="panel-header">
+              <div>
+                <h2 className="panel-title">Held Bill Preview</h2>
+                <span className="panel-subtitle">Current running bill is still active behind this screen.</span>
+              </div>
+              <button className="close-action-button" type="button" onClick={closeHeldBillPreview}>Close</button>
+            </div>
+            <div className="panel-body form-stack">
+              <div className="change-box">
+                <span>Hold Token: <strong className="mono">{heldBillPreview.heldBill.hold_token}</strong></span>
+                <span>Customer: <strong>{heldBillPreview.heldBill.customer_name || heldBillPreview.savedState.customerName || 'Walk-in Customer'}</strong></span>
+                <span>Total: <strong>{formatMoney(heldBillPreview.heldBill.bill_total || 0)}</strong></span>
+              </div>
+              <div className="table-scroll">
+                <table className="history-table held-bill-preview-table">
+                  <thead>
+                    <tr>
+                      <th>Product</th>
+                      <th>Barcode</th>
+                      <th>Qty</th>
+                      <th>Rate</th>
+                      <th>Total</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(heldBillPreview.savedState.cart || []).length === 0 ? (
+                      <tr><td colSpan="5">No products in held bill.</td></tr>
+                    ) : (
+                      heldBillPreview.savedState.cart.map((item, index) => {
+                        const qty = toNumber(item.quantity, 1);
+                        const rate = getUnitPrice(item, heldBillPreview.savedState.billingMode || RETAIL_MODE);
+                        return (
+                          <tr key={`${item.barcode || item.product_code || index}-${index}`}>
+                            <td>{String(item.product_name || '').toUpperCase()}</td>
+                            <td className="mono">{item.barcode || item.product_code || '-'}</td>
+                            <td>{qty.toFixed(3)}</td>
+                            <td>{formatMoney(rate)}</td>
+                            <td>{formatMoney(rate * qty)}</td>
+                          </tr>
+                        );
+                      })
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              <div className="alert-box">
+                Running bill close/hold avvadu. Ee preview close chesthe same running bill screen ki return avutundi.
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {digitalContactModal && (
+        <div className="modal-backdrop">
+          <form
+            className="modal digital-contact-modal"
+            onSubmit={(event) => {
+              event.preventDefault();
+              confirmDigitalContactModal();
+            }}
+          >
+            <div className="panel-header">
+              <h2 className="panel-title">{digitalContactModal.title || `${digitalContactModal.mode} customer detail required`}</h2>
+              <button className="close-action-button" type="button" onClick={() => setDigitalContactModal(null)}>Cancel</button>
+            </div>
+            <div className="panel-body form-stack">
+              <div className="alert-box">
+                {digitalContactModal.message || `For ${digitalContactModal.mode} payment, enter customer phone number. If customer does not give phone number, type NO.`}
+              </div>
+              {digitalContactError && <div className="alert-box">{digitalContactError}</div>}
+              <label>
+                <span className="field-label">Customer name</span>
+                <input
+                  ref={digitalContactNameRef}
+                  className="field"
+                  value={digitalContactDraft.name}
+                  onChange={(event) => setDigitalContactDraft((current) => ({ ...current, name: event.target.value }))}
+                  onKeyDown={(event) => handleDigitalContactFieldEnter(event, digitalContactPhoneRef)}
+                  placeholder="Customer name"
+                />
+              </label>
+              <label>
+                <span className="field-label">Phone No</span>
+                <input
+                  ref={digitalContactPhoneRef}
+                  className="field"
+                  value={digitalContactDraft.phone}
+                  onChange={(event) => {
+                    setDigitalContactDraft((current) => ({ ...current, phone: event.target.value }));
+                    if (digitalContactError) setDigitalContactError('');
+                  }}
+                  onKeyDown={(event) => handleDigitalContactFieldEnter(event, null)}
+                  placeholder="10 digit phone or NO"
+                  required
+                />
+              </label>
+              <button className="primary-button" type="submit">Continue Bill Print</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {showHistory && (
+        <div
+          className="modal-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setShowHistory(false);
+              setSelectedHistoryInvoice(null);
+              setGatePassPreview(null);
+            }
+          }}
+        >
+          <div className="modal history-reprint-modal">
+            <div className="panel-header">
+              <h2 className="panel-title">Old Bills / Reprint</h2>
+              <span className="status-chip">{filteredInvoiceHistory.length} bills</span>
+            </div>
+            <div className="panel-body">
+              <form className="history-search-row" onSubmit={(event) => {
+                event.preventDefault();
+                refreshHistory(false);
+              }}>
+                <label>
+                  <span className="field-label">Bill number / customer</span>
+                  <input
+                    className="field"
+                    value={historySearch}
+                    onChange={(event) => setHistorySearch(event.target.value)}
+                    placeholder="Search invoice no, customer, payment"
+                    autoFocus
+                  />
+                </label>
+                <label>
+                  <span className="field-label">Payment</span>
+                  <select
+                    className="field"
+                    value={historyPaymentMode}
+                    onChange={(event) => setHistoryPaymentMode(event.target.value)}
+                  >
+                    <option value="">All</option>
+                    <option value="UPI">UPI</option>
+                    <option value="Cash">Cash</option>
+                    <option value="Card">Card</option>
+                    <option value="Mixed">Mixed</option>
+                    <option value="Exchange">Exchange</option>
+                  </select>
+                </label>
+                <label>
+                  <span className="field-label">From Date</span>
+                  <input
+                    className="field"
+                    type="date"
+                    value={historyFromDate}
+                    onChange={(event) => setHistoryFromDate(event.target.value)}
+                  />
+                </label>
+                <label>
+                  <span className="field-label">To Date</span>
+                  <input
+                    className="field"
+                    type="date"
+                    value={historyToDate}
+                    onChange={(event) => setHistoryToDate(event.target.value)}
+                  />
+                </label>
+                <button className="secondary-button" type="submit" disabled={isHistoryLoading}>
+                  {isHistoryLoading ? 'Loading...' : 'View'}
+                </button>
+                <button className="secondary-button" onClick={() => {
+                  setHistorySearch('');
+                  setHistoryPaymentMode('');
+                  setHistoryFromDate(localIsoDate());
+                  setHistoryToDate(localIsoDate());
+                  setSelectedHistoryInvoice(null);
+                  setGatePassPreview(null);
+                }} type="button">Clear</button>
+                <button
+                  className="close-action-button"
+                  type="button"
+                  onClick={() => {
+                    setShowHistory(false);
+                    setSelectedHistoryInvoice(null);
+                    setGatePassPreview(null);
+                  }}
+                >
+                  Close
+                </button>
+              </form>
+              <table className="history-table old-bills-compact-table">
+                <thead>
+                  <tr>
+                    <th>Invoice</th>
+                    <th>Customer</th>
+                    <th>Total</th>
+                    <th>Payment</th>
+                    <th>Status</th>
+                    <th>A4 GST API</th>
+                    <th>Created</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredInvoiceHistory.length === 0 ? (
+                    <tr><td colSpan="7">No invoices found.</td></tr>
+                  ) : (
+                    filteredInvoiceHistory.map((invoice) => (
+                      <React.Fragment key={invoice.invoice_no}>
+                      <tr className="old-bill-detail-row">
+                        <td className="mono">
+                          <button
+                            className="link-button mono"
+                            type="button"
+                            disabled={isHistoryInvoiceLoading}
+                            onClick={() => handleViewHistoryInvoice(invoice.invoice_no)}
+                            title={`View ${invoice.invoice_no}`}
+                          >
+                            {invoice.invoice_no}
+                          </button>
+                          <span className="history-invoice-counter">
+                            {invoice.billing_counter || '-'}
+                          </span>
+                        </td>
+                        <td>{invoice.customer_name || 'Walk-in Customer'}</td>
+                        <td><strong>{formatMoney(invoice.grand_total)}</strong></td>
+                        <td>{invoice.payment_mode}</td>
+                        <td>{invoice.invoice_status || 'PAID'}</td>
+                        <td>
+                          <span className="gst-api-status-line">A4 IRN: {invoice.einvoice_status || 'NOT_CREATED'}</span>
+                          <span className="gst-api-status-line">EWB: {invoice.ewaybill_status || 'NOT_CREATED'}</span>
+                        </td>
+                        <td>{invoice.created_at ? new Date(invoice.created_at).toLocaleString() : '-'}</td>
+                      </tr>
+                      <tr className="old-bill-action-row">
+                        <td colSpan="7">
+                          <div className="table-actions old-bill-actions">
+                            <button
+                              className="secondary-button"
+                              type="button"
+                              disabled={isHistoryInvoiceLoading}
+                              onClick={() => handleViewHistoryInvoice(invoice.invoice_no)}
+                            >
+                              View
+                            </button>
+                            <button className="secondary-button" onClick={() => handleReprint(invoice.invoice_no, 'Thermal')}>Reprint</button>
+                            <button className="secondary-button" disabled={isHistoryInvoiceLoading} onClick={() => handleOpenA4PdfPreview(invoice.invoice_no)}>A4 Reprint</button>
+                            <button className="secondary-button" disabled={isHistoryInvoiceLoading} onClick={() => handleOpenA4PdfPreview(invoice.invoice_no)}>A4 PDF</button>
+                            <button className="secondary-button" disabled={isHistoryInvoiceLoading} onClick={() => handleViewGatePass(invoice.invoice_no)}>Gate Pass</button>
+                            {canManageInvoice && invoice.invoice_status !== 'CANCELLED' && invoice.invoice_status !== 'RETURNED' && (
+                              <button className="secondary-button" onClick={() => openReturnInvoice(invoice.invoice_no)}>Return</button>
+                            )}
+                            {canManageInvoice && invoice.invoice_status === 'PAID' && (
+                              <button className="danger-button" onClick={() => handleVoidInvoice(invoice.invoice_no)}>Void</button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      </React.Fragment>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {gatePassPreview && (
+        <div
+          className="modal-backdrop preview-modal-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setGatePassPreview(null);
+            }
+          }}
+        >
+          <div className="modal preview-modal">
+            <div className="reprint-preview-header">
+              <div>
+                <span className="field-label">Gate Pass View</span>
+                <strong className="mono">{gatePassPreview.invoice.invoiceNo}</strong>
+              </div>
+              <button
+                className="close-action-button"
+                type="button"
+                onClick={() => setGatePassPreview(null)}
+              >
+                Close
+              </button>
+            </div>
+            <div className="reprint-preview-meta">
+              <span>{gatePassPreview.invoice.customerName || 'Walk-in Customer'}</span>
+              <span>{gatePassPreview.invoice.date || '-'} {gatePassPreview.invoice.time || ''}</span>
+              <strong>{formatMoney(gatePassPreview.invoice.totals?.grand || 0)}</strong>
+            </div>
+            <div className="reprint-preview-scroll gate-pass-preview-scroll">
+              <GatePassSlip invoice={gatePassPreview.invoice} printedAt={gatePassPreview.printedAt} />
+            </div>
+            <div className="gate-pass-detail-editor">
+              <div className="gate-pass-detail-grid">
+                <div className="gate-pass-detail-pair">
+                  <span className="gate-pass-detail-label">Box</span>
+                  <input
+                    className="field gate-pass-detail-value"
+                    value={gatePassPreview.invoice.gatePassDetails?.boxQty || ''}
+                    onChange={(event) => updateGatePassPreviewDetail('boxQty', event.target.value)}
+                    placeholder="Qty"
+                  />
+                </div>
+                <div className="gate-pass-detail-pair gate-pass-detail-pair-wide-label">
+                  <span className="gate-pass-detail-label">Gunny Bags</span>
+                  <input
+                    className="field gate-pass-detail-value"
+                    value={gatePassPreview.invoice.gatePassDetails?.gunnyBagQty || ''}
+                    onChange={(event) => updateGatePassPreviewDetail('gunnyBagQty', event.target.value)}
+                    placeholder="Qty"
+                  />
+                </div>
+                <div className="gate-pass-detail-pair">
+                  <span className="gate-pass-detail-label">Tins</span>
+                  <input
+                    className="field gate-pass-detail-value"
+                    value={gatePassPreview.invoice.gatePassDetails?.tinsQty || ''}
+                    onChange={(event) => updateGatePassPreviewDetail('tinsQty', event.target.value)}
+                    placeholder="Qty"
+                  />
+                </div>
+                <div className="gate-pass-detail-pair gate-pass-detail-custom-pair">
+                  <input
+                    className="field gate-pass-detail-label-input"
+                    value={gatePassPreview.invoice.gatePassDetails?.counterItemName || ''}
+                    onChange={(event) => updateGatePassPreviewDetail('counterItemName', event.target.value)}
+                    placeholder="Item name"
+                  />
+                  <input
+                    className="field gate-pass-detail-value"
+                    value={gatePassPreview.invoice.gatePassDetails?.counterItemQty || ''}
+                    onChange={(event) => updateGatePassPreviewDetail('counterItemQty', event.target.value)}
+                    placeholder="Qty"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="gate-pass-preview-actions">
+              <button
+                className="primary-button"
+                type="button"
+                onClick={() => printGatePassSlip(gatePassPreview.invoice)}
+              >
+                Print Gate Pass
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedHistoryInvoice && (
+        <div
+          className="modal-backdrop preview-modal-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setSelectedHistoryInvoice(null);
+            }
+          }}
+        >
+          <div className="modal preview-modal">
+            <div className="reprint-preview-header">
+              <div>
+                <span className="field-label">Bill View</span>
+                <strong className="mono">{selectedHistoryInvoice.invoiceNo}</strong>
+              </div>
+              <button className="close-action-button" type="button" onClick={() => setSelectedHistoryInvoice(null)}>Close</button>
+            </div>
+            <div className="reprint-preview-meta">
+              <span>{selectedHistoryInvoice.customerName || 'Walk-in Customer'}</span>
+              <span>{selectedHistoryInvoice.date || '-'} {selectedHistoryInvoice.time || ''}</span>
+              <strong>{formatMoney(selectedHistoryInvoice.totals?.grand || 0)}</strong>
+            </div>
+            <div className="reprint-preview-scroll bill-preview-scroll">
+              <PrintableInvoice invoice={selectedHistoryInvoice} mode="Thermal" />
+            </div>
+            <div className="gate-pass-preview-actions">
+              <button
+                className="primary-button"
+                type="button"
+                onClick={() => handleReprint(selectedHistoryInvoice.invoiceNo, 'Thermal')}
+              >
+                Print Bill
+              </button>
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => handleOpenA4PdfPreview(selectedHistoryInvoice.invoiceNo)}
+              >
+                A4 Print
+              </button>
+              <button
+                className="secondary-button"
+                type="button"
+                disabled={isHistoryInvoiceLoading}
+                onClick={() => handleOpenA4PdfPreview(selectedHistoryInvoice.invoiceNo)}
+              >
+                Download A4 PDF
+              </button>
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => handleViewGatePass(selectedHistoryInvoice.invoiceNo)}
+              >
+                Gate Pass
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {a4PdfPreviewInvoice && (
+        <div
+          className="modal-backdrop preview-modal-backdrop"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setA4PdfPreviewInvoice(null);
+            }
+          }}
+        >
+          <div className="modal preview-modal a4-pdf-preview-modal">
+            <div className="reprint-preview-header">
+              <div>
+                <span className="field-label">A4 PDF View</span>
+                <strong className="mono">{a4PdfPreviewInvoice.invoiceNo}</strong>
+              </div>
+              <button className="close-action-button" type="button" onClick={() => setA4PdfPreviewInvoice(null)}>Close</button>
+            </div>
+            <div className="reprint-preview-meta">
+              <span>{a4PdfPreviewInvoice.customerName || 'Walk-in Customer'}</span>
+              <span>{a4PdfPreviewInvoice.date || '-'} {a4PdfPreviewInvoice.time || ''}</span>
+              <strong>{formatMoney(a4PdfPreviewInvoice.totals?.grand || 0)}</strong>
+            </div>
+            <div className="reprint-preview-scroll a4-pdf-preview-scroll">
+              <PrintableInvoice invoice={a4PdfPreviewInvoice} mode="A4" />
+            </div>
+            <div className="gate-pass-preview-actions">
+              <button
+                className="primary-button"
+                type="button"
+                disabled={isHistoryInvoiceLoading}
+                onClick={() => handleDownloadA4Pdf(a4PdfPreviewInvoice.invoiceNo, a4PdfPreviewInvoice)}
+              >
+                Save A4 PDF
+              </button>
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={() => handleReprint(a4PdfPreviewInvoice.invoiceNo, 'A4')}
+              >
+                A4 Print
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {returnInvoice && (
+        <div className="modal-backdrop">
+          <div className="modal">
+            <div className="panel-header">
+              <h2 className="panel-title">Sales Return - {returnInvoice.invoice.invoice_no}</h2>
+              <button className="close-action-button" type="button" onClick={() => setReturnInvoice(null)}>Close</button>
+            </div>
+            <div className="panel-body form-stack">
+              <div className="customer-grid">
+                <label>
+                  <span className="field-label">Refund Mode</span>
+                  <select className="select" value={refundMode} onChange={(event) => setRefundMode(event.target.value)}>
+                    <option value="Cash">Cash</option>
+                    <option value="UPI">UPI</option>
+                    <option value="Card">Card</option>
+                    <option value="Store Credit">Store Credit</option>
+                  </select>
+                </label>
+                <label>
+                  <span className="field-label">Return Reason</span>
+                  <input className="field" value={returnReason} onChange={(event) => setReturnReason(event.target.value)} placeholder="Damaged / exchange / customer return" />
+                </label>
+              </div>
+              <table className="history-table">
+                <thead>
+                  <tr><th>Product</th><th>Barcode</th><th>Sold</th><th>Already Returned</th><th>Return Qty</th><th>Refund</th></tr>
+                </thead>
+                <tbody>
+                  {returnInvoice.items.map((item) => {
+                    const available = Math.max(toNumber(item.quantity) - toNumber(item.returned_qty), 0);
+                    const qty = Math.min(toNumber(returnQuantities[item.id]), available);
+                    return (
+                      <tr key={item.id}>
+                        <td>{item.product_name}</td>
+                        <td className="mono">{item.barcode}</td>
+                        <td>{item.quantity}</td>
+                        <td>{item.returned_qty}</td>
+                        <td>
+                          <input
+                            className="field qty-input"
+                            type="number"
+                            min="0"
+                            max={available}
+                            step="0.01"
+                            value={returnQuantities[item.id] || ''}
+                            onChange={(event) => setReturnQuantities((current) => ({ ...current, [item.id]: event.target.value }))}
+                          />
+                        </td>
+                        <td><strong>{formatMoney(qty * toNumber(item.sale_price))}</strong></td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+              <button className="primary-button" onClick={submitSalesReturn}>Save Return</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {quotationDialogOpen && (
+        <div className="modal-backdrop">
+          <form className="modal quotation-modal" onSubmit={submitQuotation}>
+            <div className="panel-header green">
+              <h2 className="panel-title">Create Secure Quotation</h2>
+              <button className="close-action-button" type="button" onClick={() => setQuotationDialogOpen(false)}>Cancel</button>
+            </div>
+            <div className="panel-body form-stack">
+              <div className="alert-box">A4 PDF only. This will not reduce stock, create a sale, take payment, or use POS/thermal print.</div>
+              {errorMessage && <div className="alert-box">{errorMessage}</div>}
+              <div className="quotation-modal-grid">
+                <label><span className="field-label">Customer name</span><input className="field" value={quotationDraft.customerName} onChange={(event) => setQuotationDraft((current) => ({ ...current, customerName: event.target.value }))} required autoFocus /></label>
+                <label><span className="field-label">Phone</span><input className="field" value={quotationDraft.customerPhone} onChange={(event) => setQuotationDraft((current) => ({ ...current, customerPhone: event.target.value.replace(/\D/g, '').slice(0, 10) }))} inputMode="numeric" /></label>
+                <label><span className="field-label">Address</span><input className="field" value={quotationDraft.customerAddress} onChange={(event) => setQuotationDraft((current) => ({ ...current, customerAddress: event.target.value }))} /></label>
+                <label><span className="field-label">Valid for (days)</span><input className="field" type="number" min="1" max="365" value={quotationDraft.validityDays} onChange={(event) => setQuotationDraft((current) => ({ ...current, validityDays: event.target.value }))} required /></label>
+                <label className="quotation-notes-field"><span className="field-label">Quotation notes / terms</span><textarea className="field" rows="2" value={quotationDraft.notes} onChange={(event) => setQuotationDraft((current) => ({ ...current, notes: event.target.value }))} /></label>
+                <label><span className="field-label">Admin / Server username</span><input className="field" value={quotationDraft.username} onChange={(event) => setQuotationDraft((current) => ({ ...current, username: event.target.value }))} autoComplete="username" required /></label>
+                <label><span className="field-label">Password</span><input className="field" type="password" value={quotationDraft.password} onChange={(event) => setQuotationDraft((current) => ({ ...current, password: event.target.value }))} autoComplete="current-password" required /></label>
+              </div>
+              <button className="primary-button" type="submit" disabled={isQuotationSaving}>{isQuotationSaving ? 'Authorizing...' : 'Authorize & Download A4 PDF'}</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {quotationPreview && (
+        <div className="modal-backdrop preview-modal-backdrop">
+          <div className="modal quotation-preview-modal">
+            <div className="reprint-preview-header">
+              <div><span className="field-label">Quotation A4 PDF</span><strong className="mono">{quotationPreview.quotationNo}</strong></div>
+              <button className="close-action-button" type="button" onClick={() => setQuotationPreview(null)}>Close</button>
+            </div>
+            <div className="reprint-preview-meta"><span>{quotationPreview.customerName}</span><span>Valid {quotationPreview.validityDays} days</span><strong>{formatMoney(quotationPreview.totals.grand)}</strong></div>
+            <div className="quotation-preview-scroll"><PrintableQuotation quotation={quotationPreview} /></div>
+            <div className="gate-pass-preview-actions">
+              <button className="primary-button" type="button" disabled={isQuotationSaving} onClick={() => saveQuotationPdf(quotationPreview)}>Download A4 PDF Again</button>
+              <span>No POS/Thermal print option is available for quotations.</span>
+            </div>
+          </div>
+        </div>
+      )}
+      {approvalDialog && (
+        <div className="modal-backdrop">
+          <form className="modal supervisor-approval-modal" onSubmit={submitModeApproval}>
+            <div className="panel-header">
+              <h2 className="panel-title">{approvalDialog.title}</h2>
+              <button className="close-action-button" type="button" onClick={closeApprovalDialog}>Cancel</button>
+            </div>
+            <div className="panel-body form-stack">
+              <div className="sensitive-bill-warning">{approvalDialog.message}</div>
+              {approvalError && <div className="alert-box">{approvalError}</div>}
+              <label>
+                <span className="field-label">Counter person username/code</span>
+                <input
+                  className="field"
+                  value={approvalUsername}
+                  onChange={(event) => setApprovalUsername(event.target.value)}
+                  autoFocus
+                  required
+                />
+              </label>
+              <label>
+                <span className="field-label">Password</span>
+                <input
+                  className="field"
+                  type="password"
+                  value={approvalPassword}
+                  onChange={(event) => setApprovalPassword(event.target.value)}
+                  required
+                />
+              </label>
+              <button className="primary-button sensitive-approval-button" type="submit" disabled={isApprovingMode}>
+                {isApprovingMode
+                  ? 'Verifying...'
+                  : `Approve ${approvalDialog.action === 'PRINT_MODE'
+                    ? approvalDialog.targetPrintMode
+                      : BILLING_MODES[approvalDialog.targetMode].label}`}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div className={`print-area ${printMode === 'Thermal' ? 'print-thermal' : 'print-a4'}`} aria-hidden="true">
+        <PrintableInvoice invoice={printableInvoice || printableDraft} mode={printMode} />
+      </div>
+    </div>
+  );
+}

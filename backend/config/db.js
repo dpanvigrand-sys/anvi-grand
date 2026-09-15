@@ -1,0 +1,1610 @@
+const mysql = require('mysql2/promise');
+const crypto = require('crypto');
+const { logError, logInfo } = require('../services/logger');
+require('dotenv').config();
+
+const DB_CONNECTION_LIMIT = Number.parseInt(process.env.DB_CONNECTION_LIMIT, 10) || 20;
+const DB_IDLE_TIMEOUT_MS = Number.parseInt(process.env.DB_IDLE_TIMEOUT_MS, 10) || 30000;
+const DB_CONNECT_TIMEOUT_MS = Number.parseInt(process.env.DB_CONNECT_TIMEOUT_MS, 10) || 10000;
+const DB_RETRY_DELAY_MS = Number.parseInt(process.env.DB_RETRY_DELAY_MS, 10) || 250;
+const DB_RETRYABLE_ERRORS = new Set([
+  'PROTOCOL_CONNECTION_LOST',
+  'PROTOCOL_ENQUEUE_AFTER_FATAL_ERROR',
+  'ECONNRESET',
+  'ECONNREFUSED',
+  'ETIMEDOUT',
+  'EPIPE'
+]);
+
+const pool = mysql.createPool({
+  host: process.env.DB_HOST || 'localhost',
+  user: process.env.DB_USER || 'root',
+  password: process.env.DB_PASSWORD || '1234',
+  database: process.env.DB_NAME || 'badizo_pos',
+  waitForConnections: true,
+  connectionLimit: DB_CONNECTION_LIMIT,
+  maxIdle: DB_CONNECTION_LIMIT,
+  idleTimeout: DB_IDLE_TIMEOUT_MS,
+  connectTimeout: DB_CONNECT_TIMEOUT_MS,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0,
+  queueLimit: 0
+});
+
+const rawQuery = pool.query.bind(pool);
+const rawExecute = pool.execute.bind(pool);
+const rawGetConnection = pool.getConnection.bind(pool);
+
+function isRetryableDbError(err) {
+  return Boolean(err && (DB_RETRYABLE_ERRORS.has(err.code) || err.fatal === true));
+}
+
+function isReadOnlySql(sql) {
+  if (typeof sql === 'string') {
+    return /^(SELECT|SHOW|DESCRIBE|EXPLAIN)\b/i.test(sql.trim());
+  }
+
+  if (sql && typeof sql.sql === 'string') {
+    return isReadOnlySql(sql.sql);
+  }
+
+  return false;
+}
+
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function runWithReconnect(operationName, operation, shouldRetry = true) {
+  try {
+    return await operation();
+  } catch (err) {
+    if (!shouldRetry || !isRetryableDbError(err)) {
+      throw err;
+    }
+
+    logError(`Database ${operationName} connection dropped; retrying once`, err);
+    await wait(DB_RETRY_DELAY_MS);
+    return operation();
+  }
+}
+
+pool.query = (...args) => runWithReconnect('query', () => rawQuery(...args), isReadOnlySql(args[0]));
+pool.execute = (...args) => runWithReconnect('execute', () => rawExecute(...args), isReadOnlySql(args[0]));
+pool.getConnection = () => runWithReconnect('connection checkout', async () => {
+  const connection = await rawGetConnection();
+
+  try {
+    await connection.ping();
+    return connection;
+  } catch (err) {
+    connection.destroy();
+    throw err;
+  }
+});
+
+async function ensureColumn(connection, tableName, columnName, definition) {
+  const [rows] = await connection.query(
+    `SELECT COLUMN_NAME
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+    [tableName, columnName]
+  );
+
+  if (rows.length === 0) {
+    await connection.query(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
+  }
+}
+
+async function ensureIndex(connection, tableName, indexName, definition) {
+  const [rows] = await connection.query(
+    `SELECT INDEX_NAME
+     FROM INFORMATION_SCHEMA.STATISTICS
+     WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND INDEX_NAME = ?
+     LIMIT 1`,
+    [tableName, indexName]
+  );
+
+  if (rows.length === 0) {
+    await connection.query(`ALTER TABLE ${tableName} ADD INDEX ${indexName} ${definition}`);
+  }
+}
+
+function hashPassword(password, salt = crypto.randomBytes(16).toString('hex')) {
+  const hash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
+  return `${salt}:${hash}`;
+}
+
+(async () => {
+  let connection;
+
+  try {
+    connection = await pool.getConnection();
+    console.log('Database connected.');
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS users (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        username VARCHAR(100) NOT NULL UNIQUE,
+        password_hash VARCHAR(255) NOT NULL,
+        role ENUM('SERVER', 'ADMIN', 'COUNTER', 'SECURITY') NOT NULL DEFAULT 'COUNTER',
+        counter_no INT DEFAULT NULL,
+        is_active TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_user_role (role),
+        INDEX idx_user_counter (counter_no)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS products (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        product_code VARCHAR(60) DEFAULT NULL UNIQUE,
+        barcode VARCHAR(120) NOT NULL UNIQUE,
+        product_name VARCHAR(255) NOT NULL,
+        alias_names TEXT DEFAULT NULL,
+        hsn_code VARCHAR(20) DEFAULT NULL,
+        gst_percent DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+        sales_sgst_percent DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+        sales_cgst_percent DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+        sales_igst_percent DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+        unit_type VARCHAR(40) NOT NULL DEFAULT 'Nos',
+        pack_measure VARCHAR(60) NOT NULL DEFAULT '',
+        purchase_unit_type VARCHAR(30) NOT NULL DEFAULT 'Loose',
+        purchase_unit_size DECIMAL(12,3) NOT NULL DEFAULT 1.000,
+        mrp DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        purchase_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        sale_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        wholesale_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        qty_3_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        qty_6_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        qty_12_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        qty_12_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        discount_type ENUM('PERCENT', 'VALUE') NOT NULL DEFAULT 'PERCENT',
+        discount_value DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        bulk_discount_value DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        is_free_item TINYINT(1) NOT NULL DEFAULT 0,
+        free_promo_enabled TINYINT(1) NOT NULL DEFAULT 0,
+        free_promo_name VARCHAR(255) DEFAULT '',
+        free_promo_qty_per_sale DECIMAL(12,3) NOT NULL DEFAULT 1.000,
+        free_promo_total_qty DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        free_promo_remaining_qty DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        stock_qty DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        min_stock_alert DECIMAL(10,2) NOT NULL DEFAULT 10.00,
+        default_batch_no VARCHAR(80) DEFAULT '',
+        default_mfd_date DATE DEFAULT NULL,
+        default_expiry_date DATE DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_product_code (product_code),
+        INDEX idx_barcode (barcode),
+        INDEX idx_product_name (product_name)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS product_import_jobs (
+        id CHAR(36) PRIMARY KEY,
+        file_name VARCHAR(255) DEFAULT '',
+        status ENUM('QUEUED', 'RUNNING', 'SUCCESS', 'FAILED', 'PARTIAL SUCCESS', 'ROLLED BACK') NOT NULL DEFAULT 'QUEUED',
+        total_rows INT NOT NULL DEFAULT 0,
+        valid_rows INT NOT NULL DEFAULT 0,
+        inserted_count INT NOT NULL DEFAULT 0,
+        updated_count INT NOT NULL DEFAULT 0,
+        error_rows INT NOT NULL DEFAULT 0,
+        skipped_count INT NOT NULL DEFAULT 0,
+        batch_count INT NOT NULL DEFAULT 0,
+        failure_message TEXT DEFAULT NULL,
+        rollback_status ENUM('ACTIVE', 'ROLLED_BACK') NOT NULL DEFAULT 'ACTIVE',
+        rollback_at TIMESTAMP NULL DEFAULT NULL,
+        rollback_by VARCHAR(100) DEFAULT NULL,
+        created_by VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_product_import_jobs_created (created_at),
+        INDEX idx_product_import_jobs_status (status)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS product_import_lines (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        import_id CHAR(36) NOT NULL,
+        row_no INT NOT NULL,
+        product_code VARCHAR(60) DEFAULT '',
+        barcode VARCHAR(120) DEFAULT '',
+        product_name VARCHAR(255) DEFAULT '',
+        action_status ENUM('INSERTED', 'UPDATED', 'ERROR', 'SKIPPED', 'ROLLED_BACK') NOT NULL DEFAULT 'ERROR',
+        error_message TEXT DEFAULT NULL,
+        previous_product_json JSON DEFAULT NULL,
+        imported_product_json JSON DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_product_import_lines_import (import_id),
+        INDEX idx_product_import_lines_status (action_status),
+        INDEX idx_product_import_lines_barcode (barcode),
+        CONSTRAINT fk_product_import_lines_job FOREIGN KEY (import_id) REFERENCES product_import_jobs(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS price_list_update_jobs (
+        id CHAR(36) PRIMARY KEY,
+        status ENUM('QUEUED', 'RUNNING', 'SUCCESS', 'FAILED', 'PARTIAL SUCCESS') NOT NULL DEFAULT 'QUEUED',
+        filter_group VARCHAR(80) DEFAULT 'ALL PRODUCTS',
+        filter_description VARCHAR(255) DEFAULT '',
+        filter_updated_before DATE DEFAULT NULL,
+        property_name VARCHAR(60) NOT NULL,
+        property_label VARCHAR(120) NOT NULL,
+        property_value VARCHAR(255) NOT NULL,
+        property_value_json JSON DEFAULT NULL,
+        update_date DATE DEFAULT NULL,
+        total_count INT NOT NULL DEFAULT 0,
+        processed_count INT NOT NULL DEFAULT 0,
+        updated_count INT NOT NULL DEFAULT 0,
+        failed_count INT NOT NULL DEFAULT 0,
+        failure_message TEXT DEFAULT NULL,
+        created_by VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        started_at TIMESTAMP NULL DEFAULT NULL,
+        completed_at TIMESTAMP NULL DEFAULT NULL,
+        INDEX idx_price_list_jobs_status (status),
+        INDEX idx_price_list_jobs_created (created_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+    await ensureColumn(connection, 'price_list_update_jobs', 'filter_updated_before', 'DATE DEFAULT NULL AFTER filter_description');
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS price_list_update_lines (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        job_id CHAR(36) NOT NULL,
+        barcode VARCHAR(120) NOT NULL,
+        product_code VARCHAR(60) DEFAULT '',
+        product_name VARCHAR(255) DEFAULT '',
+        action_status ENUM('UPDATED', 'ERROR') NOT NULL DEFAULT 'UPDATED',
+        error_message TEXT DEFAULT NULL,
+        previous_product_json JSON DEFAULT NULL,
+        updated_product_json JSON DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_price_list_lines_job (job_id),
+        INDEX idx_price_list_lines_status (action_status),
+        INDEX idx_price_list_lines_barcode (barcode),
+        CONSTRAINT fk_price_list_update_lines_job FOREIGN KEY (job_id) REFERENCES price_list_update_jobs(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS invoices (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        invoice_no VARCHAR(50) NOT NULL UNIQUE,
+        financial_year VARCHAR(7) DEFAULT NULL,
+        serial_no BIGINT DEFAULT NULL,
+        checkout_request_id VARCHAR(64) DEFAULT NULL UNIQUE,
+        customer_phone VARCHAR(15) DEFAULT NULL,
+        customer_name VARCHAR(150) DEFAULT 'Walk-in Customer',
+        customer_address VARCHAR(255) DEFAULT NULL,
+        sub_total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        gst_total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        grand_total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        cash_received DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        change_returned DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        payment_mode ENUM('Cash', 'UPI', 'Card', 'Mixed') NOT NULL DEFAULT 'Cash',
+        payment_status ENUM('PENDING', 'PAID', 'FAILED') NOT NULL DEFAULT 'PAID',
+        payment_reference VARCHAR(120) DEFAULT NULL,
+        billing_counter VARCHAR(20) NOT NULL DEFAULT 'Counter 1',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        transaction_type ENUM('B2C', 'B2B') NOT NULL DEFAULT 'B2C',
+        billing_tier ENUM('RETAIL', 'WHOLESALE') NOT NULL DEFAULT 'RETAIL',
+        tax_type ENUM('LOCAL', 'INTERSTATE') NOT NULL DEFAULT 'LOCAL',
+        customer_company_name VARCHAR(255) DEFAULT NULL,
+        customer_gstin VARCHAR(15) DEFAULT NULL,
+        total_cgst DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        total_sgst DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        total_igst DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        exchange_total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        exchange_items_json JSON DEFAULT NULL,
+        loyalty_redeemed_points DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        loyalty_redeemed_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        invoice_status VARCHAR(20) NOT NULL DEFAULT 'PAID',
+        cancel_reason VARCHAR(255) DEFAULT NULL,
+        cancelled_by VARCHAR(100) DEFAULT NULL,
+        cancelled_at TIMESTAMP NULL DEFAULT NULL,
+        reprint_count INT NOT NULL DEFAULT 0,
+        einvoice_status VARCHAR(30) NOT NULL DEFAULT 'NOT_CREATED',
+        einvoice_irn VARCHAR(120) DEFAULT NULL,
+        einvoice_ack_no VARCHAR(80) DEFAULT NULL,
+        einvoice_ack_date DATETIME DEFAULT NULL,
+        ewaybill_status VARCHAR(30) NOT NULL DEFAULT 'NOT_CREATED',
+        ewaybill_no VARCHAR(80) DEFAULT NULL,
+        ewaybill_date DATETIME DEFAULT NULL,
+        ewaybill_valid_upto DATETIME DEFAULT NULL,
+        INDEX idx_invoice_no (invoice_no),
+        INDEX idx_invoice_financial_year_serial (financial_year, serial_no),
+        INDEX idx_created_at (created_at),
+        INDEX idx_invoice_status (invoice_status)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS quotation_sequences (
+        sequence_date DATE PRIMARY KEY,
+        last_number INT NOT NULL DEFAULT 0,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS quotations (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        quotation_no VARCHAR(50) NOT NULL UNIQUE,
+        customer_name VARCHAR(150) NOT NULL DEFAULT 'Walk-in Customer',
+        customer_phone VARCHAR(20) DEFAULT '',
+        customer_address VARCHAR(500) DEFAULT '',
+        customer_gstin VARCHAR(15) DEFAULT '',
+        billing_counter VARCHAR(40) DEFAULT '',
+        billing_tier ENUM('RETAIL', 'WHOLESALE') NOT NULL DEFAULT 'RETAIL',
+        tax_type ENUM('LOCAL', 'INTERSTATE') NOT NULL DEFAULT 'LOCAL',
+        sub_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        gst_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        round_off DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        grand_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        validity_days INT NOT NULL DEFAULT 7,
+        notes TEXT DEFAULT NULL,
+        status ENUM('ACTIVE', 'EXPIRED', 'CONVERTED', 'CANCELLED') NOT NULL DEFAULT 'ACTIVE',
+        created_by VARCHAR(100) DEFAULT '',
+        approved_by VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_quotation_created (created_at),
+        INDEX idx_quotation_status_created (status, created_at),
+        INDEX idx_quotation_customer (customer_name, customer_phone)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS quotation_items (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        quotation_no VARCHAR(50) NOT NULL,
+        line_no INT NOT NULL,
+        barcode VARCHAR(120) DEFAULT '',
+        product_name VARCHAR(255) NOT NULL,
+        hsn_code VARCHAR(20) DEFAULT '',
+        unit_type VARCHAR(40) DEFAULT '',
+        pack_measure VARCHAR(60) DEFAULT '',
+        quantity DECIMAL(12,3) NOT NULL DEFAULT 1.000,
+        mrp DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        sale_price DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        gst_percent DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+        taxable_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        tax_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        line_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_quotation_items_no_line (quotation_no, line_no),
+        CONSTRAINT fk_quotation_items_header FOREIGN KEY (quotation_no) REFERENCES quotations(quotation_no) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS invoice_items (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        invoice_no VARCHAR(50) NOT NULL,
+        barcode VARCHAR(120) NOT NULL,
+        product_name VARCHAR(255) NOT NULL,
+        hsn_code VARCHAR(20) DEFAULT '',
+        quantity DECIMAL(10,2) NOT NULL DEFAULT 1.00,
+        sale_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        gst_percent DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+        cgst_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        sgst_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        igst_amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        is_free_bonus TINYINT(1) NOT NULL DEFAULT 0,
+        free_offer_id BIGINT DEFAULT NULL,
+        returned_qty DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        FOREIGN KEY (invoice_no) REFERENCES invoices(invoice_no) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS product_batches (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        barcode VARCHAR(120) NOT NULL,
+        batch_no VARCHAR(80) NOT NULL DEFAULT '',
+        expiry_date DATE DEFAULT NULL,
+        inward_no VARCHAR(50) DEFAULT NULL,
+        purchase_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        mrp DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        quantity_received DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        quantity_available DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_product_batch (barcode, batch_no, expiry_date),
+        INDEX idx_product_batch_barcode (barcode),
+        INDEX idx_product_batch_expiry (expiry_date)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS barcode_print_logs (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        barcode VARCHAR(120) NOT NULL,
+        product_name VARCHAR(255) NOT NULL,
+        mrp DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        sale_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        pkd_date VARCHAR(20) DEFAULT '',
+        qty VARCHAR(20) DEFAULT '',
+        unit VARCHAR(20) DEFAULT '',
+        template_name VARCHAR(120) NOT NULL,
+        sticker_size VARCHAR(80) DEFAULT '',
+        printer_name VARCHAR(120) DEFAULT '',
+        sticker_count INT NOT NULL DEFAULT 1,
+        output_name VARCHAR(255) DEFAULT '',
+        output_path VARCHAR(500) DEFAULT '',
+        created_by VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_barcode_print_created_at (created_at),
+        INDEX idx_barcode_print_barcode (barcode),
+        INDEX idx_barcode_print_product (product_name)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS password_vault (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        category VARCHAR(40) NOT NULL DEFAULT 'STORE_PROTECTED',
+        slot_no TINYINT NOT NULL UNIQUE,
+        title VARCHAR(120) NOT NULL DEFAULT '',
+        username VARCHAR(120) DEFAULT '',
+        secret_encrypted TEXT DEFAULT NULL,
+        notes VARCHAR(255) DEFAULT '',
+        updated_by VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_password_vault_slot (slot_no),
+        INDEX idx_password_vault_category (category)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS invoice_item_batches (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        invoice_item_id BIGINT NOT NULL,
+        invoice_no VARCHAR(50) NOT NULL,
+        barcode VARCHAR(120) NOT NULL,
+        batch_no VARCHAR(80) NOT NULL DEFAULT '',
+        expiry_date DATE DEFAULT NULL,
+        quantity DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        returned_qty DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_invoice_item_batches_invoice (invoice_no),
+        INDEX idx_invoice_item_batches_item (invoice_item_id),
+        INDEX idx_invoice_item_batches_barcode (barcode),
+        FOREIGN KEY (invoice_item_id) REFERENCES invoice_items(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS batch_free_offers (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        trigger_barcode VARCHAR(120) NOT NULL,
+        trigger_batch_no VARCHAR(80) NOT NULL DEFAULT '',
+        trigger_expiry_date DATE DEFAULT NULL,
+        inward_no VARCHAR(50) DEFAULT NULL,
+        free_barcode VARCHAR(120) NOT NULL,
+        free_product_name VARCHAR(255) NOT NULL,
+        free_qty_per_sale DECIMAL(12,3) NOT NULL DEFAULT 1.000,
+        free_qty_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        free_qty_remaining DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        is_active TINYINT(1) NOT NULL DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_batch_free_offer (trigger_barcode, trigger_batch_no, trigger_expiry_date, free_barcode),
+        INDEX idx_batch_free_trigger (trigger_barcode, trigger_batch_no),
+        INDEX idx_batch_free_item (free_barcode),
+        INDEX idx_batch_free_active (is_active, free_qty_remaining)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS invoice_payments (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        invoice_no VARCHAR(50) NOT NULL,
+        payment_mode ENUM('Cash', 'UPI', 'Card') NOT NULL,
+        amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        payment_reference VARCHAR(120) DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_invoice_payments_invoice (invoice_no),
+        INDEX idx_invoice_payments_mode (payment_mode),
+        FOREIGN KEY (invoice_no) REFERENCES invoices(invoice_no) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS held_bills (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        hold_token VARCHAR(80) NOT NULL UNIQUE,
+        counter_no INT NOT NULL DEFAULT 1,
+        customer_name VARCHAR(150) DEFAULT 'Walk-in Customer',
+        customer_phone VARCHAR(20) DEFAULT '',
+        bill_total DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        item_count INT NOT NULL DEFAULT 0,
+        saved_state JSON NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_hold_counter (counter_no),
+        INDEX idx_hold_updated_at (updated_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS invoice_sequences (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        financial_year VARCHAR(7) NOT NULL,
+        counter_no TINYINT NOT NULL,
+        next_number BIGINT NOT NULL DEFAULT 1,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_invoice_sequence (financial_year, counter_no)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS inward_sequences (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        financial_year VARCHAR(7) NOT NULL,
+        next_number BIGINT NOT NULL DEFAULT 1,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_inward_sequence (financial_year)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS app_settings (
+        setting_key VARCHAR(100) PRIMARY KEY,
+        setting_value VARCHAR(255) NOT NULL,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS inward_entries (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        inward_no VARCHAR(50) NOT NULL UNIQUE,
+        financial_year VARCHAR(7) DEFAULT NULL,
+        serial_no BIGINT DEFAULT NULL,
+        supplier_name VARCHAR(255) NOT NULL,
+        supplier_address VARCHAR(255) DEFAULT '',
+        supplier_gstin VARCHAR(20) DEFAULT '',
+        supplier_phone VARCHAR(20) DEFAULT '',
+        supplier_invoice_no VARCHAR(100) DEFAULT '',
+        supplier_invoice_date DATE DEFAULT NULL,
+        payment_mode ENUM('Credit', 'Cash') NOT NULL DEFAULT 'Credit',
+        payment_terms VARCHAR(120) DEFAULT '',
+        due_date DATE DEFAULT NULL,
+        paid_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        due_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        payment_status ENUM('PAID', 'PARTIAL', 'DUE', 'OVERDUE') NOT NULL DEFAULT 'DUE',
+        item_count INT NOT NULL DEFAULT 0,
+        total_qty DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        taxable_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        gst_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        total_cgst DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        total_sgst DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        total_igst DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        grand_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        tax_type ENUM('LOCAL', 'INTERSTATE') NOT NULL DEFAULT 'LOCAL',
+        created_by VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_inward_financial_year_serial (financial_year, serial_no),
+        INDEX idx_inward_created_at (created_at),
+        INDEX idx_supplier_invoice_no (supplier_invoice_no)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS inward_items (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        inward_no VARCHAR(50) NOT NULL,
+        barcode VARCHAR(120) NOT NULL,
+        product_name VARCHAR(255) NOT NULL,
+        hsn_code VARCHAR(20) DEFAULT '',
+        gst_percent DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+        purchase_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        discount_percent DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        discount_type ENUM('PERCENT', 'VALUE') NOT NULL DEFAULT 'PERCENT',
+        discount_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        scheme VARCHAR(100) DEFAULT '',
+        scheme_type ENUM('PERCENT', 'VALUE') NOT NULL DEFAULT 'PERCENT',
+        scheme_value DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        scheme_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        batch_no VARCHAR(80) DEFAULT '',
+        expiry_date DATE DEFAULT NULL,
+        free_qty DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        free_offer_enabled TINYINT(1) NOT NULL DEFAULT 0,
+        free_offer_barcode VARCHAR(120) DEFAULT '',
+        free_offer_product_name VARCHAR(255) DEFAULT '',
+        free_offer_qty_per_sale DECIMAL(12,3) NOT NULL DEFAULT 1.000,
+        free_offer_total_qty DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        mrp DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        quantity DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        taxable_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        gst_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        cgst_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        sgst_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        igst_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        total_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        FOREIGN KEY (inward_no) REFERENCES inward_entries(inward_no) ON DELETE CASCADE,
+        INDEX idx_inward_items_barcode (barcode)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS suppliers (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        supplier_name VARCHAR(255) NOT NULL,
+        supplier_address VARCHAR(255) DEFAULT '',
+        supplier_gstin VARCHAR(20) DEFAULT '',
+        supplier_phone VARCHAR(20) DEFAULT '',
+        contact_person VARCHAR(120) DEFAULT '',
+        payment_terms VARCHAR(120) DEFAULT '',
+        account_holder_name VARCHAR(150) DEFAULT '',
+        bank_name VARCHAR(150) DEFAULT '',
+        bank_branch VARCHAR(150) DEFAULT '',
+        bank_account_no VARCHAR(80) DEFAULT '',
+        bank_ifsc VARCHAR(20) DEFAULT '',
+        upi_id VARCHAR(120) DEFAULT '',
+        is_active TINYINT(1) NOT NULL DEFAULT 1,
+        created_by VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_supplier_identity (supplier_name, supplier_gstin),
+        INDEX idx_supplier_name (supplier_name),
+        INDEX idx_supplier_phone (supplier_phone)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS purchase_orders (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        po_no VARCHAR(60) NOT NULL UNIQUE,
+        supplier_name VARCHAR(255) NOT NULL,
+        supplier_address VARCHAR(255) DEFAULT '',
+        supplier_gstin VARCHAR(20) DEFAULT '',
+        supplier_phone VARCHAR(20) DEFAULT '',
+        expected_date DATE DEFAULT NULL,
+        status ENUM('DRAFT', 'ORDERED', 'RECEIVED', 'CANCELLED') NOT NULL DEFAULT 'DRAFT',
+        item_count INT NOT NULL DEFAULT 0,
+        total_qty DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        estimated_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        notes VARCHAR(255) DEFAULT '',
+        created_by VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_purchase_order_status (status),
+        INDEX idx_purchase_order_supplier (supplier_name),
+        INDEX idx_purchase_order_expected_date (expected_date)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS purchase_order_items (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        po_no VARCHAR(60) NOT NULL,
+        barcode VARCHAR(120) NOT NULL,
+        product_name VARCHAR(255) NOT NULL,
+        current_stock DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        min_stock_alert DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        order_qty DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        purchase_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        line_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        note VARCHAR(255) DEFAULT '',
+        FOREIGN KEY (po_no) REFERENCES purchase_orders(po_no) ON DELETE CASCADE,
+        INDEX idx_purchase_order_items_po (po_no),
+        INDEX idx_purchase_order_items_barcode (barcode)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS supplier_payments (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        inward_no VARCHAR(50) NOT NULL,
+        supplier_name VARCHAR(255) NOT NULL,
+        supplier_gstin VARCHAR(20) DEFAULT '',
+        payment_date DATE NOT NULL,
+        amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        payment_mode ENUM('Cash', 'UPI', 'Bank Transfer', 'Cheque', 'Other') NOT NULL DEFAULT 'Bank Transfer',
+        reference_no VARCHAR(120) DEFAULT '',
+        notes VARCHAR(255) DEFAULT '',
+        created_by VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_supplier_payment_inward (inward_no),
+        INDEX idx_supplier_payment_supplier (supplier_name),
+        INDEX idx_supplier_payment_date (payment_date),
+        FOREIGN KEY (inward_no) REFERENCES inward_entries(inward_no) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS audit_logs (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        user_id BIGINT DEFAULT NULL,
+        username VARCHAR(100) DEFAULT 'system',
+        role VARCHAR(30) DEFAULT 'SYSTEM',
+        action VARCHAR(80) NOT NULL,
+        entity_type VARCHAR(80) NOT NULL,
+        entity_id VARCHAR(120) DEFAULT NULL,
+        details JSON DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_audit_created_at (created_at),
+        INDEX idx_audit_entity (entity_type, entity_id),
+        INDEX idx_audit_user (username)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS user_session_events (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        session_id VARCHAR(80) NOT NULL,
+        user_id BIGINT DEFAULT NULL,
+        username VARCHAR(100) NOT NULL,
+        person_name VARCHAR(120) DEFAULT '',
+        role VARCHAR(30) NOT NULL,
+        counter_no INT DEFAULT NULL,
+        event_type ENUM('LOGIN', 'LOGOUT') NOT NULL,
+        ip_address VARCHAR(80) DEFAULT '',
+        user_agent VARCHAR(255) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_user_session_created (created_at),
+        INDEX idx_user_session_user (username),
+        INDEX idx_user_session_event (event_type),
+        INDEX idx_user_session_id (session_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+    await ensureColumn(connection, 'user_session_events', 'person_name', "VARCHAR(120) DEFAULT '' AFTER username");
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS gate_pass_entries (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        pass_no VARCHAR(80) NOT NULL UNIQUE,
+        movement_type ENUM('IN', 'OUT') NOT NULL,
+        movement_date DATE NOT NULL,
+        movement_time TIME NOT NULL,
+        unload_start_time TIME DEFAULT NULL,
+        unload_end_time TIME DEFAULT NULL,
+        loading_start_time TIME DEFAULT NULL,
+        loading_end_time TIME DEFAULT NULL,
+        transport_mode ENUM('TRANSPORT', 'AUTO', 'TROLLEY', 'RIKSHA', 'HUMAN', 'OTHER') NOT NULL DEFAULT 'TRANSPORT',
+        source_location VARCHAR(180) DEFAULT '',
+        destination_location VARCHAR(180) DEFAULT '',
+        party_name VARCHAR(180) DEFAULT '',
+        party_phone VARCHAR(20) DEFAULT '',
+        vehicle_no VARCHAR(60) DEFAULT '',
+        driver_name VARCHAR(120) DEFAULT '',
+        driver_phone VARCHAR(20) DEFAULT '',
+        supervisor_name VARCHAR(120) DEFAULT '',
+        supervisor_phone VARCHAR(20) DEFAULT '',
+        security_person_name VARCHAR(120) DEFAULT '',
+        security_person_phone VARCHAR(20) DEFAULT '',
+        document_no VARCHAR(120) DEFAULT '',
+        item_summary VARCHAR(255) DEFAULT '',
+        package_count INT NOT NULL DEFAULT 0,
+        remarks VARCHAR(255) DEFAULT '',
+        status ENUM('OPEN', 'VERIFIED', 'CANCELLED') NOT NULL DEFAULT 'OPEN',
+        created_by VARCHAR(100) DEFAULT '',
+        updated_by VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_gate_pass_date (movement_date),
+        INDEX idx_gate_pass_type (movement_type),
+        INDEX idx_gate_pass_status (status),
+        INDEX idx_gate_pass_party (party_name)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+    await ensureColumn(connection, 'gate_pass_entries', 'unload_start_time', 'TIME DEFAULT NULL AFTER movement_time');
+    await ensureColumn(connection, 'gate_pass_entries', 'unload_end_time', 'TIME DEFAULT NULL AFTER unload_start_time');
+    await ensureColumn(connection, 'gate_pass_entries', 'loading_start_time', 'TIME DEFAULT NULL AFTER unload_end_time');
+    await ensureColumn(connection, 'gate_pass_entries', 'loading_end_time', 'TIME DEFAULT NULL AFTER loading_start_time');
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS stock_adjustments (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        barcode VARCHAR(120) NOT NULL,
+        product_name VARCHAR(255) NOT NULL,
+        old_qty DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        adjustment_qty DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        new_qty DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        reason ENUM('DAMAGE', 'EXPIRY', 'WASTAGE', 'THEFT', 'STOCK_AUDIT', 'OTHER') NOT NULL DEFAULT 'OTHER',
+        note VARCHAR(255) DEFAULT '',
+        created_by VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_stock_adjustment_barcode (barcode),
+        INDEX idx_stock_adjustment_created_at (created_at),
+        INDEX idx_stock_adjustment_reason (reason)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sales_returns (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        return_no VARCHAR(60) NOT NULL UNIQUE,
+        invoice_no VARCHAR(50) NOT NULL,
+        reason VARCHAR(255) NOT NULL,
+        refund_mode ENUM('Cash', 'UPI', 'Card', 'Store Credit') NOT NULL DEFAULT 'Cash',
+        taxable_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        gst_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        refund_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        created_by VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_return_invoice (invoice_no),
+        INDEX idx_return_created_at (created_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS sales_return_items (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        return_no VARCHAR(60) NOT NULL,
+        invoice_item_id BIGINT NOT NULL,
+        barcode VARCHAR(120) NOT NULL,
+        product_name VARCHAR(255) NOT NULL,
+        quantity DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        sale_price DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        gst_percent DECIMAL(5,2) NOT NULL DEFAULT 0.00,
+        taxable_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        gst_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        refund_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        FOREIGN KEY (return_no) REFERENCES sales_returns(return_no) ON DELETE CASCADE,
+        INDEX idx_return_item_barcode (barcode)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS customers (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        customer_name VARCHAR(150) NOT NULL DEFAULT 'Walk-in Customer',
+        phone VARCHAR(20) NOT NULL UNIQUE,
+        gstin VARCHAR(20) DEFAULT '',
+        address VARCHAR(255) DEFAULT '',
+        loyalty_points DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        total_spent DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        visit_count INT NOT NULL DEFAULT 0,
+        last_visit_at TIMESTAMP NULL DEFAULT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_customer_phone (phone)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS special_orders (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        order_no VARCHAR(60) NOT NULL UNIQUE,
+        customer_name VARCHAR(150) NOT NULL,
+        customer_phone VARCHAR(20) NOT NULL,
+        event_type VARCHAR(80) DEFAULT '',
+        required_date DATE NOT NULL,
+        delivery_time VARCHAR(30) DEFAULT '',
+        order_status ENUM('DRAFT', 'CONFIRMED', 'NEED_TO_ORDER', 'ORDERED', 'READY', 'DELIVERED', 'CLOSED', 'CANCELLED') NOT NULL DEFAULT 'CONFIRMED',
+        priority ENUM('NORMAL', 'IMPORTANT', 'URGENT') NOT NULL DEFAULT 'IMPORTANT',
+        total_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        advance_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        paid_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        balance_due DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        payment_status ENUM('ADVANCE', 'PARTIAL', 'PAID', 'DUE', 'OVERDUE') NOT NULL DEFAULT 'DUE',
+        due_date DATE DEFAULT NULL,
+        notes VARCHAR(255) DEFAULT '',
+        created_by VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_special_order_required_date (required_date),
+        INDEX idx_special_order_status (order_status),
+        INDEX idx_special_order_customer (customer_name, customer_phone),
+        INDEX idx_special_order_payment_status (payment_status)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS special_order_items (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        order_no VARCHAR(60) NOT NULL,
+        item_name VARCHAR(255) NOT NULL,
+        barcode VARCHAR(120) DEFAULT '',
+        quantity DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        unit VARCHAR(40) DEFAULT 'Nos',
+        estimated_rate DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        line_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        procurement_type ENUM('REGULAR_STOCK', 'SPECIAL_ORDER') NOT NULL DEFAULT 'SPECIAL_ORDER',
+        procurement_status ENUM('NOT_ORDERED', 'ORDERED', 'RECEIVED', 'NOT_REQUIRED') NOT NULL DEFAULT 'NOT_ORDERED',
+        supplier_name VARCHAR(255) DEFAULT '',
+        notes VARCHAR(255) DEFAULT '',
+        INDEX idx_special_order_items_order (order_no),
+        INDEX idx_special_order_items_procurement (procurement_status),
+        FOREIGN KEY (order_no) REFERENCES special_orders(order_no) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS special_order_payments (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        order_no VARCHAR(60) NOT NULL,
+        payment_date DATE NOT NULL,
+        amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        payment_mode ENUM('Cash', 'UPI', 'Card', 'Bank Transfer', 'Cheque', 'Other') NOT NULL DEFAULT 'Cash',
+        reference_no VARCHAR(120) DEFAULT '',
+        notes VARCHAR(255) DEFAULT '',
+        created_by VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_special_order_payments_order (order_no),
+        INDEX idx_special_order_payments_date (payment_date),
+        FOREIGN KEY (order_no) REFERENCES special_orders(order_no) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS loyalty_transactions (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        customer_id BIGINT NOT NULL,
+        invoice_no VARCHAR(50) DEFAULT NULL,
+        points_delta DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        transaction_type ENUM('EARN', 'REDEEM', 'ADJUST') NOT NULL DEFAULT 'EARN',
+        note VARCHAR(255) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_loyalty_customer (customer_id),
+        INDEX idx_loyalty_invoice (invoice_no)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS counter_closings (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        closing_date DATE NOT NULL,
+        counter_no INT NOT NULL,
+        opening_cash DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        expected_cash_sales DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        expected_upi_sales DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        expected_card_sales DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        cash_in_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        cash_out_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        declared_cash_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        expected_cash_in_hand DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        difference_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        denominations_json JSON NOT NULL,
+        movements_json JSON NOT NULL,
+        handed_over_by VARCHAR(120) NOT NULL,
+        taken_over_by VARCHAR(120) NOT NULL,
+        notes VARCHAR(255) DEFAULT '',
+        created_by VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_counter_closing (closing_date, counter_no),
+        INDEX idx_counter_closing_date (closing_date)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS counter_handover_sheets (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        closing_date DATE NOT NULL,
+        counter_no INT NOT NULL,
+        sheet_no VARCHAR(80) NOT NULL UNIQUE,
+        opening_cash DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        counter_sales DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        all_counter_sales DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        cash_sales DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        upi_sales DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        card_sales DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        dr_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        cr_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        notes_total DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        cash_balance DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        variance_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        handed_over_by VARCHAR(120) DEFAULT '',
+        taken_over_by VARCHAR(120) DEFAULT '',
+        notes VARCHAR(255) DEFAULT '',
+        created_by VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_counter_handover (closing_date, counter_no),
+        INDEX idx_counter_handover_date (closing_date),
+        INDEX idx_counter_handover_counter (counter_no)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS counter_handover_entries (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        sheet_id BIGINT NOT NULL,
+        line_no INT NOT NULL,
+        entry_type VARCHAR(40) DEFAULT 'GENERAL',
+        details VARCHAR(180) NOT NULL,
+        remarks VARCHAR(255) DEFAULT '',
+        direction ENUM('DR', 'CR') NOT NULL,
+        amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        FOREIGN KEY (sheet_id) REFERENCES counter_handover_sheets(id) ON DELETE CASCADE,
+        INDEX idx_handover_entry_sheet (sheet_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS counter_handover_denominations (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        sheet_id BIGINT NOT NULL,
+        denomination_label VARCHAR(20) NOT NULL,
+        denomination_value DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        quantity DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+        amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        FOREIGN KEY (sheet_id) REFERENCES counter_handover_sheets(id) ON DELETE CASCADE,
+        INDEX idx_handover_denom_sheet (sheet_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS accounting_vouchers (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        voucher_no VARCHAR(80) NOT NULL UNIQUE,
+        voucher_date DATE NOT NULL,
+        voucher_type ENUM('CREDITOR_PAYMENT', 'DEBTOR_RECEIPT', 'EXPENSE', 'CUSTOMER_CREDIT') NOT NULL,
+        account_name VARCHAR(180) NOT NULL,
+        payment_mode ENUM('Cash', 'Bank') NOT NULL DEFAULT 'Cash',
+        amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        account_holder_name VARCHAR(150) DEFAULT '',
+        bank_name VARCHAR(150) DEFAULT '',
+        bank_account_no VARCHAR(80) DEFAULT '',
+        bank_ifsc VARCHAR(20) DEFAULT '',
+        upi_id VARCHAR(120) DEFAULT '',
+        reference_no VARCHAR(120) DEFAULT '',
+        remarks VARCHAR(255) DEFAULT '',
+        created_by VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_accounting_voucher_date (voucher_date),
+        INDEX idx_accounting_voucher_account (account_name),
+        INDEX idx_accounting_voucher_type (voucher_type)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS local_account_entries (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        account_scope ENUM('LOCAL', 'NON_LOCAL') NOT NULL,
+        entry_date DATE NOT NULL,
+        account_name VARCHAR(180) NOT NULL,
+        details VARCHAR(255) DEFAULT '',
+        remarks VARCHAR(255) DEFAULT '',
+        is_cleared TINYINT(1) NOT NULL DEFAULT 0,
+        dr_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        cr_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        created_by VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_local_accounts_scope_date (account_scope, entry_date),
+        INDEX idx_local_accounts_scope_name (account_scope, account_name)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS local_account_ledgers (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        account_scope ENUM('LOCAL', 'NON_LOCAL') NOT NULL,
+        account_name VARCHAR(180) NOT NULL,
+        address_details VARCHAR(500) DEFAULT '',
+        phone_number VARCHAR(30) DEFAULT '',
+        gst_number VARCHAR(30) DEFAULT '',
+        created_by VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_local_ledger_scope_name (account_scope, account_name)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS staff_workers (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        staff_code VARCHAR(40) DEFAULT NULL UNIQUE,
+        staff_name VARCHAR(160) NOT NULL,
+        job_title VARCHAR(120) DEFAULT '',
+        department VARCHAR(120) DEFAULT '',
+        phone VARCHAR(20) DEFAULT '',
+        alternate_phone VARCHAR(20) DEFAULT '',
+        address VARCHAR(255) DEFAULT '',
+        id_proof_type VARCHAR(40) DEFAULT '',
+        id_proof_no VARCHAR(80) DEFAULT '',
+        joining_date DATE DEFAULT NULL,
+        salary_type ENUM('MONTHLY', 'DAILY', 'HOURLY') NOT NULL DEFAULT 'MONTHLY',
+        monthly_salary DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        daily_wage DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        hourly_wage DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        bank_account_name VARCHAR(150) DEFAULT '',
+        bank_name VARCHAR(150) DEFAULT '',
+        bank_account_no VARCHAR(80) DEFAULT '',
+        bank_ifsc VARCHAR(20) DEFAULT '',
+        upi_id VARCHAR(120) DEFAULT '',
+        emergency_contact_name VARCHAR(120) DEFAULT '',
+        emergency_contact_phone VARCHAR(20) DEFAULT '',
+        notes VARCHAR(255) DEFAULT '',
+        is_active TINYINT(1) NOT NULL DEFAULT 1,
+        created_by VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_staff_name (staff_name),
+        INDEX idx_staff_phone (phone),
+        INDEX idx_staff_department (department),
+        INDEX idx_staff_active (is_active)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS staff_attendance (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        staff_id BIGINT NOT NULL,
+        attendance_date DATE NOT NULL,
+        status ENUM('PRESENT', 'HALF_DAY', 'ABSENT', 'PAID_LEAVE', 'WEEK_OFF') NOT NULL DEFAULT 'PRESENT',
+        in_time TIME DEFAULT NULL,
+        out_time TIME DEFAULT NULL,
+        overtime_hours DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+        daily_wage_override DECIMAL(12,2) DEFAULT NULL,
+        remarks VARCHAR(255) DEFAULT '',
+        created_by VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_staff_attendance_day (staff_id, attendance_date),
+        INDEX idx_staff_attendance_date (attendance_date),
+        INDEX idx_staff_attendance_status (status),
+        CONSTRAINT fk_staff_attendance_worker FOREIGN KEY (staff_id) REFERENCES staff_workers(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS staff_salary_sheets (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        staff_id BIGINT NOT NULL,
+        salary_month CHAR(7) NOT NULL,
+        working_days DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+        present_days DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+        paid_leave_days DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+        absent_days DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+        half_days DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+        sunday_days DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+        holiday_days DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+        days_worked DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+        unmarked_absent_days DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+        per_day_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        pf_base_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        financial_year VARCHAR(20) DEFAULT '',
+        branch_name VARCHAR(120) DEFAULT '',
+        overtime_hours DECIMAL(8,2) NOT NULL DEFAULT 0.00,
+        base_salary DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        overtime_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        da_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        hra_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        conveyance_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        medical_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        special_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        other_earning_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        bonus_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        advance_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        pf_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        esi_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        professional_tax_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        tds_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        other_deduction_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        canteen_deduction_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        canteen_item VARCHAR(120) DEFAULT '',
+        canteen_tokens DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        canteen_rate DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        deduction_amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        net_salary DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        payment_status ENUM('PENDING', 'PAID') NOT NULL DEFAULT 'PENDING',
+        payment_date DATE DEFAULT NULL,
+        payment_mode ENUM('Cash', 'UPI', 'Bank', 'Other') NOT NULL DEFAULT 'Cash',
+        reference_no VARCHAR(120) DEFAULT '',
+        remarks VARCHAR(255) DEFAULT '',
+        posted_to_cash_ledger TINYINT(1) NOT NULL DEFAULT 0,
+        created_by VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_staff_salary_month (staff_id, salary_month),
+        INDEX idx_staff_salary_month (salary_month),
+        INDEX idx_staff_salary_status (payment_status),
+        CONSTRAINT fk_staff_salary_worker FOREIGN KEY (staff_id) REFERENCES staff_workers(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      CREATE TABLE IF NOT EXISTS counter_cash_ledger_entries (
+        id BIGINT AUTO_INCREMENT PRIMARY KEY,
+        entry_date DATE NOT NULL,
+        counter_no INT DEFAULT NULL,
+        source_type VARCHAR(40) NOT NULL DEFAULT 'MANUAL',
+        source_id BIGINT DEFAULT NULL,
+        account_name VARCHAR(160) NOT NULL,
+        details VARCHAR(255) NOT NULL,
+        remarks VARCHAR(255) DEFAULT '',
+        direction ENUM('DR', 'CR') NOT NULL,
+        amount DECIMAL(12,2) NOT NULL DEFAULT 0.00,
+        payment_mode VARCHAR(30) DEFAULT '',
+        created_by VARCHAR(100) DEFAULT '',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_cash_ledger_date (entry_date),
+        INDEX idx_cash_ledger_source (source_type, source_id),
+        INDEX idx_cash_ledger_account (account_name)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    `);
+
+    await connection.query(`
+      INSERT IGNORE INTO app_settings (setting_key, setting_value)
+      VALUES
+        ('shop_name', 'Hyper Fresh Mart LLP'),
+        ('gst_number', '36AAJFH7790R1ZB'),
+        ('phone', '08761 295000'),
+        ('address', 'Sathupally - Khammam(dt) - 507303'),
+        ('bank_name', 'HDFC BANK'),
+        ('bank_account_name', 'Hyper Fresh Mart LLP'),
+        ('bank_account_no', '59209440987345'),
+        ('bank_ifsc', 'HDFC0004047'),
+        ('bank_branch', 'Sathupally'),
+        ('upi_id', ''),
+        ('counter_count', '6'),
+        ('default_print_mode', 'Thermal'),
+        ('thermal_receipt_width_mm', '80'),
+        ('thermal_feed_margin_mm', '4'),
+        ('thermal_footer_line_1', '1. Goods Exchange Time 2 P.M - 4 P.M'),
+        ('thermal_footer_line_2', '2. Decoration Items & Toys Exchange Not Allowed'),
+        ('thermal_footer_line_3', '3. Warranty or guarantee is the responsibility of the manufacturer.'),
+        ('thermal_footer_line_4', '4. Any dispute subject related to SATHUPALLY jurisdiction.'),
+        ('gst_slabs', '0,3,5,18,40'),
+        ('loyalty_enabled', '0'),
+        ('loyalty_earn_sale_amount', '100'),
+        ('loyalty_earn_points', '10'),
+        ('loyalty_redeem_points', '10'),
+        ('loyalty_redeem_amount', '0.5'),
+        ('backup_daily_time', '09:00'),
+        ('barcode_printer_templates', '{"tsc-244-pro-50x50-two-up.prn":{"label":"50 x 50 mm Two-Up","printer":"TSC TTP-244 Pro","shares":["\\\\\\\\localhost\\\\TSC TTP-244 Pro","\\\\\\\\localhost\\\\TSC-244-Pro"]},"tsc-244-1-33x25-single.prn":{"label":"38 x 25 mm Two-Up","printer":"TSC TE244","shares":["\\\\\\\\localhost\\\\TSC-244-2"]},"tsc-244-2-jewellery-100x15-tail.prn":{"label":"100 x 15 mm Jewellery Tail","printer":"TSC 244-2","shares":["\\\\\\\\localhost\\\\TSC 244-2"]}}')
+    `);
+
+    await ensureColumn(connection, 'local_account_entries', 'is_cleared', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER remarks');
+    await ensureColumn(connection, 'counter_cash_ledger_entries', 'remarks', "VARCHAR(255) DEFAULT '' AFTER details");
+    await ensureColumn(connection, 'products', 'purchase_price', 'DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER mrp');
+    await ensureColumn(connection, 'staff_salary_sheets', 'da_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER overtime_amount');
+    await ensureColumn(connection, 'staff_salary_sheets', 'hra_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER da_amount');
+    await ensureColumn(connection, 'staff_salary_sheets', 'half_days', 'DECIMAL(8,2) NOT NULL DEFAULT 0.00 AFTER absent_days');
+    await ensureColumn(connection, 'staff_salary_sheets', 'sunday_days', 'DECIMAL(8,2) NOT NULL DEFAULT 0.00 AFTER half_days');
+    await ensureColumn(connection, 'staff_salary_sheets', 'holiday_days', 'DECIMAL(8,2) NOT NULL DEFAULT 0.00 AFTER sunday_days');
+    await ensureColumn(connection, 'staff_salary_sheets', 'days_worked', 'DECIMAL(8,2) NOT NULL DEFAULT 0.00 AFTER holiday_days');
+    await ensureColumn(connection, 'staff_salary_sheets', 'unmarked_absent_days', 'DECIMAL(8,2) NOT NULL DEFAULT 0.00 AFTER days_worked');
+    await ensureColumn(connection, 'staff_salary_sheets', 'per_day_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER unmarked_absent_days');
+    await ensureColumn(connection, 'staff_salary_sheets', 'pf_base_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER per_day_amount');
+    await ensureColumn(connection, 'staff_salary_sheets', 'financial_year', "VARCHAR(20) DEFAULT '' AFTER pf_base_amount");
+    await ensureColumn(connection, 'staff_salary_sheets', 'branch_name', "VARCHAR(120) DEFAULT '' AFTER financial_year");
+    await ensureColumn(connection, 'staff_salary_sheets', 'conveyance_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER hra_amount');
+    await ensureColumn(connection, 'staff_salary_sheets', 'medical_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER conveyance_amount');
+    await ensureColumn(connection, 'staff_salary_sheets', 'special_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER medical_amount');
+    await ensureColumn(connection, 'staff_salary_sheets', 'other_earning_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER special_amount');
+    await ensureColumn(connection, 'staff_salary_sheets', 'pf_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER advance_amount');
+    await ensureColumn(connection, 'staff_salary_sheets', 'esi_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER pf_amount');
+    await ensureColumn(connection, 'staff_salary_sheets', 'professional_tax_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER esi_amount');
+    await ensureColumn(connection, 'staff_salary_sheets', 'tds_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER professional_tax_amount');
+    await ensureColumn(connection, 'staff_salary_sheets', 'other_deduction_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER tds_amount');
+    await ensureColumn(connection, 'staff_salary_sheets', 'canteen_deduction_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER other_deduction_amount');
+    await ensureColumn(connection, 'staff_salary_sheets', 'canteen_item', "VARCHAR(120) DEFAULT '' AFTER canteen_deduction_amount");
+    await ensureColumn(connection, 'staff_salary_sheets', 'canteen_tokens', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER canteen_item');
+    await ensureColumn(connection, 'staff_salary_sheets', 'canteen_rate', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER canteen_tokens');
+    await connection.query('ALTER TABLE app_settings MODIFY setting_value LONGTEXT NOT NULL');
+    await ensureColumn(connection, 'products', 'wholesale_price', 'DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER sale_price');
+    await ensureColumn(connection, 'products', 'qty_3_price', 'DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER wholesale_price');
+    await ensureColumn(connection, 'products', 'qty_6_price', 'DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER qty_3_price');
+    await ensureColumn(connection, 'products', 'qty_12_price', 'DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER qty_6_price');
+    await ensureColumn(connection, 'products', 'qty_12_price', 'DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER qty_6_price');
+    await ensureColumn(connection, 'products', 'product_code', 'VARCHAR(60) DEFAULT NULL UNIQUE AFTER id');
+    await ensureColumn(connection, 'products', 'alias_names', 'TEXT DEFAULT NULL AFTER product_name');
+    await ensureColumn(connection, 'products', 'product_group', "VARCHAR(80) NOT NULL DEFAULT 'GENERAL' AFTER alias_names");
+    await ensureIndex(connection, 'products', 'idx_product_group', '(product_group)');
+    await ensureColumn(connection, 'products', 'sales_sgst_percent', 'DECIMAL(5,2) NOT NULL DEFAULT 0.00 AFTER gst_percent');
+    await ensureColumn(connection, 'products', 'sales_cgst_percent', 'DECIMAL(5,2) NOT NULL DEFAULT 0.00 AFTER sales_sgst_percent');
+    await ensureColumn(connection, 'products', 'sales_igst_percent', 'DECIMAL(5,2) NOT NULL DEFAULT 0.00 AFTER sales_cgst_percent');
+    await ensureColumn(connection, 'products', 'unit_type', "VARCHAR(40) NOT NULL DEFAULT 'Nos' AFTER sales_igst_percent");
+    await connection.query("ALTER TABLE products MODIFY unit_type VARCHAR(40) NOT NULL DEFAULT 'Nos'");
+    await ensureColumn(connection, 'products', 'pack_measure', "VARCHAR(60) NOT NULL DEFAULT '' AFTER unit_type");
+    await ensureColumn(connection, 'products', 'purchase_unit_type', "VARCHAR(30) NOT NULL DEFAULT 'Loose' AFTER unit_type");
+    await ensureColumn(connection, 'products', 'purchase_unit_size', 'DECIMAL(12,3) NOT NULL DEFAULT 1.000 AFTER purchase_unit_type');
+    await ensureColumn(connection, 'products', 'discount_type', "ENUM('PERCENT', 'VALUE') NOT NULL DEFAULT 'PERCENT' AFTER wholesale_price");
+    await ensureColumn(connection, 'products', 'discount_value', 'DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER discount_type');
+    await ensureColumn(connection, 'products', 'bulk_discount_value', 'DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER discount_value');
+    await ensureColumn(connection, 'products', 'is_free_item', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER bulk_discount_value');
+    await ensureColumn(connection, 'products', 'free_promo_enabled', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER is_free_item');
+    await ensureColumn(connection, 'products', 'free_promo_name', "VARCHAR(255) DEFAULT '' AFTER free_promo_enabled");
+    await ensureColumn(connection, 'products', 'free_promo_qty_per_sale', 'DECIMAL(12,3) NOT NULL DEFAULT 1.000 AFTER free_promo_name');
+    await ensureColumn(connection, 'products', 'free_promo_total_qty', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER free_promo_qty_per_sale');
+    await ensureColumn(connection, 'products', 'free_promo_remaining_qty', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER free_promo_total_qty');
+    await ensureColumn(connection, 'products', 'min_stock_alert', 'DECIMAL(10,2) NOT NULL DEFAULT 10.00 AFTER stock_qty');
+    await ensureColumn(connection, 'products', 'default_batch_no', "VARCHAR(80) DEFAULT '' AFTER min_stock_alert");
+    await ensureColumn(connection, 'products', 'default_mfd_date', 'DATE DEFAULT NULL AFTER default_batch_no');
+    await ensureColumn(connection, 'products', 'default_expiry_date', 'DATE DEFAULT NULL AFTER default_mfd_date');
+    await ensureColumn(connection, 'products', 'created_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP AFTER default_expiry_date');
+    await ensureColumn(connection, 'products', 'updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at');
+    await connection.query("ALTER TABLE product_import_jobs MODIFY status ENUM('QUEUED', 'RUNNING', 'SUCCESS', 'FAILED', 'PARTIAL SUCCESS', 'ROLLED BACK') NOT NULL DEFAULT 'QUEUED'");
+    await ensureColumn(connection, 'invoices', 'transaction_type', "ENUM('B2C', 'B2B') NOT NULL DEFAULT 'B2C' AFTER created_at");
+    await ensureColumn(connection, 'invoices', 'financial_year', "VARCHAR(7) DEFAULT NULL AFTER invoice_no");
+    await ensureColumn(connection, 'invoices', 'serial_no', 'BIGINT DEFAULT NULL AFTER financial_year');
+    await ensureColumn(connection, 'invoices', 'checkout_request_id', 'VARCHAR(64) DEFAULT NULL UNIQUE AFTER invoice_no');
+    await connection.query("ALTER TABLE invoices MODIFY payment_mode ENUM('Cash', 'UPI', 'Card', 'Mixed') NOT NULL DEFAULT 'Cash'");
+    await ensureColumn(connection, 'invoices', 'payment_status', "ENUM('PENDING', 'PAID', 'FAILED') NOT NULL DEFAULT 'PAID' AFTER payment_mode");
+    await ensureColumn(connection, 'invoices', 'payment_reference', 'VARCHAR(120) DEFAULT NULL AFTER payment_status');
+    await ensureColumn(connection, 'invoices', 'customer_address', 'VARCHAR(255) DEFAULT NULL AFTER customer_name');
+    await ensureColumn(connection, 'invoices', 'billing_tier', "ENUM('RETAIL', 'WHOLESALE') NOT NULL DEFAULT 'RETAIL' AFTER transaction_type");
+    await ensureColumn(connection, 'invoices', 'tax_type', "ENUM('LOCAL', 'INTERSTATE') NOT NULL DEFAULT 'LOCAL' AFTER billing_tier");
+    await ensureColumn(connection, 'invoices', 'customer_company_name', 'VARCHAR(255) DEFAULT NULL AFTER tax_type');
+    await ensureColumn(connection, 'invoices', 'customer_gstin', 'VARCHAR(15) DEFAULT NULL AFTER customer_company_name');
+    await ensureColumn(connection, 'invoices', 'total_cgst', 'DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER customer_gstin');
+    await ensureColumn(connection, 'invoices', 'total_sgst', 'DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER total_cgst');
+    await ensureColumn(connection, 'invoices', 'total_igst', 'DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER total_sgst');
+    await ensureColumn(connection, 'invoices', 'exchange_total', 'DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER total_igst');
+    await ensureColumn(connection, 'invoices', 'exchange_items_json', 'JSON DEFAULT NULL AFTER exchange_total');
+    await ensureColumn(connection, 'invoices', 'loyalty_redeemed_points', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER exchange_items_json');
+    await ensureColumn(connection, 'invoices', 'loyalty_redeemed_amount', 'DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER loyalty_redeemed_points');
+    await ensureColumn(connection, 'invoices', 'invoice_status', "VARCHAR(20) NOT NULL DEFAULT 'PAID' AFTER loyalty_redeemed_amount");
+    await ensureColumn(connection, 'invoices', 'cancel_reason', 'VARCHAR(255) DEFAULT NULL AFTER invoice_status');
+    await ensureColumn(connection, 'invoices', 'cancelled_by', 'VARCHAR(100) DEFAULT NULL AFTER cancel_reason');
+    await ensureColumn(connection, 'invoices', 'cancelled_at', 'TIMESTAMP NULL DEFAULT NULL AFTER cancelled_by');
+    await ensureColumn(connection, 'invoices', 'reprint_count', 'INT NOT NULL DEFAULT 0 AFTER cancelled_at');
+    await ensureColumn(connection, 'invoices', 'einvoice_status', "VARCHAR(30) NOT NULL DEFAULT 'NOT_CREATED' AFTER reprint_count");
+    await ensureColumn(connection, 'invoices', 'einvoice_irn', 'VARCHAR(120) DEFAULT NULL AFTER einvoice_status');
+    await ensureColumn(connection, 'invoices', 'einvoice_ack_no', 'VARCHAR(80) DEFAULT NULL AFTER einvoice_irn');
+    await ensureColumn(connection, 'invoices', 'einvoice_ack_date', 'DATETIME DEFAULT NULL AFTER einvoice_ack_no');
+    await ensureColumn(connection, 'invoices', 'ewaybill_status', "VARCHAR(30) NOT NULL DEFAULT 'NOT_CREATED' AFTER einvoice_ack_date");
+    await ensureColumn(connection, 'invoices', 'ewaybill_no', 'VARCHAR(80) DEFAULT NULL AFTER ewaybill_status');
+    await ensureColumn(connection, 'invoices', 'ewaybill_date', 'DATETIME DEFAULT NULL AFTER ewaybill_no');
+    await ensureColumn(connection, 'invoices', 'ewaybill_valid_upto', 'DATETIME DEFAULT NULL AFTER ewaybill_date');
+    await connection.query(`
+      UPDATE invoices
+      SET financial_year = CONCAT(
+            LPAD(MOD(CASE WHEN MONTH(created_at) >= 4 THEN YEAR(created_at) ELSE YEAR(created_at) - 1 END, 100), 2, '0'),
+            '-',
+            LPAD(MOD(CASE WHEN MONTH(created_at) >= 4 THEN YEAR(created_at) + 1 ELSE YEAR(created_at) END, 100), 2, '0')
+          )
+      WHERE financial_year IS NULL OR financial_year = ''
+    `);
+    await connection.query(`
+      UPDATE invoices
+      SET serial_no = CASE
+            WHEN invoice_no LIKE 'BZ/%/%/%' THEN CAST(SUBSTRING_INDEX(invoice_no, '/', -1) AS UNSIGNED)
+            ELSE id
+          END
+      WHERE serial_no IS NULL OR serial_no = 0
+    `);
+    await ensureColumn(connection, 'invoice_items', 'hsn_code', "VARCHAR(20) DEFAULT '' AFTER product_name");
+    await ensureColumn(connection, 'invoice_items', 'cgst_amount', 'DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER gst_percent');
+    await ensureColumn(connection, 'invoice_items', 'sgst_amount', 'DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER cgst_amount');
+    await ensureColumn(connection, 'invoice_items', 'igst_amount', 'DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER sgst_amount');
+    await ensureColumn(connection, 'invoice_items', 'is_free_bonus', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER igst_amount');
+    await ensureColumn(connection, 'invoice_items', 'free_offer_id', 'BIGINT DEFAULT NULL AFTER is_free_bonus');
+    await ensureColumn(connection, 'invoice_items', 'returned_qty', 'DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER igst_amount');
+    await ensureColumn(connection, 'invoice_item_batches', 'returned_qty', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER quantity');
+    await connection.query(`
+      UPDATE invoice_items ii
+      LEFT JOIN products p ON p.barcode = ii.barcode
+      SET ii.hsn_code = COALESCE(NULLIF(p.hsn_code, ''), ii.hsn_code)
+      WHERE COALESCE(ii.hsn_code, '') = ''
+        AND COALESCE(p.hsn_code, '') <> ''
+    `);
+    await ensureColumn(connection, 'batch_free_offers', 'free_qty_per_sale', 'DECIMAL(12,3) NOT NULL DEFAULT 1.000 AFTER free_product_name');
+    await ensureColumn(connection, 'inward_entries', 'total_cgst', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER gst_total');
+    await ensureColumn(connection, 'inward_entries', 'financial_year', "VARCHAR(7) DEFAULT NULL AFTER inward_no");
+    await ensureColumn(connection, 'inward_entries', 'serial_no', 'BIGINT DEFAULT NULL AFTER financial_year');
+    await ensureColumn(connection, 'inward_entries', 'total_sgst', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER total_cgst');
+    await ensureColumn(connection, 'inward_entries', 'total_igst', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER total_sgst');
+    await ensureColumn(connection, 'inward_entries', 'tax_type', "ENUM('LOCAL', 'INTERSTATE') NOT NULL DEFAULT 'LOCAL' AFTER grand_total");
+    await ensureColumn(connection, 'inward_entries', 'payment_mode', "ENUM('Credit', 'Cash') NOT NULL DEFAULT 'Credit' AFTER supplier_invoice_date");
+    await ensureColumn(connection, 'inward_entries', 'payment_terms', "VARCHAR(120) DEFAULT '' AFTER payment_mode");
+    await ensureColumn(connection, 'inward_entries', 'due_date', 'DATE DEFAULT NULL AFTER payment_terms');
+    await ensureColumn(connection, 'inward_entries', 'paid_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER due_date');
+    await ensureColumn(connection, 'inward_entries', 'due_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER paid_amount');
+    await ensureColumn(connection, 'inward_entries', 'payment_status', "ENUM('PAID', 'PARTIAL', 'DUE', 'OVERDUE') NOT NULL DEFAULT 'DUE' AFTER due_amount");
+    await ensureColumn(connection, 'inward_entries', 'posting_status', "ENUM('DRAFT', 'POSTED') NOT NULL DEFAULT 'POSTED' AFTER tax_type");
+    await connection.query(`
+      UPDATE inward_entries
+      SET financial_year = CONCAT(
+            LPAD(MOD(CASE WHEN MONTH(created_at) >= 4 THEN YEAR(created_at) ELSE YEAR(created_at) - 1 END, 100), 2, '0'),
+            '-',
+            LPAD(MOD(CASE WHEN MONTH(created_at) >= 4 THEN YEAR(created_at) + 1 ELSE YEAR(created_at) END, 100), 2, '0')
+          )
+      WHERE financial_year IS NULL OR financial_year = ''
+    `);
+    await connection.query(`
+      UPDATE inward_entries
+      SET serial_no = CASE
+            WHEN inward_no LIKE 'INW/%/%' THEN CAST(SUBSTRING_INDEX(inward_no, '/', -1) AS UNSIGNED)
+            ELSE id
+          END
+      WHERE serial_no IS NULL OR serial_no = 0
+    `);
+    await connection.query(`
+      INSERT INTO inward_sequences (financial_year, next_number)
+      SELECT financial_year, COALESCE(MAX(serial_no), 0) + 1
+      FROM inward_entries
+      WHERE COALESCE(financial_year, '') <> ''
+      GROUP BY financial_year
+      ON DUPLICATE KEY UPDATE next_number = GREATEST(inward_sequences.next_number, VALUES(next_number))
+    `);
+    await connection.query(`
+      UPDATE inward_entries
+      SET paid_amount = grand_total, due_amount = 0, payment_status = 'PAID'
+      WHERE posting_status = 'POSTED'
+        AND payment_mode = 'Cash'
+        AND paid_amount = 0
+        AND due_amount = 0
+        AND grand_total > 0
+    `);
+    await connection.query(`
+      UPDATE inward_entries
+      SET due_amount = grand_total, payment_status = CASE
+            WHEN due_date IS NOT NULL AND due_date < CURDATE() THEN 'OVERDUE'
+            ELSE 'DUE'
+          END
+      WHERE posting_status = 'POSTED'
+        AND payment_mode = 'Credit'
+        AND paid_amount = 0
+        AND due_amount = 0
+        AND grand_total > 0
+    `);
+    await ensureColumn(connection, 'suppliers', 'account_holder_name', "VARCHAR(150) DEFAULT '' AFTER payment_terms");
+    await ensureColumn(connection, 'suppliers', 'bank_name', "VARCHAR(150) DEFAULT '' AFTER account_holder_name");
+    await ensureColumn(connection, 'suppliers', 'bank_branch', "VARCHAR(150) DEFAULT '' AFTER bank_name");
+    await ensureColumn(connection, 'suppliers', 'bank_account_no', "VARCHAR(80) DEFAULT '' AFTER bank_branch");
+    await ensureColumn(connection, 'suppliers', 'bank_ifsc', "VARCHAR(20) DEFAULT '' AFTER bank_account_no");
+    await ensureColumn(connection, 'suppliers', 'upi_id', "VARCHAR(120) DEFAULT '' AFTER bank_ifsc");
+    await ensureColumn(connection, 'accounting_vouchers', 'account_holder_name', "VARCHAR(150) DEFAULT '' AFTER amount");
+    await ensureColumn(connection, 'accounting_vouchers', 'bank_name', "VARCHAR(150) DEFAULT '' AFTER account_holder_name");
+    await ensureColumn(connection, 'accounting_vouchers', 'bank_account_no', "VARCHAR(80) DEFAULT '' AFTER bank_name");
+    await ensureColumn(connection, 'accounting_vouchers', 'bank_ifsc', "VARCHAR(20) DEFAULT '' AFTER bank_account_no");
+    await ensureColumn(connection, 'accounting_vouchers', 'upi_id', "VARCHAR(120) DEFAULT '' AFTER bank_ifsc");
+    await connection.query("ALTER TABLE accounting_vouchers MODIFY voucher_type ENUM('CREDITOR_PAYMENT', 'DEBTOR_RECEIPT', 'EXPENSE', 'CUSTOMER_CREDIT') NOT NULL");
+    await ensureColumn(connection, 'inward_items', 'discount_type', "ENUM('PERCENT', 'VALUE') NOT NULL DEFAULT 'PERCENT' AFTER discount_percent");
+    await ensureColumn(connection, 'inward_items', 'discount_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER discount_type');
+    await ensureColumn(connection, 'inward_items', 'scheme_type', "ENUM('PERCENT', 'VALUE') NOT NULL DEFAULT 'PERCENT' AFTER scheme");
+    await ensureColumn(connection, 'inward_items', 'scheme_value', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER scheme_type');
+    await ensureColumn(connection, 'inward_items', 'scheme_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER scheme_value');
+    await ensureColumn(connection, 'inward_items', 'batch_no', "VARCHAR(80) DEFAULT '' AFTER scheme_amount");
+    await ensureColumn(connection, 'inward_items', 'expiry_date', 'DATE DEFAULT NULL AFTER batch_no');
+    await ensureColumn(connection, 'inward_items', 'mrp', 'DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER scheme');
+    await ensureColumn(connection, 'inward_items', 'free_qty', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER mrp');
+    await ensureColumn(connection, 'inward_items', 'free_offer_enabled', 'TINYINT(1) NOT NULL DEFAULT 0 AFTER free_qty');
+    await ensureColumn(connection, 'inward_items', 'free_offer_barcode', "VARCHAR(120) DEFAULT '' AFTER free_offer_enabled");
+    await ensureColumn(connection, 'inward_items', 'free_offer_product_name', "VARCHAR(255) DEFAULT '' AFTER free_offer_barcode");
+    await ensureColumn(connection, 'inward_items', 'free_offer_qty_per_sale', 'DECIMAL(12,3) NOT NULL DEFAULT 1.000 AFTER free_offer_product_name');
+    await ensureColumn(connection, 'inward_items', 'free_offer_total_qty', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER free_offer_qty_per_sale');
+    await ensureColumn(connection, 'inward_items', 'cgst_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER gst_amount');
+    await ensureColumn(connection, 'inward_items', 'sgst_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER cgst_amount');
+    await ensureColumn(connection, 'inward_items', 'igst_amount', 'DECIMAL(12,2) NOT NULL DEFAULT 0.00 AFTER sgst_amount');
+    await ensureColumn(connection, 'held_bills', 'counter_no', 'INT NOT NULL DEFAULT 1 AFTER hold_token');
+    await ensureColumn(connection, 'held_bills', 'customer_name', "VARCHAR(150) DEFAULT 'Walk-in Customer' AFTER counter_no");
+    await ensureColumn(connection, 'held_bills', 'customer_phone', "VARCHAR(20) DEFAULT '' AFTER customer_name");
+    await ensureColumn(connection, 'held_bills', 'bill_total', 'DECIMAL(10,2) NOT NULL DEFAULT 0.00 AFTER customer_phone');
+    await ensureColumn(connection, 'held_bills', 'item_count', 'INT NOT NULL DEFAULT 0 AFTER bill_total');
+    await ensureColumn(connection, 'held_bills', 'updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP AFTER created_at');
+    await ensureColumn(connection, 'password_vault', 'category', "VARCHAR(40) NOT NULL DEFAULT 'STORE_PROTECTED' AFTER id");
+    await connection.query("UPDATE password_vault SET category = 'STORE_PROTECTED' WHERE category IS NULL OR category = ''");
+    const [passwordVaultIndexes] = await connection.query(
+      `SELECT INDEX_NAME
+       FROM INFORMATION_SCHEMA.STATISTICS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'password_vault'
+         AND NON_UNIQUE = 0
+         AND INDEX_NAME <> 'PRIMARY'
+       GROUP BY INDEX_NAME
+       HAVING GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX) = 'slot_no'`
+    );
+    for (const row of passwordVaultIndexes) {
+      await connection.query(`ALTER TABLE password_vault DROP INDEX ${row.INDEX_NAME}`);
+    }
+    const [passwordVaultCategoryIndex] = await connection.query(
+      `SELECT INDEX_NAME
+       FROM INFORMATION_SCHEMA.STATISTICS
+       WHERE TABLE_SCHEMA = DATABASE()
+         AND TABLE_NAME = 'password_vault'
+         AND INDEX_NAME = 'uniq_password_vault_category_slot'
+       LIMIT 1`
+    );
+    if (passwordVaultCategoryIndex.length === 0) {
+      await connection.query('ALTER TABLE password_vault ADD UNIQUE KEY uniq_password_vault_category_slot (category, slot_no)');
+    }
+    await ensureColumn(connection, 'users', 'password_hash', 'VARCHAR(255) NOT NULL AFTER username');
+    await ensureColumn(connection, 'users', 'role', "ENUM('SERVER', 'ADMIN', 'COUNTER', 'SECURITY') NOT NULL DEFAULT 'COUNTER' AFTER password_hash");
+    await connection.query("ALTER TABLE users MODIFY role ENUM('SERVER', 'ADMIN', 'COUNTER', 'SECURITY') NOT NULL DEFAULT 'COUNTER'");
+    await ensureColumn(connection, 'users', 'counter_no', 'INT DEFAULT NULL AFTER role');
+    await ensureColumn(connection, 'users', 'is_active', 'TINYINT(1) NOT NULL DEFAULT 1 AFTER counter_no');
+
+    // Runtime indexes for 6 counters + admin reports. These keep POS lookups, bill history,
+    // counter sale reports, customer visits, and ledger screens from scanning large tables.
+    await ensureIndex(connection, 'products', 'idx_products_barcode_name', '(barcode, product_name)');
+    await ensureIndex(connection, 'products', 'idx_products_group_name', '(product_group, product_name)');
+    await ensureIndex(connection, 'products', 'idx_products_code_name', '(product_code, product_name)');
+    await ensureIndex(connection, 'products', 'idx_products_name_id', '(product_name, id)');
+    await ensureIndex(connection, 'products', 'idx_products_stock_alert', '(stock_qty, min_stock_alert, product_name)');
+    await ensureIndex(connection, 'product_batches', 'idx_product_batches_sale_pick', '(barcode, quantity_available, expiry_date, id)');
+    await ensureIndex(connection, 'batch_free_offers', 'idx_batch_free_sale_pick', '(trigger_barcode, is_active, free_qty_remaining, id)');
+
+    await ensureIndex(connection, 'invoices', 'idx_invoices_created_status', '(created_at, invoice_status)');
+    await ensureIndex(connection, 'invoices', 'idx_invoice_financial_year_serial', '(financial_year, serial_no)');
+    await ensureIndex(connection, 'invoices', 'idx_invoices_status_created', '(invoice_status, created_at)');
+    await ensureIndex(connection, 'invoices', 'idx_invoices_counter_created_status', '(billing_counter, created_at, invoice_status)');
+    await ensureIndex(connection, 'invoices', 'idx_invoices_counter_status_created_id', '(billing_counter, invoice_status, created_at, id)');
+    await ensureIndex(connection, 'invoices', 'idx_invoices_customer_phone_created', '(customer_phone, created_at)');
+    await ensureIndex(connection, 'invoices', 'idx_invoices_payment_created', '(payment_mode, created_at)');
+    await ensureIndex(connection, 'invoice_items', 'idx_invoice_items_invoice_id', '(invoice_no, id)');
+    await ensureIndex(connection, 'invoice_items', 'idx_invoice_items_barcode_invoice', '(barcode, invoice_no)');
+    await ensureIndex(connection, 'invoice_items', 'idx_invoice_items_gst_invoice', '(gst_percent, invoice_no)');
+    await ensureIndex(connection, 'invoice_payments', 'idx_invoice_payments_invoice_mode', '(invoice_no, payment_mode)');
+    await ensureIndex(connection, 'invoice_payments', 'idx_invoice_payments_created_mode', '(created_at, payment_mode)');
+    await ensureIndex(connection, 'invoice_payments', 'idx_invoice_payments_created_invoice_mode', '(created_at, invoice_no, payment_mode)');
+    await ensureIndex(connection, 'invoice_item_batches', 'idx_invoice_item_batches_return_pick', '(invoice_item_id, returned_qty, id)');
+
+    await ensureIndex(connection, 'customers', 'idx_customers_name', '(customer_name)');
+    await ensureIndex(connection, 'customers', 'idx_customers_phone_updated', '(phone, updated_at)');
+    await ensureIndex(connection, 'customers', 'idx_customers_updated', '(updated_at)');
+    await ensureIndex(connection, 'loyalty_transactions', 'idx_loyalty_customer_created', '(customer_id, created_at)');
+
+    await ensureIndex(connection, 'inward_entries', 'idx_inward_created_status', '(created_at, posting_status)');
+    await ensureIndex(connection, 'inward_entries', 'idx_inward_financial_year_serial', '(financial_year, serial_no)');
+    await ensureIndex(connection, 'inward_entries', 'idx_inward_supplier_created', '(supplier_name, created_at)');
+    await ensureIndex(connection, 'inward_entries', 'idx_inward_due_status', '(payment_status, due_date)');
+    await ensureIndex(connection, 'inward_items', 'idx_inward_items_inward_id', '(inward_no, id)');
+    await ensureIndex(connection, 'inward_items', 'idx_inward_items_gst_inward', '(gst_percent, inward_no)');
+    await ensureIndex(connection, 'supplier_payments', 'idx_supplier_payment_supplier_date', '(supplier_name, payment_date)');
+
+    await ensureIndex(connection, 'held_bills', 'idx_hold_counter_updated', '(counter_no, updated_at)');
+    await ensureIndex(connection, 'audit_logs', 'idx_audit_action_created', '(action, created_at)');
+    await ensureIndex(connection, 'user_session_events', 'idx_user_session_created_id', '(created_at, id)');
+    await ensureIndex(connection, 'accounting_vouchers', 'idx_accounting_voucher_date_type', '(voucher_date, voucher_type)');
+    await ensureIndex(connection, 'counter_cash_ledger_entries', 'idx_counter_cash_ledger_date_counter', '(entry_date, counter_no)');
+    await ensureIndex(connection, 'special_orders', 'idx_special_order_due_status', '(payment_status, due_date, required_date)');
+    await ensureIndex(connection, 'staff_attendance', 'idx_staff_attendance_day_staff', '(attendance_date, staff_id)');
+    await ensureIndex(connection, 'staff_salary_sheets', 'idx_staff_salary_month_status', '(salary_month, payment_status)');
+    await ensureIndex(connection, 'barcode_print_logs', 'idx_barcode_print_created_id', '(created_at, id)');
+    await ensureIndex(connection, 'gate_pass_entries', 'idx_gate_pass_date_type_id', '(movement_date, movement_type, id)');
+
+    await connection.query(`
+      UPDATE products
+      SET purchase_price = wholesale_price
+      WHERE purchase_price = 0 AND wholesale_price > 0
+    `);
+
+    const defaultUsers = [
+      ['server', 'server123', 'SERVER', null],
+      ['admin', 'admin123', 'ADMIN', null],
+      ['admin1', 'admin123', 'ADMIN', null],
+      ['admin2', 'admin123', 'ADMIN', null],
+      ['counter1', 'counter1', 'COUNTER', 1],
+      ['counter2', 'counter2', 'COUNTER', 2],
+      ['counter3', 'counter3', 'COUNTER', 3],
+      ['counter4', 'counter4', 'COUNTER', 4],
+      ['counter5', 'counter5', 'COUNTER', 5],
+      ['counter6', 'counter6', 'COUNTER', 6],
+      ['security', 'admin123', 'SECURITY', null],
+      ['security1', 'admin123', 'SECURITY', null],
+      ['security2', 'admin123', 'SECURITY', null]
+    ];
+
+    for (const [username, password, role, counterNo] of defaultUsers) {
+      await connection.query(
+        `INSERT IGNORE INTO users (username, password_hash, role, counter_no)
+         VALUES (?, ?, ?, ?)`,
+        [username, hashPassword(password), role, counterNo]
+      );
+      await connection.query(
+        `UPDATE users
+         SET role = ?, counter_no = ?, is_active = 1
+         WHERE username = ?`,
+        [role, counterNo, username]
+      );
+    }
+    await connection.query(
+      `UPDATE users
+       SET is_active = 0
+       WHERE username IN ('counter7', 'counter8', 'counter9', 'counter10')`
+    );
+
+    console.log('Database schema is ready.');
+    logInfo('Database schema is ready');
+  } catch (err) {
+    console.error('Database initialization failed:', err.message);
+    logError('Database initialization failed', err);
+  } finally {
+    if (connection) connection.release();
+  }
+})();
+
+module.exports = pool;

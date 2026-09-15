@@ -1,0 +1,78 @@
+{
+  "name": "badizo-desktop",
+  "version": "1.0.0",
+  "description": "Badizo desktop application",
+  "main": "main.js",
+  "author": "Badizo",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win nsis",
+    "pack": "electron-builder --win dir"
+  },
+  "build": {
+    "appId": "com.badizo.pos",
+    "afterPack": "scripts/after-pack.js",
+    "productName": "Badizo",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "app-config.json",
+      "assets/**/*"
+    ],
+    "extraResources": [
+      {
+        "from": "assets/badizo.ico",
+        "to": "assets/badizo.ico"
+      },
+      {
+        "from": "app-config.json",
+        "to": "app-config.json"
+      },
+      {
+        "from": "../backend",
+        "to": "backend",
+        "filter": [
+          "**/*",
+          "!node_modules/**",
+          "!backups/**",
+          "!*.log"
+        ]
+      },
+      {
+        "from": "../frontend/build",
+        "to": "frontend"
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "assets/badizo.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "include": "installer.nsh",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Badizo POS"
+    }
+  },
+  "dependencies": {
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^4.22.2",
+    "jsonwebtoken": "^9.0.2",
+    "mysql2": "^3.22.4",
+    "pdf-to-printer": "^5.8.0"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3",
+    "rcedit": "^4.0.1"
+  }
+}

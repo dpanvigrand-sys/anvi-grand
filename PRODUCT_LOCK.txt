@@ -1,0 +1,1 @@
+ANVI GRAND OPS ONLY. Do not merge BADIZO POS code into this repository. Add only an ANVI GRAND separate remote before pushing.

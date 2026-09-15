@@ -1,0 +1,334 @@
+import React, { useEffect, useState } from 'react';
+import BarcodeStickersView from './components/BarcodeStickersView';
+import BillingTerminalView from './components/BillingTerminalView';
+import BooksView from './components/BooksView';
+import CounterCashLedgerView from './components/CounterCashLedgerView';
+import CounterClosingView from './components/CounterClosingView';
+import DashboardView from './components/DashboardView';
+import GatePassView from './components/GatePassView';
+import AnviGrandWebsite from './components/AnviGrandWebsite';
+import HospitalityView from './components/HospitalityView';
+import InwardEntryView from './components/InwardEntryView';
+import InventoryDashboardView from './components/InventoryDashboardView';
+import LoginView from './components/LoginView';
+import LocalAccountsView from './components/LocalAccountsView';
+import OrdersView from './components/OrdersView';
+import PriceListView from './components/PriceListView';
+import ProductImportHistoryView from './components/ProductImportHistoryView';
+import ReportsView from './components/ReportsView';
+import StaffPayrollView from './components/StaffPayrollView';
+import SystemView from './components/SystemView';
+import { clearAuthSession, fetchBackupHealth, getStoredUser, logout as recordLogout, pingBackendHealth, recordLogoutOnExit } from './api/client';
+import { APP_TABS, canAccessTab } from './config/navigation';
+import './styles.css';
+import ReportApprovalNotifications from './components/ReportApprovalNotifications';
+
+function currentSessionLabel(user) {
+  if (!user) return '';
+  const role = String(user.role || '').toUpperCase();
+  const counterNo = Number(user.counter_no || 0);
+  const systemNo = Number(user.system_no || 0);
+  if (role === 'COUNTER' && counterNo > 0) {
+    return systemNo > 0 ? `S${systemNo}/Counter${counterNo}` : `Counter${counterNo}`;
+  }
+  return user.username || role || 'User';
+}
+
+function canUseAnviOps(user) {
+  return ['SERVER', 'ADMIN'].includes(String(user?.role || '').toUpperCase());
+}
+
+export default function App() {
+  const pathname = window.location.pathname;
+  const isAnviAdminRoute = pathname === '/anvi-grand-admin';
+  const [activeWorkspace, setActiveWorkspace] = useState('billing');
+  const [workspaceNavigationKey, setWorkspaceNavigationKey] = useState(0);
+  const [mountedWorkspaces, setMountedWorkspaces] = useState(() => new Set(['billing']));
+  const [currentUser, setCurrentUser] = useState(getStoredUser);
+  const [backupAlert, setBackupAlert] = useState(null);
+
+  useEffect(() => {
+    setMountedWorkspaces((current) => {
+      if (current.has(activeWorkspace)) return current;
+      const next = new Set(current);
+      next.add(activeWorkspace);
+      return next;
+    });
+  }, [activeWorkspace]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    if (isAnviAdminRoute) return;
+    const allowedTabs = APP_TABS.filter((tab) => canAccessTab(tab, currentUser));
+    if (allowedTabs.some((tab) => tab.key === activeWorkspace) || !allowedTabs[0]) return;
+    setActiveWorkspace(allowedTabs[0].key);
+  }, [activeWorkspace, currentUser, isAnviAdminRoute]);
+
+  useEffect(() => {
+    if (!isAnviAdminRoute || !currentUser || canUseAnviOps(currentUser)) return;
+    clearAuthSession();
+    setCurrentUser(null);
+  }, [currentUser, isAnviAdminRoute]);
+
+  useEffect(() => {
+    if (!currentUser) return undefined;
+
+    let pingInFlight = false;
+    const keepLanSessionWarm = async () => {
+      if (document.visibilityState === 'hidden' || pingInFlight) return;
+      pingInFlight = true;
+      try {
+        await pingBackendHealth(2000);
+      } finally {
+        pingInFlight = false;
+      }
+    };
+
+    keepLanSessionWarm();
+    const heartbeatTimer = window.setInterval(keepLanSessionWarm, 10000);
+    window.addEventListener('focus', keepLanSessionWarm);
+    document.addEventListener('visibilitychange', keepLanSessionWarm);
+
+    return () => {
+      window.clearInterval(heartbeatTimer);
+      window.removeEventListener('focus', keepLanSessionWarm);
+      document.removeEventListener('visibilitychange', keepLanSessionWarm);
+    };
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return undefined;
+
+    const handlePageExit = () => {
+      recordLogoutOnExit();
+    };
+
+    window.addEventListener('pagehide', handlePageExit);
+    window.addEventListener('beforeunload', handlePageExit);
+
+    return () => {
+      window.removeEventListener('pagehide', handlePageExit);
+      window.removeEventListener('beforeunload', handlePageExit);
+    };
+  }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return undefined;
+    const keepServerConnectionWarm = () => {
+      pingBackendHealth(1500).catch(() => false);
+    };
+    keepServerConnectionWarm();
+    const timer = window.setInterval(keepServerConnectionWarm, 60000);
+    window.addEventListener('online', keepServerConnectionWarm);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('online', keepServerConnectionWarm);
+    };
+  }, [currentUser]);
+
+
+  useEffect(() => {
+    if (!currentUser) return undefined;
+    let cancelled = false;
+    const checkBackupHealth = async () => {
+      try {
+        const health = await fetchBackupHealth();
+        if (cancelled) return;
+        const now = new Date();
+        if (now.getHours() < 9) {
+          setBackupAlert(null);
+          return;
+        }
+
+        const isSameDay = (value) => value
+          && value.getFullYear() === now.getFullYear()
+          && value.getMonth() === now.getMonth()
+          && value.getDate() === now.getDate();
+        const latestSuccess = health?.latestSuccessAt ? new Date(health.latestSuccessAt) : null;
+        const statusAt = health?.at ? new Date(health.at) : null;
+        const backedUpToday = isSameDay(latestSuccess) && health?.status === 'success';
+        const failedToday = isSameDay(statusAt) && health?.status === 'failed';
+
+        let alertStatus = '';
+        if (backedUpToday) alertStatus = 'success';
+        else if (failedToday) alertStatus = 'failed';
+        else if (now.getHours() >= 10) alertStatus = 'pending';
+        else {
+          setBackupAlert(null);
+          return;
+        }
+
+        const dayKey = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
+        const eventKey = alertStatus === 'success'
+          ? (health?.file || dayKey)
+          : (health?.at || health?.latestSuccessAt || dayKey);
+        const alertId = `daily-backup-${alertStatus}-${eventKey}`;
+        const acknowledgedAlert = window.localStorage.getItem('badizo_backup_alert_ack');
+        if (acknowledgedAlert === alertId) return;
+        if (alertStatus === 'success' && acknowledgedAlert?.startsWith('daily-backup-success-')) {
+          const legacyEvent = new Date(acknowledgedAlert.slice('daily-backup-success-'.length));
+          if (!Number.isNaN(legacyEvent.getTime()) && isSameDay(legacyEvent)) return;
+        }
+        setBackupAlert({ ...health, status: alertStatus, alertId });
+      } catch (_err) {
+        // Backend connectivity is monitored separately; do not show a false backup alarm.
+      }
+    };
+    const initialTimer = window.setTimeout(checkBackupHealth, 15 * 1000);
+    const timer = window.setInterval(checkBackupHealth, 60 * 1000);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(initialTimer);
+      window.clearInterval(timer);
+    };
+  }, [currentUser]);
+  if (pathname === '/anvi-grand') {
+    return <AnviGrandWebsite />;
+  }
+
+  if (!currentUser || (isAnviAdminRoute && !canUseAnviOps(currentUser))) {
+    return <LoginView onLogin={setCurrentUser} variant={isAnviAdminRoute ? 'anvi' : 'badizo'} />;
+  }
+
+  const allowedTabs = APP_TABS.filter((tab) => canAccessTab(tab, currentUser));
+  const visibleTabs = allowedTabs.filter((tab) => !tab.hidden);
+  const openWorkspaceFromTopNav = (workspaceKey) => {
+    setActiveWorkspace(workspaceKey);
+    setWorkspaceNavigationKey((current) => current + 1);
+  };
+
+  const handleLogout = () => {
+    recordLogout().catch(() => {
+      // The server audit is best-effort; local logout is immediate.
+    });
+    clearAuthSession();
+    setCurrentUser(null);
+  };
+  const sessionLabel = currentSessionLabel(currentUser);
+
+  if (isAnviAdminRoute) {
+    return (
+      <div className="anvi-admin-shell">
+        <header className="anvi-admin-topbar">
+          <img className="anvi-admin-badizo-mark" src="/badizo-logo-transparent.png" alt="Badizo" />
+          <div>
+            <span className="hospitality-eyebrow">ANVI GRAND</span>
+            <h1>Hospitality Admin</h1>
+          </div>
+          <nav>
+            <a className="secondary-button hospitality-preview-link" href="/anvi-grand" target="_blank" rel="noreferrer">Open Website</a>
+            <a className="secondary-button hospitality-preview-link" href="/">Open BADIZO POS</a>
+            <button className="secondary-button hospitality-preview-link" type="button" onClick={handleLogout}>Logout ({sessionLabel})</button>
+          </nav>
+        </header>
+        <main className="anvi-admin-workspace">
+          <HospitalityView />
+        </main>
+      </div>
+    );
+  }
+
+  const views = {
+    dashboard: <DashboardView setActiveWorkspace={setActiveWorkspace} />,
+    billing: <BillingTerminalView isActive={activeWorkspace === 'billing'} />,
+    closing: <CounterClosingView onClose={() => setActiveWorkspace('billing')} />,
+    cashLedger: <CounterCashLedgerView />,
+    gatePass: <GatePassView />,
+    inventory: (
+      <InventoryDashboardView
+        isActive={activeWorkspace === 'inventory'}
+        navigationKey={workspaceNavigationKey}
+        setActiveWorkspace={setActiveWorkspace}
+      />
+    ),
+    importHistory: <ProductImportHistoryView onClose={() => setActiveWorkspace('inventory')} />,
+    orders: <OrdersView />,
+    priceList: <PriceListView />,
+    barcode: <BarcodeStickersView />,
+    inward: <InwardEntryView />,
+    staffPayroll: <StaffPayrollView />,
+    reports: <ReportsView isActive={activeWorkspace === 'reports'} onClose={() => setActiveWorkspace('billing')} />,
+    books: <BooksView setActiveWorkspace={setActiveWorkspace} />,
+    localAccounts: <LocalAccountsView />,
+    system: <SystemView />
+  };
+
+  return (
+    <div className="app-shell">
+      <ReportApprovalNotifications currentUser={currentUser} />
+      {backupAlert && (
+        <div className="backup-alert-toast-wrap" role="alert" aria-live="assertive">
+          <div className={`backup-alert-modal ${backupAlert.status === 'success' ? 'backup-alert-success' : ''}`}>
+            <button className="backup-alert-close" type="button" aria-label="Close backup notification" onClick={() => {
+              window.localStorage.setItem('badizo_backup_alert_ack', backupAlert.alertId);
+              setBackupAlert(null);
+            }}>×</button>
+            <h2>{backupAlert.status === 'success' ? 'Google Drive Backup Successful' : 'Google Drive Backup Pending'}</h2>
+            <p>{backupAlert.status === 'success'
+              ? 'Today database backup was uploaded to Google Drive.'
+              : 'Today Google Drive backup is not complete.'}</p>
+            <p className="backup-alert-detail">{backupAlert.status === 'success'
+              ? (backupAlert.message || 'Backup uploaded successfully.')
+              : (backupAlert.message || 'Backup has not run yet. Check server power, internet and Google authorization.')}</p>
+            {backupAlert.file && <p className="backup-alert-time">File: {backupAlert.file}</p>}
+            {backupAlert.at && <p className="backup-alert-time">Checked: {new Date(backupAlert.at).toLocaleString()}</p>}
+            <button type="button" onClick={() => {
+              window.localStorage.setItem('badizo_backup_alert_ack', backupAlert.alertId);
+              setBackupAlert(null);
+            }}>{backupAlert.status === 'success' ? 'OK' : 'OK — Inform Admin'}</button>
+          </div>
+        </div>
+      )}      <header className="topbar">
+        <div className="brand-wrap">
+          <img className="brand-image" src="/badizo-logo-transparent.png" alt="Badizo" />
+          <span className="brand-pulse-dots" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </span>
+        </div>
+
+        <nav className="nav-tabs" aria-label="Workspace">
+          {visibleTabs.map((tab) => (
+            <button
+              key={tab.key}
+              className={`tab-button ${tab.key === 'localAccounts' ? 'local-accounts-tab' : ''} ${activeWorkspace === tab.key ? 'active' : ''}`}
+              onClick={() => openWorkspaceFromTopNav(tab.key)}
+            >
+              {tab.label}
+            </button>
+          ))}
+          {currentUser.role === 'COUNTER' && (
+            <button
+              className="tab-button"
+              onClick={handleLogout}
+              title="Logout and select another counter for this system"
+            >
+              Change Counter ({sessionLabel})
+            </button>
+          )}
+          <button
+            className="tab-button logout-button"
+            onClick={handleLogout}
+          >
+            Logout ({sessionLabel})
+          </button>
+        </nav>
+      </header>
+
+      <main className="workspace">
+        {allowedTabs.map((tab) => (
+          mountedWorkspaces.has(tab.key) ? (
+            <section
+              key={tab.key}
+              className="workspace-screen"
+              hidden={activeWorkspace !== tab.key}
+            >
+              {views[tab.key]}
+            </section>
+          ) : null
+        ))}
+      </main>
+    </div>
+  );
+}

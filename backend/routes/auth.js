@@ -1,0 +1,380 @@
+const crypto = require('crypto');
+const express = require('express');
+const jwt = require('jsonwebtoken');
+const db = require('../config/db');
+const { JWT_SECRET, authenticate, authorize } = require('../middleware/auth');
+const { sendSms, smsEnabled } = require('../services/smsService');
+const { sendWhatsApp, whatsappEnabled } = require('../services/whatsappService');
+const { logError, logInfo } = require('../services/logger');
+
+const router = express.Router();
+
+function verifyPassword(password, storedValue) {
+  const [salt, storedHash] = String(storedValue || '').split(':');
+  if (!salt || !storedHash) return false;
+
+  const candidateHash = crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
+  return crypto.timingSafeEqual(Buffer.from(candidateHash, 'hex'), Buffer.from(storedHash, 'hex'));
+}
+
+function verifyLegacyDefaultPassword(username, password) {
+  const cleanUsername = String(username || '').trim().toLowerCase();
+  const cleanPassword = String(password || '');
+
+  if (cleanUsername === 'server') return cleanPassword === 'server123';
+  if (/^admin(?:[1-9]\d*)?$/.test(cleanUsername)) return cleanPassword === 'admin123';
+  if (/^security(?:[1-9]\d*)?$/.test(cleanUsername)) return cleanPassword === 'security123';
+
+  const counterMatch = cleanUsername.match(/^counter([1-6])$/);
+  if (counterMatch) return cleanPassword === `counter${counterMatch[1]}`;
+
+  return false;
+}
+
+function passwordMatches(user, password) {
+  try {
+    if (verifyPassword(password, user?.password_hash)) return true;
+  } catch (err) {
+    logError('Stored password hash verification failed; checking legacy default password', err, {
+      username: user?.username,
+      role: user?.role
+    });
+  }
+
+  return verifyLegacyDefaultPassword(user?.username, password);
+}
+
+function publicUser(row) {
+  return {
+    id: row.id,
+    username: row.username,
+    role: row.role,
+    counter_no: row.counter_no,
+    system_no: row.system_no || null,
+    login_counter_no: row.login_counter_no || row.counter_no || null
+  };
+}
+
+function requestIp(req) {
+  return String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '')
+    .split(',')[0]
+    .trim()
+    .slice(0, 80);
+}
+
+function requestUserAgent(req) {
+  return String(req.headers['user-agent'] || '').slice(0, 255);
+}
+
+function counterLabel(user) {
+  const counterNo = Number(user?.counter_no || 0);
+  const systemNo = Number(user?.system_no || 0);
+  if (user?.role === 'COUNTER' && counterNo > 0) {
+    return systemNo > 0 ? `S${systemNo}/Counter${counterNo}` : `Counter ${counterNo}`;
+  }
+
+  const counterMatch = String(user?.username || '').match(/^counter([1-9]\d*)$/i);
+  if (counterMatch) return `Counter ${counterMatch[1]}`;
+
+  return String(user?.role || user?.username || 'User').toLowerCase().replace(/^\w/, (char) => char.toUpperCase());
+}
+
+function normalizeLoginNumber(value, min = 1, max = 6) {
+  const number = Number.parseInt(value, 10);
+  if (!Number.isFinite(number)) return min;
+  return Math.min(Math.max(number, min), max);
+}
+
+async function getLoginAlertPhone() {
+  const [rows] = await db.query(
+    `SELECT setting_key, setting_value
+     FROM app_settings
+     WHERE setting_key IN ('login_logout_alert_phone', 'phone')`
+  );
+  const settings = Object.fromEntries(rows.map((row) => [row.setting_key, row.setting_value]));
+  return String(settings.login_logout_alert_phone || settings.phone || '').trim();
+}
+
+function buildSessionAlertMessage(user, eventType) {
+  const action = eventType === 'LOGOUT' ? 'logout' : 'login';
+  const personName = String(user?.person_name || '').trim();
+  const label = counterLabel(user);
+  const pieces = [
+    `Badizo POS ${label} ${action}`,
+    personName ? `Person: ${personName}` : '',
+    `User: ${user?.username || 'unknown'}`,
+    new Date().toLocaleString('en-IN', { hour12: true })
+  ].filter(Boolean);
+  return pieces.join(' | ');
+}
+
+async function sendSessionAlert(user, eventType) {
+  const phone = await getLoginAlertPhone();
+  if (!phone) {
+    logInfo('Login/logout alert skipped', { reason: 'Alert phone missing', username: user?.username, eventType });
+    return;
+  }
+
+  const message = buildSessionAlertMessage(user, eventType);
+  const smsResult = smsEnabled()
+    ? await sendSms({ phone, message })
+    : { sent: false, skipped: true, reason: 'SMS disabled' };
+  const whatsappResult = whatsappEnabled()
+    ? await sendWhatsApp({ phone, message })
+    : { sent: false, skipped: true, reason: 'WhatsApp disabled' };
+
+  logInfo('Login/logout alert processed', {
+    username: user?.username,
+    role: user?.role,
+    counterNo: user?.counter_no || null,
+    eventType,
+    sms: smsResult,
+    whatsapp: whatsappResult
+  });
+}
+
+async function recordSessionEvent(req, user, sessionId, eventType) {
+  await db.query(
+    `INSERT INTO user_session_events
+      (session_id, user_id, username, person_name, role, counter_no, event_type, ip_address, user_agent)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      sessionId,
+      user.id || null,
+      user.username || 'unknown',
+      String(user.person_name || '').trim().slice(0, 120),
+      user.role || 'UNKNOWN',
+      user.counter_no || null,
+      eventType,
+      requestIp(req),
+      requestUserAgent(req)
+    ]
+  );
+
+  sendSessionAlert(user, eventType).catch((err) => {
+    logError('Login/logout alert failed', err, {
+      username: user?.username,
+      role: user?.role,
+      counterNo: user?.counter_no || null,
+      eventType
+    });
+  });
+}
+
+function loginOption(row) {
+  const counterNo = Number(row.counter_no || 0);
+  const adminMatch = String(row.username || '').match(/^admin([1-9]\d*)$/i);
+  const securityMatch = String(row.username || '').match(/^security([1-9]\d*)$/i);
+  const label = row.role === 'COUNTER' && counterNo > 0
+    ? `Counter ${counterNo}`
+    : adminMatch
+      ? `Admin ${adminMatch[1]}`
+      : securityMatch
+        ? `Security ${securityMatch[1]}`
+        : String(row.role || row.username).toLowerCase().replace(/^\w/, (char) => char.toUpperCase());
+
+  return {
+    username: row.username,
+    label,
+    role: row.role,
+    counter_no: row.counter_no
+  };
+}
+
+router.get('/login-options', async (req, res) => {
+  try {
+    const [rows] = await db.query(
+      `SELECT username, role, counter_no
+       FROM users
+       WHERE is_active = 1
+       ORDER BY
+         FIELD(role, 'SERVER', 'ADMIN', 'SECURITY', 'COUNTER'),
+         COALESCE(counter_no, 0),
+         username`
+    );
+
+    res.json({ options: rows.map(loginOption) });
+  } catch (err) {
+    console.error('Login options failed:', err.message);
+    res.status(500).json({ error: 'Unable to load login options.' });
+  }
+});
+
+router.post('/login', async (req, res) => {
+  const { username, password, person_name: personName, system_no, counter_no } = req.body || {};
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Username and password are required.' });
+  }
+  const cleanPersonName = String(personName || '').trim();
+
+  try {
+    const [rows] = await db.query(
+      `SELECT id, username, password_hash, role, counter_no, is_active
+       FROM users
+       WHERE username = ?
+       LIMIT 1`,
+      [username.trim()]
+    );
+
+    const user = rows[0];
+    if (!user || !user.is_active || !passwordMatches(user, password)) {
+      return res.status(401).json({ error: 'Invalid username or password.' });
+    }
+
+    const safeUser = publicUser(user);
+    safeUser.person_name = cleanPersonName.slice(0, 120);
+    if (safeUser.role === 'COUNTER') {
+      safeUser.system_no = normalizeLoginNumber(system_no, 1, 6);
+      safeUser.counter_no = normalizeLoginNumber(counter_no || user.counter_no, 1, 6);
+      safeUser.login_counter_no = user.counter_no || null;
+    }
+    const sessionId = crypto.randomUUID();
+
+    // Login history/SMS/WhatsApp are optional. A restored database may have
+    // an older audit-table schema; that must never block billing login.
+    try {
+      await recordSessionEvent(req, safeUser, sessionId, 'LOGIN');
+    } catch (sessionErr) {
+      logError('Login session event failed; login continues', sessionErr, {
+        username: safeUser.username,
+        role: safeUser.role,
+        personName: safeUser.person_name
+      });
+    }
+
+    const token = jwt.sign({ ...safeUser, session_id: sessionId }, JWT_SECRET, { expiresIn: '18h' });
+    res.json({ token, user: safeUser });
+  } catch (err) {
+    logError('Login failed', err, {
+      username: String(username || '').trim(),
+      personName: cleanPersonName,
+      systemNo: system_no || null,
+      counterNo: counter_no || null
+    });
+    res.status(500).json({ error: 'Unable to login.' });
+  }
+});
+
+router.post('/logout', authenticate, async (req, res) => {
+  try {
+    const sessionId = String(req.user?.session_id || crypto.randomUUID()).slice(0, 80);
+    await recordSessionEvent(req, req.user, sessionId, 'LOGOUT');
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Logout record failed:', err.message);
+    res.status(500).json({ error: 'Unable to record logout.' });
+  }
+});
+
+router.post('/logout-beacon', async (req, res) => {
+  const token = String(req.body?.token || '').trim();
+  if (!token) {
+    return res.status(204).end();
+  }
+
+  try {
+    const user = jwt.verify(token, JWT_SECRET);
+    const sessionId = String(user.session_id || crypto.randomUUID()).slice(0, 80);
+    await recordSessionEvent(req, user, sessionId, 'LOGOUT');
+    res.status(204).end();
+  } catch (err) {
+    res.status(204).end();
+  }
+});
+
+router.get('/session-events', authenticate, authorize('SERVER', 'ADMIN'), async (req, res) => {
+  const limit = Math.min(Number.parseInt(req.query.limit, 10) || 200, 500);
+  const from = String(req.query.from || '').trim();
+  const to = String(req.query.to || '').trim();
+  const search = String(req.query.search || '').trim().slice(0, 120);
+  const where = [];
+  const params = [];
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(from)) {
+    where.push('created_at >= ?');
+    params.push(`${from} 00:00:00`);
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+    where.push('created_at <= ?');
+    params.push(`${to} 23:59:59`);
+  }
+  if (search) {
+    where.push(`(
+      username LIKE ?
+      OR person_name LIKE ?
+      OR role LIKE ?
+      OR CAST(counter_no AS CHAR) LIKE ?
+      OR event_type LIKE ?
+      OR ip_address LIKE ?
+      OR user_agent LIKE ?
+    )`);
+    const like = `%${search}%`;
+    params.push(like, like, like, like, like, like, like);
+  }
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+  try {
+    const [rows] = await db.query(
+      `SELECT id, session_id, user_id, username, person_name, role, counter_no, event_type, ip_address, user_agent, created_at
+       FROM user_session_events
+       ${whereSql}
+       ORDER BY created_at DESC, id DESC
+       LIMIT ?`,
+      [...params, limit]
+    );
+    const [summary] = await db.query(
+      `SELECT username, person_name, role, counter_no, event_type, COUNT(*) AS event_count, MAX(created_at) AS last_at
+       FROM user_session_events
+       ${whereSql}
+       GROUP BY username, person_name, role, counter_no, event_type
+       ORDER BY username, event_type`,
+      params
+    );
+
+    res.json({ rows, summary, filters: { from, to, search } });
+  } catch (err) {
+    console.error('Session events failed:', err.message);
+    res.status(500).json({ error: 'Unable to load login/logout history.' });
+  }
+});
+
+router.get('/me', authenticate, (req, res) => {
+  res.json({ user: req.user });
+});
+
+router.post('/approve-sensitive-mode', authenticate, async (req, res) => {
+  const { username, password, reason } = req.body || {};
+
+  if (!username || !password) {
+    return res.status(400).json({ error: 'Counter person username/code and password are required.' });
+  }
+
+  try {
+    const [rows] = await db.query(
+      `SELECT id, username, password_hash, role, counter_no, is_active
+       FROM users
+       WHERE username = ?
+       LIMIT 1`,
+      [String(username).trim()]
+    );
+
+    const supervisor = rows[0];
+    const allowedRole = ['SERVER', 'ADMIN', 'COUNTER'].includes(supervisor?.role);
+    if (!supervisor || !supervisor.is_active || !allowedRole || !passwordMatches(supervisor, password)) {
+      return res.status(401).json({ error: 'Counter person approval failed.' });
+    }
+
+    res.json({
+      success: true,
+      approved_by: supervisor.username,
+      role: supervisor.role,
+      reason: String(reason || '').slice(0, 120)
+    });
+  } catch (err) {
+    console.error('Sensitive mode approval failed:', err.message);
+    res.status(500).json({ error: 'Unable to verify counter person approval.' });
+  }
+});
+
+module.exports = router;
