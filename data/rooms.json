@@ -1,65 +1,73 @@
 [
   {
-    "id": "lake-suite",
-    "name": "Lake Suite",
-    "tagline": "Floor-to-ceiling glass over the water",
-    "description": "Our signature suite opens onto a private balcony above Havenmere Lake. Morning light fills the room; evenings settle into deep quiet. A freestanding tub, linen bedding, and a writing desk face the shoreline.",
-    "pricePerNight": 320,
+    "id": "executive-red-suite",
+    "name": "Anvi Executive Red Suite",
+    "tagline": "AC Luxury, King Bed",
+    "description": "Signature red-accent suite with king bed, monsoon-ready AC, and a calm work desk at Anvi Grand near Benz Circle.",
+    "pricePerNight": 3899,
     "capacity": 2,
-    "sizeSqFt": 520,
-    "amenities": ["Lake view", "Private balcony", "Soaking tub", "Rain shower", "Mini bar"],
-    "image": "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1600&q=80",
+    "sizeSqFt": 320,
+    "amenities": ["AC Luxury", "King Bed", "Wi-Fi", "TV", "Mini fridge"],
+    "image": "/uploads/media-mtycs4k8xbgg-whatsapp-image-proof-room.jpg",
     "gallery": [
-      "https://images.unsplash.com/photo-1611892440504-42a792e24d32?auto=format&fit=crop&w=1600&q=80",
-      "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?auto=format&fit=crop&w=1600&q=80"
+      "/uploads/media-mtycs4k8xbgg-whatsapp-image-proof-room.jpg"
     ],
     "available": true
   },
   {
-    "id": "forest-king",
-    "name": "Forest King",
-    "tagline": "Wrapped in cedar and soft light",
-    "description": "A generous king room tucked into the treeline. Warm wood paneling, a reading nook, and a walk-in shower make this the quietest stay on property. Ideal for couples who want stillness without sacrificing comfort.",
-    "pricePerNight": 245,
-    "capacity": 2,
-    "sizeSqFt": 380,
-    "amenities": ["Forest view", "King bed", "Walk-in shower", "Reading nook", "Coffee bar"],
-    "image": "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1600&q=80",
-    "gallery": [
-      "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=1600&q=80",
-      "https://images.unsplash.com/photo-1566665797739-1674de7a421a?auto=format&fit=crop&w=1600&q=80"
-    ],
-    "available": true
-  },
-  {
-    "id": "harbor-twin",
-    "name": "Harbor Twin",
-    "tagline": "Two beds, one calm harbor outlook",
-    "description": "Designed for friends or family traveling together. Twin beds, a shared lounge alcove, and a view toward the marina. Flexible for longer stays with a compact kitchenette and ample closet space.",
-    "pricePerNight": 210,
+    "id": "executive-suite",
+    "name": "Executive Suite",
+    "tagline": "Sitting lounge and premium comfort",
+    "description": "Separate sitting area, premium linen, and an expansive bathroom. Our most requested suite for longer stays and VIP guests.",
+    "pricePerNight": 5499,
     "capacity": 3,
-    "sizeSqFt": 410,
-    "amenities": ["Harbor view", "Twin beds", "Kitchenette", "Lounge alcove", "Workspace"],
-    "image": "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1600&q=80",
+    "sizeSqFt": 480,
+    "amenities": [
+      "Suite lounge",
+      "King bed",
+      "Rain shower",
+      "Work desk",
+      "Complimentary breakfast"
+    ],
+    "image": "https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=1600&q=80",
     "gallery": [
-      "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1600&q=80",
-      "https://images.unsplash.com/photo-1578683010236-d716f9a3f461?auto=format&fit=crop&w=1600&q=80"
+      "https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=1600&q=80"
     ],
     "available": true
   },
   {
-    "id": "meadow-cottage",
-    "name": "Meadow Cottage",
-    "tagline": "A freestanding cabin at the edge of the field",
-    "description": "Our only freestanding cottage—separate entrance, wood-burning fireplace, and a porch that looks across wild meadow. Perfect when you want the hotel’s dining and spa with the privacy of a small house.",
-    "pricePerNight": 390,
+    "id": "family-twin",
+    "name": "Family Twin",
+    "tagline": "Two beds for family travel",
+    "description": "Twin beds with extra rollaway option, perfect for families exploring Kanaka Durga Temple and the Krishna riverfront.",
+    "pricePerNight": 4499,
     "capacity": 4,
-    "sizeSqFt": 680,
-    "amenities": ["Private cottage", "Fireplace", "Porch", "Spa access", "Dining credit"],
-    "image": "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=1600&q=80",
+    "sizeSqFt": 400,
+    "amenities": ["Twin beds", "Family seating", "AC", "Wi-Fi", "Tea/coffee"],
+    "image": "https://images.unsplash.com/photo-1595576508898-0ad5c879a061?auto=format&fit=crop&w=1600&q=80",
     "gallery": [
-      "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=1600&q=80",
-      "https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=1600&q=80"
+      "https://images.unsplash.com/photo-1595576508898-0ad5c879a061?auto=format&fit=crop&w=1600&q=80"
+    ],
+    "available": true
+  },
+  {
+    "id": "grand-presidential",
+    "name": "Grand Presidential",
+    "tagline": "Top-floor grandeur for celebrations",
+    "description": "Our signature presidential floor—private dining nook, butler desk, and panoramic Eluru Road views for weddings and corporate hosts.",
+    "pricePerNight": 9999,
+    "capacity": 4,
+    "sizeSqFt": 720,
+    "amenities": [
+      "Private dining",
+      "Butler desk",
+      "Jacuzzi",
+      "Lounge",
+      "Airport pickup"
+    ],
+    "image": "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=1600&q=80",
+    "gallery": [
+      "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=1600&q=80"
     ],
     "available": true
   }

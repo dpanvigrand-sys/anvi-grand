@@ -18,8 +18,10 @@ const links = [
   { href: "/", label: "Home" },
   { href: "/rooms", label: "Rooms" },
   { href: "/food", label: "Dining" },
-  { href: "/banquet", label: "Banquet Halls" },
+  { href: "/banquet", label: "Banquet" },
+  { href: "/party-hall", label: "Party Hall" },
   { href: "/gallery", label: "Gallery" },
+  { href: "/contact", label: "Contact" },
 ];
 
 type Props = { receptionPhone?: string };

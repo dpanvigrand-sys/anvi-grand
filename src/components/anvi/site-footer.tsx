@@ -108,10 +108,16 @@ export function SiteFooter({
               Rooms & rates
             </Link>
             <Link href="/banquet" className="hover:text-[#ffb4b4]">
-              Banquet Halls
+              Banquet halls
+            </Link>
+            <Link href="/party-hall" className="hover:text-[#ffb4b4]">
+              Party hall
             </Link>
             <Link href="/food" className="hover:text-[#ffb4b4]">
               CHIGURU menu
+            </Link>
+            <Link href="/buffet" className="hover:text-[#ffb4b4]">
+              Buffet booking
             </Link>
             <Link href="/gallery" className="hover:text-[#ffb4b4]">
               Gallery

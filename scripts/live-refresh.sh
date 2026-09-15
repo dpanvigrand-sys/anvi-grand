@@ -208,7 +208,7 @@ const { chromium } = require('playwright-core');
     args: ['--no-sandbox','--disable-dev-shm-usage']
   });
   const page = await browser.newPage({ viewport: { width: 1400, height: 900 } });
-  const url = process.env.ANVI_SHOT_URL || '${OPS_URL}';
+  const url = process.env.ANVI_SHOT_URL || '${GUEST_URL}';
   await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 15000 });
   await page.waitForTimeout(1200);
   await page.screenshot({ path: '/tmp/anvi-shot-raw.png', fullPage: false });
@@ -284,61 +284,61 @@ chrome_common_args() {
   )
 }
 
-# Open BOTH screens as two Chrome windows (ops + guest). Always required.
-# HARD: --new-window, frontmost maximized unlocked /ops — user presses nothing.
+# Open BOTH screens as two Chrome windows (guest home primary + ops secondary).
+# HARD: --new-window, frontmost maximized on guest `/` — user presses nothing.
 open_or_refresh_chrome() {
   resolve_chrome || return 1
   resolve_targets
   chrome_common_args
 
-  # Always force a dedicated NEW WINDOW for unlocked ops (frontmost).
+  # PRIMARY: guest home `/` first (this turn + standing guest-facing proof).
   nohup "$CHROME_BIN" "${CHROME_COMMON[@]}" \
     --window-size=1600,1000 --window-position=20,20 \
     --start-maximized \
-    --new-window "$OPS_URL" \
+    --new-window "$GUEST_URL" \
     >>/tmp/chrome-anvi-live.log 2>&1 &
   sleep 2.2
 
-  local ops_wid=""
+  local guest_wid=""
   if command -v xdotool >/dev/null 2>&1; then
-    ops_wid="$(xdotool search --onlyvisible --class 'google-chrome|Google-chrome|chromium' 2>/dev/null | tail -1 || true)"
-    if [[ -n "$ops_wid" ]]; then
-      focus_maximize "$ops_wid"
-      navigate_and_reload "$ops_wid" "$OPS_URL"
-      focus_maximize "$ops_wid"
+    guest_wid="$(xdotool search --onlyvisible --class 'google-chrome|Google-chrome|chromium' 2>/dev/null | tail -1 || true)"
+    if [[ -n "$guest_wid" ]]; then
+      focus_maximize "$guest_wid"
+      navigate_and_reload "$guest_wid" "$GUEST_URL"
+      focus_maximize "$guest_wid"
     fi
   fi
 
-  # Second NEW WINDOW for guest home.
+  # Secondary: unlocked ops hub.
   nohup "$CHROME_BIN" "${CHROME_COMMON[@]}" \
     --window-size=1280,900 --window-position=280,80 \
-    --new-window "$GUEST_URL" \
+    --new-window "$OPS_URL" \
     >>/tmp/chrome-anvi-live.log 2>&1 &
   sleep 2.0
 
   if command -v xdotool >/dev/null 2>&1; then
-    local wids guest_wid
+    local wids ops_wid
     mapfile -t wids < <(xdotool search --onlyvisible --class 'google-chrome|Google-chrome|chromium' 2>/dev/null || true)
     if [[ ${#wids[@]} -ge 2 ]]; then
-      guest_wid="${wids[-1]}"
-      focus_maximize "$guest_wid"
-      navigate_and_reload "$guest_wid" "$GUEST_URL"
-    fi
-    # Ops frontmost for shot.jpg + Try Live visibility
-    if [[ -n "$ops_wid" ]]; then
+      ops_wid="${wids[-1]}"
       focus_maximize "$ops_wid"
       navigate_and_reload "$ops_wid" "$OPS_URL"
-      focus_maximize "$ops_wid"
+    fi
+    # Guest home frontmost for shot.jpg + Try Live visibility
+    if [[ -n "$guest_wid" ]]; then
+      focus_maximize "$guest_wid"
+      navigate_and_reload "$guest_wid" "$GUEST_URL"
+      focus_maximize "$guest_wid"
     else
-      ops_wid="$(xdotool search --onlyvisible --class 'google-chrome|Google-chrome|chromium' 2>/dev/null | head -1 || true)"
-      focus_maximize "${ops_wid:-}"
-      navigate_and_reload "${ops_wid:-}" "$OPS_URL"
+      guest_wid="$(xdotool search --onlyvisible --class 'google-chrome|Google-chrome|chromium' 2>/dev/null | head -1 || true)"
+      focus_maximize "${guest_wid:-}"
+      navigate_and_reload "${guest_wid:-}" "$GUEST_URL"
     fi
   fi
 
-  echo "[live:refresh] opened Chrome --new-window → ops + guest (user presses nothing)"
-  echo "[live:refresh]   ops:   $OPS_URL"
+  echo "[live:refresh] opened Chrome --new-window → guest home + ops (user presses nothing)"
   echo "[live:refresh]   guest: $GUEST_URL"
+  echo "[live:refresh]   ops:   $OPS_URL"
 }
 
 OPS_URL="$LOCAL_OPS"
@@ -347,9 +347,9 @@ GUEST_URL="$LOCAL_HOME"
 ensure_server
 open_or_refresh_chrome
 capture_shot
-echo "[live:refresh] DONE — ops + guest home open (no manual refresh / continue)"
+echo "[live:refresh] DONE — guest home + ops open (no manual refresh / continue)"
 echo "[live:refresh] shot=$SHOT"
 echo "[live:refresh] local_ops=$LOCAL_OPS"
 echo "[live:refresh] local_home=$LOCAL_HOME"
-echo "[live:refresh] ops=$OPS_URL"
 echo "[live:refresh] guest=$GUEST_URL"
+echo "[live:refresh] ops=$OPS_URL"

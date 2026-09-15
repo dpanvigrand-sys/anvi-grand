@@ -83,7 +83,7 @@ export default async function HomePage() {
               </div>
               <div className="p-5">
                 <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ag-red)]">
-                  Book Banquet Halls
+                  {venue.type === "banquet" ? "Banquet at Anvi Grand" : "Party hall"}
                 </p>
                 <h2 className="mt-2 font-display text-2xl text-[var(--ag-ink)]">
                   {venue.name}
@@ -99,7 +99,7 @@ export default async function HomePage() {
                   href={venue.type === "banquet" ? "/banquet" : "/party-hall"}
                   className="mt-5 flex h-11 items-center justify-center rounded-md bg-[var(--ag-red)] text-sm font-semibold text-white hover:bg-[var(--ag-red-deep)]"
                 >
-                  Reserve Banquet Hall
+                  {venue.type === "banquet" ? "Reserve Banquet Hall" : "Book Party Hall"}
                 </Link>
               </div>
             </article>

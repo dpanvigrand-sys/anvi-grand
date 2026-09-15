@@ -21,8 +21,8 @@ export function Hero({
       <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-black/55 to-transparent" />
 
       <div
-        className="absolute z-20 max-w-xl text-left"
-        style={{ top: 16, left: 16, fontWeight: 400 }}
+        className="absolute z-20 max-w-[min(100%,28rem)] px-1 text-left sm:max-w-xl"
+        style={{ top: 20, left: 12, right: 12, fontWeight: 400 }}
       >
         <h1
           className="font-sans text-3xl leading-tight tracking-normal text-white sm:text-4xl md:text-5xl"

@@ -2,9 +2,9 @@
   "items": [
     {
       "id": "site-hero-entrance",
-      "src": "/uploads/media-mtyn80wn8hd0-whatsapp-image-2026-09-12-at-5.21.07-pm-1-.jpeg",
-      "label": "WhatsApp Image 2026-09-12 at 5.21.07 PM (1).jpeg",
-      "group": "Rooms",
+      "src": "/images/anvi-entrance.jpg",
+      "label": "ANVI GRAND night entrance",
+      "group": "Hotel",
       "slot": "hero",
       "createdAt": "2026-09-12T17:12:33.434Z",
       "managedFile": true,

@@ -64,34 +64,40 @@ export default async function GalleryPage() {
       </h1>
       <p className="mt-3 max-w-2xl text-[var(--ag-muted)]">
         Rooms, banquet halls, CHIGURU dining spaces, and hotel facilities near
-        Benz Circle, Eluru Road, Vijayawada. Staff can add or remove photos from{" "}
-        <span className="text-[var(--ag-ink)]">/ops → Photos</span>.
+        Benz Circle, Eluru Road, Vijayawada.
       </p>
-      <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {shots.map((shot) => (
-          <figure
-            key={`${shot.group}-${shot.label}-${shot.src}`}
-            className="overflow-hidden rounded-lg bg-white shadow-md ring-1 ring-black/5"
-          >
-            <div className="relative aspect-[4/3]">
-              <Image
-                src={shot.src}
-                alt={shot.label}
-                fill
-                className="object-cover"
-                sizes="(max-width:768px) 100vw, 33vw"
-                unoptimized={isUploadSrc(shot.src)}
-              />
-            </div>
-            <figcaption className="px-4 py-3">
-              <p className="text-xs uppercase tracking-[0.14em] text-[var(--ag-red)]">
-                {shot.group}
-              </p>
-              <p className="mt-1 font-medium text-[var(--ag-ink)]">{shot.label}</p>
-            </figcaption>
-          </figure>
-        ))}
-      </div>
+      {shots.length === 0 ? (
+        <p className="mt-10 rounded-lg border border-[var(--ag-line)] bg-white px-6 py-16 text-center text-[var(--ag-muted)]">
+          Gallery photos are being prepared. Call reception or visit Anvi Grand
+          near Benz Circle.
+        </p>
+      ) : (
+        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {shots.map((shot) => (
+            <figure
+              key={`${shot.group}-${shot.label}-${shot.src}`}
+              className="overflow-hidden rounded-lg bg-white shadow-md ring-1 ring-black/5"
+            >
+              <div className="relative aspect-[4/3]">
+                <Image
+                  src={shot.src}
+                  alt={shot.label}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width:768px) 100vw, 33vw"
+                  unoptimized={isUploadSrc(shot.src)}
+                />
+              </div>
+              <figcaption className="px-4 py-3">
+                <p className="text-xs uppercase tracking-[0.14em] text-[var(--ag-red)]">
+                  {shot.group}
+                </p>
+                <p className="mt-1 font-medium text-[var(--ag-ink)]">{shot.label}</p>
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

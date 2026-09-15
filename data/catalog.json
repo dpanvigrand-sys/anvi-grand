@@ -6,7 +6,7 @@
     "phone": "7569494949",
     "email": "stay@anvigrand.in",
     "foodBrand": "CHIGURU",
-    "heroImage": "/uploads/media-mtyn80wn8hd0-whatsapp-image-2026-09-12-at-5.21.07-pm-1-.jpeg",
+    "heroImage": "/images/anvi-entrance.jpg",
     "logo": "/logos/anvi-grand.svg",
     "foodLogo": "/logos/chiguru.svg",
     "roomsPhone": "7569494949",
@@ -89,7 +89,7 @@
       "type": "banquet",
       "name": "Royal Grand Ballroom",
       "tagline": "Flagship banquet for weddings and conferences",
-      "description": "Staff CMS demo: price and capacity updated from /ops/admin/venues.",
+      "description": "Our flagship banquet at Anvi Grand — weddings, conferences, and grand receptions with stage, LED wall, bridal suite, and valet near Benz Circle.",
       "capacity": 550,
       "priceFrom": 55000,
       "image": "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=1600&q=80",
@@ -106,7 +106,7 @@
       "type": "party-hall",
       "name": "Imperial Ruby Mini Hall",
       "tagline": "Intimate celebrations",
-      "description": "Mini hall for parties.",
+      "description": "A warm party hall for birthdays, engagements, and corporate evenings — stage, AC, and CHIGURU catering on call.",
       "capacity": 150,
       "priceFrom": 20000,
       "image": "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=1600&q=80",
@@ -119,12 +119,12 @@
   "menu": [
     {
       "id": "chiguru-handi-biryani",
-      "name": "Handi Biryani \u2014 Staff Edit Demo",
+      "name": "Handi Biryani",
       "category": "biryani",
-      "description": "Full item edit demo: name, description, category, price and image updated from /ops/admin/food.",
+      "description": "Slow-cooked dum biryani from the CHIGURU kitchen — fragrant basmati, sealed handi, Andhra spice.",
       "price": 389,
       "veg": false,
-      "image": ""
+      "image": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=800&q=80"
     },
     {
       "id": "gongura-mutton",
@@ -184,8 +184,8 @@
   "buffets": [
     {
       "id": "weekend-andhra",
-      "name": "Weekend Andhra Buffet (Edited)",
-      "description": "Full-edit proof: gongura, pulusu, rice stations \u2014 updated via admin buffet upsert.",
+      "name": "Weekend Andhra Buffet",
+      "description": "Gongura, pulusu, and rice stations — weekend lunch favourites from CHIGURU.",
       "pricePerPerson": 949,
       "meal": "lunch",
       "image": "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1400&q=80"

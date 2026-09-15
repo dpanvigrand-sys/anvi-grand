@@ -23,25 +23,34 @@ export default async function BuffetPage() {
         .
       </p>
       <div className="mt-10 grid gap-8 md:grid-cols-2">
-        {buffets.map((b) => (
-          <article key={b.id} className="border border-[var(--ag-line)] bg-white/80">
-            <div className="relative aspect-[16/10] overflow-hidden">
-              <Image src={b.image} alt={b.name} fill className="object-cover" sizes="50vw" />
-            </div>
-            <div className="p-5">
-              <h2 className="font-display text-2xl text-[var(--ag-ink)]">{b.name}</h2>
-              <p className="mt-2 text-sm text-[var(--ag-muted)]">{b.description}</p>
-              <p className="mt-3 text-sm text-[var(--ag-ink)]">{formatINR(b.pricePerPerson)} / person · {b.meal}</p>
-            </div>
-          </article>
-        ))}
+        {buffets.length === 0 ? (
+          <p className="col-span-full rounded-lg border border-[var(--ag-line)] bg-white px-6 py-16 text-center text-[var(--ag-muted)]">
+            Buffet menus are being updated. Call {phones.food} for today&apos;s
+            CHIGURU buffet.
+          </p>
+        ) : (
+          buffets.map((b) => (
+            <article key={b.id} className="border border-[var(--ag-line)] bg-white/80">
+              <div className="relative aspect-[16/10] overflow-hidden">
+                <Image src={b.image} alt={b.name} fill className="object-cover" sizes="50vw" />
+              </div>
+              <div className="p-5">
+                <h2 className="font-display text-2xl text-[var(--ag-ink)]">{b.name}</h2>
+                <p className="mt-2 text-sm text-[var(--ag-muted)]">{b.description}</p>
+                <p className="mt-3 text-sm text-[var(--ag-ink)]">{formatINR(b.pricePerPerson)} / person · {b.meal}</p>
+              </div>
+            </article>
+          ))
+        )}
       </div>
+      {buffets.length > 0 && (
       <div className="mt-12 border border-[var(--ag-line)] bg-white/80 p-5 md:p-8">
         <h2 className="font-display text-3xl text-[var(--ag-ink)]">Reserve seats</h2>
         <div className="mt-6">
           <BuffetBookingForm buffets={buffets} contactPhone={phones.food} />
         </div>
       </div>
+      )}
     </div>
   );
 }

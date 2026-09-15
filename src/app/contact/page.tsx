@@ -18,11 +18,11 @@ export default async function ContactPage() {
           Contact
         </p>
         <h1 className="mt-3 font-display text-5xl text-[var(--ag-ink)]">
-          Front desk
+          Anvi Grand
         </h1>
         <p className="mt-4 text-[var(--ag-muted)]">
-          Questions on rooms, banquet, or CHIGURU catering—call the right desk
-          or write to us.
+          Questions on rooms, banquet, party hall, or CHIGURU catering—call the
+          right desk or write to us near Benz Circle, Eluru Road.
         </p>
         <div className="mt-8 space-y-4 text-sm text-[var(--ag-ink)]">
           <p>
@@ -62,8 +62,18 @@ export default async function ContactPage() {
             {hotel.address}
           </p>
         </div>
-        <div className="mt-8">
-          <MapEmbed />
+        <div className="mt-8 overflow-hidden rounded-lg ring-1 ring-black/10">
+          <div className="aspect-[4/3] min-h-[220px] w-full sm:min-h-[280px]">
+            <MapEmbed className="h-full min-h-[220px] sm:min-h-[280px]" />
+          </div>
+          <a
+            href="https://maps.app.goo.gl/F5K19Sff5QfKbEZs5"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block bg-[var(--ag-red)] px-4 py-3 text-center text-sm font-semibold text-white hover:bg-[var(--ag-red-deep)]"
+          >
+            Open Anvi Grand in Google Maps
+          </a>
         </div>
       </div>
       <div className="border border-[var(--ag-line)] bg-white/80 p-5 md:p-8">

@@ -119,7 +119,12 @@ export async function getCatalog(): Promise<Catalog> {
 }
 
 export async function getHotel() {
-  return (await getCatalog()).hotel;
+  const { resolveHeroImage } = await import("./default-images");
+  const hotel = (await getCatalog()).hotel;
+  return {
+    ...hotel,
+    heroImage: resolveHeroImage(hotel.heroImage),
+  };
 }
 
 /** Role phones with fallback to legacy hotel.phone */
@@ -155,7 +160,11 @@ export async function getVenue(id: string) {
 }
 
 export async function getMenu() {
-  return (await getCatalog()).menu;
+  const { resolveMenuImage } = await import("./default-images");
+  return (await getCatalog()).menu.map((item) => ({
+    ...item,
+    image: resolveMenuImage(item.image),
+  }));
 }
 
 export async function getBuffets() {

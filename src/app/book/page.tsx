@@ -17,7 +17,7 @@ export default async function BookPage({ searchParams }: Props) {
       <p className="text-xs uppercase tracking-[0.2em] text-[var(--ag-red)]">Reservations</p>
       <h1 className="mt-3 font-display text-5xl text-[var(--ag-ink)]">Book a stay</h1>
       <p className="mt-4 text-[var(--ag-muted)]">
-        Instant confirmation via local JSON store—no account needed. Rooms desk{" "}
+        Reserve your room at Anvi Grand — no account needed. Rooms desk{" "}
         <a href={`tel:${phones.rooms}`} className="font-semibold text-[var(--ag-red)]">
           {phones.rooms}
         </a>
