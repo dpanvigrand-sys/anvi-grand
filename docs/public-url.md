@@ -1,38 +1,44 @@
 # Public URL (Cloudflare quick tunnel)
 
-**Current base:** https://ana-vendor-cards-theta.trycloudflare.com
+Guest site + staff ops share one public base via Cloudflare quick tunnel → Next on `:3947`.
 
-> Tunnel hostname rotates only when `cloudflared` process restarts. Keep-alive does **not** thrash on DNS lag.
+**Current base (auto-healed 2026-09-15T16:53Z):**
 
-## Local (Try Live — use this)
+https://kills-america-loops-douglas.trycloudflare.com
+
+> Quick tunnels recycle when `cloudflared` restarts. Keep-alive (`scripts/ops-keep-alive.sh`) only restarts when the tunnel **process** is dead — not on transient DNS/curl failures. Hostname may rotate after a real restart.
+
+## Language
+
+Ops web UI is **English only** (no Telugu labels).
+
+## Local (Try Live — always works)
 
 - http://localhost:3947/
 - http://localhost:3947/ops?unlock=anviops2026
 
-## Public — guest website
-
-| Screen | URL |
-|--------|-----|
-| Guest home | https://ana-vendor-cards-theta.trycloudflare.com/ |
-| Rooms | https://ana-vendor-cards-theta.trycloudflare.com/rooms |
-| Dining (CHIGURU) | https://ana-vendor-cards-theta.trycloudflare.com/food |
-| Banquet | https://ana-vendor-cards-theta.trycloudflare.com/banquet |
-| Party hall | https://ana-vendor-cards-theta.trycloudflare.com/party-hall |
-| Gallery | https://ana-vendor-cards-theta.trycloudflare.com/gallery |
-| Contact / map | https://ana-vendor-cards-theta.trycloudflare.com/contact |
-| Buffet | https://ana-vendor-cards-theta.trycloudflare.com/buffet |
-| Book room | https://ana-vendor-cards-theta.trycloudflare.com/book |
-
-## Ops (secondary)
+## Public ops + guest
 
 Password: `anviops2026`
 
 | Screen | URL |
 |--------|-----|
-| Ops hub | https://ana-vendor-cards-theta.trycloudflare.com/ops?unlock=anviops2026 |
+| Guest home | https://kills-america-loops-douglas.trycloudflare.com/ |
+| Ops hub (Quick edit: Photos + Menu) | https://kills-america-loops-douglas.trycloudflare.com/ops?unlock=anviops2026 |
+| Photos — Add / Edit | https://kills-america-loops-douglas.trycloudflare.com/ops/admin/photos?unlock=anviops2026 |
+| Menu (Food) — Add / Edit | https://kills-america-loops-douglas.trycloudflare.com/ops/admin/food?unlock=anviops2026 |
+| Accounts.1 | https://kills-america-loops-douglas.trycloudflare.com/ops/accounts?unlock=anviops2026 |
+| Bookings reports | https://kills-america-loops-douglas.trycloudflare.com/ops/admin/bookings?unlock=anviops2026 |
+| Venue bookings | https://kills-america-loops-douglas.trycloudflare.com/ops/admin/venue-bookings?unlock=anviops2026 |
+| Inward | https://kills-america-loops-douglas.trycloudflare.com/ops/inward?unlock=anviops2026 |
+| Outward | https://kills-america-loops-douglas.trycloudflare.com/ops/outward?unlock=anviops2026 |
 
-## Auto browser
+## Auto browser refresh
 
-`npm run live:refresh` opens Chrome **guest `/` first**, then unlocked ops. Shot: store `media/shot.jpg` (guest home).
+After every UI update: `npm run live:refresh` — opens unlocked `/ops` + guest `/`. See `docs/auto-open-rule.md`.
 
-Keep-alive: `npm run ops:keep-alive:loop`
+## Keep-alive
+
+```bash
+bash scripts/ops-keep-alive.sh loop
+```
