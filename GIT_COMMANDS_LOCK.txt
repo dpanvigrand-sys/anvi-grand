@@ -1,0 +1,1 @@
+ANVI GRAND OPS repo only. Work from D:\ANVI_GRAND_OPS. After adding separate ANVI GitHub remote named anvi, use: git push anvi grand and git pull anvi grand. Never use BADIZO remote here.
