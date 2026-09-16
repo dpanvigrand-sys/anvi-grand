@@ -2,9 +2,9 @@
 
 Guest site + staff ops share one public base via Cloudflare quick tunnel → Next on `:3947`.
 
-**Current base (auto-healed 2026-09-16T02:47Z):**
+**Current base (auto-healed 2026-09-16T05:04Z):**
 
-https://civil-success-locations-mood.trycloudflare.com
+https://sage-recognised-groove-prostate.trycloudflare.com
 
 > Quick tunnels recycle when `cloudflared` restarts. Keep-alive (`scripts/ops-keep-alive.sh`) only restarts when the tunnel **process** is dead — not on transient DNS/curl failures. Hostname may rotate after a real restart. DNS can lag inside the VM; Try Live local always works.
 
@@ -28,17 +28,17 @@ Password: `anviops2026`
 
 | Screen | URL |
 |--------|-----|
-| Guest home | https://civil-success-locations-mood.trycloudflare.com/ |
-| Ops hub (Quick edit: Photos + Menu) | https://civil-success-locations-mood.trycloudflare.com/ops?unlock=anviops2026 |
-| Reception (counter toast) | https://civil-success-locations-mood.trycloudflare.com/ops/reception?unlock=anviops2026 |
-| Banquet | https://civil-success-locations-mood.trycloudflare.com/ops/banquet?unlock=anviops2026 |
-| Kitchen | https://civil-success-locations-mood.trycloudflare.com/ops/kitchen?unlock=anviops2026 |
-| Server | https://civil-success-locations-mood.trycloudflare.com/ops/server?unlock=anviops2026 |
-| Admin.1 | https://civil-success-locations-mood.trycloudflare.com/ops/admin?unlock=anviops2026 |
-| Photos — Add / Edit | https://civil-success-locations-mood.trycloudflare.com/ops/admin/photos?unlock=anviops2026 |
-| Menu (Food) — Add / Edit | https://civil-success-locations-mood.trycloudflare.com/ops/admin/food?unlock=anviops2026 |
-| Bookings reports | https://civil-success-locations-mood.trycloudflare.com/ops/admin/bookings?unlock=anviops2026 |
-| Venue bookings | https://civil-success-locations-mood.trycloudflare.com/ops/admin/venue-bookings?unlock=anviops2026 |
+| Guest home | https://sage-recognised-groove-prostate.trycloudflare.com/ |
+| Ops hub (Quick edit: Photos + Menu) | https://sage-recognised-groove-prostate.trycloudflare.com/ops?unlock=anviops2026 |
+| Reception (counter toast) | https://sage-recognised-groove-prostate.trycloudflare.com/ops/reception?unlock=anviops2026 |
+| Banquet | https://sage-recognised-groove-prostate.trycloudflare.com/ops/banquet?unlock=anviops2026 |
+| Kitchen | https://sage-recognised-groove-prostate.trycloudflare.com/ops/kitchen?unlock=anviops2026 |
+| Server | https://sage-recognised-groove-prostate.trycloudflare.com/ops/server?unlock=anviops2026 |
+| Admin.1 | https://sage-recognised-groove-prostate.trycloudflare.com/ops/admin?unlock=anviops2026 |
+| Photos — Add / Edit | https://sage-recognised-groove-prostate.trycloudflare.com/ops/admin/photos?unlock=anviops2026 |
+| Menu (Food) — Add / Edit | https://sage-recognised-groove-prostate.trycloudflare.com/ops/admin/food?unlock=anviops2026 |
+| Bookings reports | https://sage-recognised-groove-prostate.trycloudflare.com/ops/admin/bookings?unlock=anviops2026 |
+| Venue bookings | https://sage-recognised-groove-prostate.trycloudflare.com/ops/admin/venue-bookings?unlock=anviops2026 |
 
 ## Counter booking toast
 
