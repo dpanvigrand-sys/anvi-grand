@@ -47,6 +47,13 @@ export function OpsGate({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    // Fail-safe: never leave UI stuck on "Checking staff access…"
+    // (can happen if client hydration stalls on 127.0.0.1 vs localhost).
+    const failSafe = window.setTimeout(() => {
+      setAuthed((a) => a || readAuth());
+      setReady(true);
+    }, 800);
+
     try {
       const params = new URLSearchParams(window.location.search);
       if (params.get("unlock") === OPS_DEMO_PASSWORD) {
@@ -56,6 +63,7 @@ export function OpsGate({ children }: { children: React.ReactNode }) {
         const clean = window.location.pathname;
         window.history.replaceState({}, "", clean);
         setReady(true);
+        window.clearTimeout(failSafe);
         return;
       }
     } catch {
@@ -63,6 +71,8 @@ export function OpsGate({ children }: { children: React.ReactNode }) {
     }
     setAuthed(readAuth());
     setReady(true);
+    window.clearTimeout(failSafe);
+    return () => window.clearTimeout(failSafe);
   }, []);
 
   function unlock(e: React.FormEvent) {

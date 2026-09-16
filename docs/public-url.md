@@ -2,9 +2,9 @@
 
 Guest site + staff ops share one public base via Cloudflare quick tunnel → Next on `:3947`.
 
-**Current base (auto-healed 2026-09-15T17:12Z):**
+**Current base (auto-healed 2026-09-16T01:33Z):**
 
-https://instructions-assumes-instrumentation-melissa.trycloudflare.com
+https://matched-submissions-bios-two.trycloudflare.com
 
 > Quick tunnels recycle when `cloudflared` restarts. Keep-alive (`scripts/ops-keep-alive.sh`) only restarts when the tunnel **process** is dead — not on transient DNS/curl failures. Hostname may rotate after a real restart.
 
@@ -16,6 +16,7 @@ Ops web UI is **English only** (no Telugu labels).
 
 - http://localhost:3947/
 - http://localhost:3947/ops?unlock=anviops2026
+- http://localhost:3947/ops/admin?unlock=anviops2026
 
 ## Public ops + guest
 
@@ -23,15 +24,16 @@ Password: `anviops2026`
 
 | Screen | URL |
 |--------|-----|
-| Guest home | https://instructions-assumes-instrumentation-melissa.trycloudflare.com/ |
-| Ops hub (Quick edit: Photos + Menu) | https://instructions-assumes-instrumentation-melissa.trycloudflare.com/ops?unlock=anviops2026 |
-| Photos — Add / Edit | https://instructions-assumes-instrumentation-melissa.trycloudflare.com/ops/admin/photos?unlock=anviops2026 |
-| Menu (Food) — Add / Edit | https://instructions-assumes-instrumentation-melissa.trycloudflare.com/ops/admin/food?unlock=anviops2026 |
-| Accounts.1 | https://instructions-assumes-instrumentation-melissa.trycloudflare.com/ops/accounts?unlock=anviops2026 |
-| Bookings reports | https://instructions-assumes-instrumentation-melissa.trycloudflare.com/ops/admin/bookings?unlock=anviops2026 |
-| Venue bookings | https://instructions-assumes-instrumentation-melissa.trycloudflare.com/ops/admin/venue-bookings?unlock=anviops2026 |
-| Inward | https://instructions-assumes-instrumentation-melissa.trycloudflare.com/ops/inward?unlock=anviops2026 |
-| Outward | https://instructions-assumes-instrumentation-melissa.trycloudflare.com/ops/outward?unlock=anviops2026 |
+| Guest home | https://matched-submissions-bios-two.trycloudflare.com/ |
+| Ops hub (Quick edit: Photos + Menu) | https://matched-submissions-bios-two.trycloudflare.com/ops?unlock=anviops2026 |
+| Admin.1 | https://matched-submissions-bios-two.trycloudflare.com/ops/admin?unlock=anviops2026 |
+| Photos — Add / Edit | https://matched-submissions-bios-two.trycloudflare.com/ops/admin/photos?unlock=anviops2026 |
+| Menu (Food) — Add / Edit | https://matched-submissions-bios-two.trycloudflare.com/ops/admin/food?unlock=anviops2026 |
+| Accounts.1 | https://matched-submissions-bios-two.trycloudflare.com/ops/accounts?unlock=anviops2026 |
+| Bookings reports | https://matched-submissions-bios-two.trycloudflare.com/ops/admin/bookings?unlock=anviops2026 |
+| Venue bookings | https://matched-submissions-bios-two.trycloudflare.com/ops/admin/venue-bookings?unlock=anviops2026 |
+| Inward | https://matched-submissions-bios-two.trycloudflare.com/ops/inward?unlock=anviops2026 |
+| Outward | https://matched-submissions-bios-two.trycloudflare.com/ops/outward?unlock=anviops2026 |
 
 ## Auto browser refresh
 
