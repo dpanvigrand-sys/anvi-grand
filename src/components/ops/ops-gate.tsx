@@ -10,11 +10,38 @@ const STORAGE_KEY = "anvi-ops-auth";
 /** Demo password for staff ops — documented in README */
 export const OPS_DEMO_PASSWORD = "anviops2026";
 
+function readCookie(name: string): string | null {
+  try {
+    const m = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`));
+    return m ? decodeURIComponent(m[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCookie(name: string, value: string | null) {
+  try {
+    if (value === null) {
+      document.cookie = `${name}=; Path=/; Max-Age=0; SameSite=Lax`;
+    } else {
+      // 30 days — same hostname only (trycloudflare origin is per-tunnel)
+      document.cookie = `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=2592000; SameSite=Lax`;
+    }
+  } catch {
+    /* ignore */
+  }
+}
+
 function readAuth(): boolean {
   try {
     // localStorage so multiple Chrome windows share unlock on Try Live
     if (window.localStorage.getItem(STORAGE_KEY) === "1") return true;
     if (window.sessionStorage.getItem(STORAGE_KEY) === "1") {
+      window.localStorage.setItem(STORAGE_KEY, "1");
+      return true;
+    }
+    // Cookie fallback — helps when storage is blocked / third-party quirks
+    if (readCookie(STORAGE_KEY) === "1") {
       window.localStorage.setItem(STORAGE_KEY, "1");
       return true;
     }
@@ -29,9 +56,11 @@ function writeAuth(on: boolean) {
     if (on) {
       window.localStorage.setItem(STORAGE_KEY, "1");
       window.sessionStorage.setItem(STORAGE_KEY, "1");
+      writeCookie(STORAGE_KEY, "1");
     } else {
       window.localStorage.removeItem(STORAGE_KEY);
       window.sessionStorage.removeItem(STORAGE_KEY);
+      writeCookie(STORAGE_KEY, null);
     }
   } catch {
     /* ignore */
@@ -48,20 +77,28 @@ export function OpsGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Fail-safe: never leave UI stuck on "Checking staff access…"
-    // (can happen if client hydration stalls on 127.0.0.1 vs localhost).
+    // (can happen if client hydration stalls on 127.0.0.1 vs localhost,
+    // or if public-tunnel JS is slow). 400ms is enough; show password form after.
     const failSafe = window.setTimeout(() => {
       setAuthed((a) => a || readAuth());
       setReady(true);
-    }, 800);
+    }, 400);
 
     try {
       const params = new URLSearchParams(window.location.search);
       if (params.get("unlock") === OPS_DEMO_PASSWORD) {
         writeAuth(true);
         setAuthed(true);
-        // Clean URL without reload flicker
+        // Keep ?unlock= visible briefly so shareable public links stay copyable;
+        // strip after paint so refresh still works via storage/cookie.
         const clean = window.location.pathname;
-        window.history.replaceState({}, "", clean);
+        window.setTimeout(() => {
+          try {
+            window.history.replaceState({}, "", clean);
+          } catch {
+            /* ignore */
+          }
+        }, 50);
         setReady(true);
         window.clearTimeout(failSafe);
         return;

@@ -14,6 +14,9 @@
     "live:ops-windows": "bash scripts/ops-windows-public.sh",
     "ops:keep-alive": "bash scripts/ops-keep-alive.sh once",
     "ops:keep-alive:loop": "bash scripts/ops-keep-alive.sh loop",
+    "ops:persist": "bash scripts/ops-persist.sh ensure",
+    "ops:persist:status": "bash scripts/ops-persist.sh status",
+    "ops:open-three": "bash scripts/open-three-screens.sh",
     "lint": "eslint"
   },
   "dependencies": {

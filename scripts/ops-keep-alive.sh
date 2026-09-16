@@ -53,12 +53,28 @@ public_base_from_files() {
 public_http_ok() {
   local base="$1"
   [[ -z "$base" ]] && return 1
-  local code
-  # Prefer IPv4; DNS for brand-new trycloudflare names can lag inside the VM.
+  local host code
+  host="$(printf '%s' "$base" | sed -E 's|^https?://||; s|/.*||')"
+  # VM default DNS often cannot resolve brand-new *.trycloudflare.com — query 1.1.1.1.
+  local ip=""
+  ip="$(dig @1.1.1.1 +short "$host" A 2>/dev/null | head -1 || true)"
+  if [[ -n "$ip" ]]; then
+    code=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 12 \
+      --resolve "${host}:443:${ip}" "${base}/" 2>/dev/null || echo 000)
+    [[ "$code" == "200" ]] && return 0
+  fi
   code=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 10 "${base}/" 2>/dev/null || echo 000)
   [[ "$code" == "200" ]] && return 0
   code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "${base}/" 2>/dev/null || echo 000)
   [[ "$code" == "200" ]]
+}
+
+# Ensure Chrome / system resolver can resolve trycloudflare hostnames on this VM.
+ensure_dns() {
+  if ! grep -q 'nameserver 1.1.1.1' /etc/resolv.conf 2>/dev/null; then
+    echo "[keep-alive] adding 1.1.1.1 to /etc/resolv.conf (trycloudflare DNS lag fix)"
+    sudo bash -c 'printf "nameserver 1.1.1.1\nnameserver 8.8.8.8\n" > /etc/resolv.conf.anvi && cat /etc/resolv.conf >> /etc/resolv.conf.anvi && mv /etc/resolv.conf.anvi /etc/resolv.conf' 2>/dev/null || true
+  fi
 }
 
 tunnel_process_ok() {
@@ -126,42 +142,52 @@ Guest site + staff ops share one public base via Cloudflare quick tunnel → Nex
 
 ${base}
 
-> Quick tunnels recycle when \`cloudflared\` restarts. Keep-alive (\`scripts/ops-keep-alive.sh\`) only restarts when the tunnel **process** is dead — not on transient DNS/curl failures. Hostname may rotate after a real restart.
+> **Hard limit:** Quick tunnels die when this cloud VM is recycled or the agent is archived. Keep-alive in **tmux** (\`npm run ops:persist\`) survives agent *turn end* on the same VM — not VM death. Hostname rotates whenever \`cloudflared\` truly restarts. Open these URLs on **your laptop browser** while a warm agent is RUNNING.
+
+> Keep-alive only restarts when the tunnel **process** is dead — not on transient DNS/curl failures.
 
 ## Language
 
 Ops web UI is **English only** (no Telugu labels).
 
-## Local (Try Live — always works)
+## Local (Try Live desktop — only visible if you open Try Live)
 
 - http://localhost:${PORT}/
 - http://localhost:${PORT}/ops?unlock=${PASS}
+- http://localhost:${PORT}/ops/admin?unlock=${PASS}
 
-## Public ops + guest
+## Public — open on YOUR laptop (primary)
 
 Password: \`${PASS}\`
 
 | Screen | URL |
 |--------|-----|
-| Guest home | ${base}/ |
-| Ops hub (Quick edit: Photos + Menu) | ${base}/ops?unlock=${PASS} |
+| 1. Website (guest) | ${base}/ |
+| 2. Ops hub | ${base}/ops?unlock=${PASS} |
+| 3. Admin.1 | ${base}/ops/admin?unlock=${PASS} |
+| Reception | ${base}/ops/reception?unlock=${PASS} |
 | Photos — Add / Edit | ${base}/ops/admin/photos?unlock=${PASS} |
 | Menu (Food) — Add / Edit | ${base}/ops/admin/food?unlock=${PASS} |
-| Accounts.1 | ${base}/ops/accounts?unlock=${PASS} |
 | Bookings reports | ${base}/ops/admin/bookings?unlock=${PASS} |
 | Venue bookings | ${base}/ops/admin/venue-bookings?unlock=${PASS} |
-| Inward | ${base}/ops/inward?unlock=${PASS} |
-| Outward | ${base}/ops/outward?unlock=${PASS} |
+
+## Unlock note
+
+\`?unlock=${PASS}\` writes \`localStorage\` on **that hostname only**. A new \`*.trycloudflare.com\` name is a new origin — paste the unlock query again after hostname rotation.
 
 ## Auto browser refresh
 
-After every UI update: \`npm run live:refresh\` — opens unlocked \`/ops\` + guest \`/\`. See \`docs/auto-open-rule.md\`.
+After every UI update: \`npm run live:refresh\` — opens unlocked \`/ops\` + guest \`/\` on Try Live. See \`docs/auto-open-rule.md\`.
 
-## Keep-alive
+## Keep-alive (durable on this VM)
 
 \`\`\`bash
-bash scripts/ops-keep-alive.sh loop
+npm run ops:persist          # tmux-backed; survives turn end
+# or: bash scripts/ops-persist.sh ensure
+bash scripts/ops-keep-alive.sh loop   # foreground loop (dies with shell)
 \`\`\`
+
+See \`docs/open-failure-deep-check.md\` for root causes.
 EOF
   if [[ -d "$ROOT/docs" ]]; then
     cp -f "$PUBLIC_URL_DOC" "$REPO_PUBLIC_DOC" 2>/dev/null || true
@@ -208,6 +234,7 @@ start_tunnel() {
 }
 
 heal_once() {
+  ensure_dns || true
   if ! local_ok; then
     start_next || return 1
   else
