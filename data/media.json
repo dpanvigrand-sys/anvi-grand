@@ -187,6 +187,40 @@
       "catalogKey": "facility:parking"
     },
     {
+      "id": "media-mu3yrrhekepi",
+      "src": "/uploads/media-mu3yrrhekepi-tiny-upload.png",
+      "label": "Public live proof",
+      "group": "Gallery",
+      "createdAt": "2026-09-16T10:34:40.995Z",
+      "managedFile": true
+    },
+    {
+      "id": "media-mu3yrbibbx10",
+      "src": "/uploads/media-mu3yrbibbx10-tiny-upload.png",
+      "label": "Live deploy proof",
+      "group": "Gallery",
+      "createdAt": "2026-09-16T10:34:20.292Z",
+      "managedFile": true
+    },
+    {
+      "id": "media-mu3yjlivwfnx",
+      "src": "/uploads/media-mu3yjsw8vh0h-local-upload-proof.png",
+      "label": "Posted from computer (replaced)",
+      "group": "Gallery",
+      "slot": "gallery",
+      "createdAt": "2026-09-16T10:28:20.024Z",
+      "managedFile": true
+    },
+    {
+      "id": "media-mu3yjlhlb2tf",
+      "src": "/uploads/media-mu3yjlhlb2tf-local-upload-proof.png",
+      "label": "Local system upload proof",
+      "group": "Gallery",
+      "slot": "gallery",
+      "createdAt": "2026-09-16T10:28:19.977Z",
+      "managedFile": true
+    },
+    {
       "id": "site-hero-entrance",
       "src": "/images/anvi-entrance.jpg",
       "label": "ANVI GRAND night entrance",

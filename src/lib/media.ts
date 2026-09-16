@@ -355,7 +355,7 @@ export async function updateMedia(
   id: string,
   patch: Partial<
     Pick<MediaItem, "label" | "group" | "slot" | "src" | "catalogKey">
-  >,
+  > & { fileName?: string; bytes?: Buffer },
 ): Promise<MediaItem | null> {
   const store = await readStore();
   const existing = store.items.find((i) => i.id === id);
@@ -364,7 +364,14 @@ export async function updateMedia(
   const next: MediaItem = { ...existing };
   if (typeof patch.label === "string") next.label = patch.label.trim() || next.label;
   if (patch.group) next.group = patch.group;
-  if (typeof patch.src === "string" && patch.src.trim()) {
+
+  const uploadedBytes = patch.bytes;
+  const uploadedName = patch.fileName;
+  if (uploadedBytes && uploadedName) {
+    const up = await persistUploadedFile(uploadedName, uploadedBytes);
+    next.src = up.src;
+    next.managedFile = true;
+  } else if (typeof patch.src === "string" && patch.src.trim()) {
     next.src = patch.src.trim();
   }
   if (patch.slot === undefined && "slot" in patch) {
@@ -423,7 +430,9 @@ export async function updateMedia(
   await writeStore(store);
 
   // Write-through when place is set/changed or src changes for a placed photo
-  const srcChanged = typeof patch.src === "string" && Boolean(patch.src.trim());
+  const srcChanged =
+    Boolean(uploadedBytes && uploadedName) ||
+    (typeof patch.src === "string" && Boolean(patch.src.trim()));
   if (next.catalogKey && (catalogKeyChanged || srcChanged)) {
     await writeCatalogImage(next.catalogKey, next.src);
   } else if (next.slot === "hero" && (srcChanged || patch.slot === "hero")) {

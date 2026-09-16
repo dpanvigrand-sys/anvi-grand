@@ -43,6 +43,12 @@ export async function POST(req: Request) {
     }
 
     if (hasFile) {
+      if (file.size <= 0) {
+        return NextResponse.json(
+          { error: "Selected file is empty" },
+          { status: 400 },
+        );
+      }
       if (file.size > 6 * 1024 * 1024) {
         return NextResponse.json(
           { error: "Image must be 6MB or smaller" },
@@ -50,7 +56,22 @@ export async function POST(req: Request) {
         );
       }
       const type = file.type || "";
-      if (!type.startsWith("image/")) {
+      const allowedMime = new Set([
+        "image/jpeg",
+        "image/jpg",
+        "image/png",
+        "image/webp",
+        "image/gif",
+      ]);
+      const extOk = /\.(jpe?g|png|webp|gif)$/i.test(file.name || "");
+      const mimeOk = !type || allowedMime.has(type);
+      if (!mimeOk && !extOk) {
+        return NextResponse.json(
+          { error: "Only JPG, PNG, WebP, or GIF images are allowed" },
+          { status: 400 },
+        );
+      }
+      if (type && !type.startsWith("image/")) {
         return NextResponse.json(
           { error: "Only image uploads are allowed" },
           { status: 400 },

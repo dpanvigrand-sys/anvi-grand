@@ -118,14 +118,14 @@ Inline **Save ₹ + capacity**, full **Edit** (name, type, tagline, description,
 | Action | Behavior |
 |--------|----------|
 | **Sync from website** | Lists every current site image with category + “Shows on” page mapping |
-| **Add / replace** | File upload **or** image URL; **website place required** for guest pages (defaults to Home hero). Category alone does **not** update `/` / rooms / food |
-| **Edit** | Change label, category, image URL, **and website place** — place write-through updates `catalog.json` so guest pages update live |
+| **Add / replace** | **Choose from computer** (JPG/PNG/WebP/GIF ≤6MB → `public/uploads/`) **or** paste image URL; **website place required** for guest pages (defaults to Home hero). Category alone does **not** update `/` / rooms / food |
+| **Edit** | Change label, category, image URL, **replace from computer**, **and website place** — place write-through updates `catalog.json` so guest pages update live |
 | **Delete** | Removes library row; catalog placements clear that page’s image until replaced |
 
 ### Live guest visibility checklist
 
 1. Pick **Website place** (e.g. Home hero `/`, a room, a CHIGURU dish) — not only category “Website”.
-2. Upload WhatsApp JPEG / any image → saved under `public/uploads/` and served at `/uploads/…`.
+2. Click **Choose from computer** → pick a local image (or paste a URL) → saved under `public/uploads/` and served at `/uploads/…`.
 3. Hard-refresh `/`, `/gallery`, `/rooms`, `/food` — no server restart needed (`force-dynamic` + `noStore` on catalog/media).
 4. Unplaced library rows show **“Not on guest pages yet — assign a website place”** until you assign a place on Edit.
 
