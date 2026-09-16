@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CounterBookingToast } from "@/components/ops/counter-booking-toast";
 import { OpsAlerts } from "@/components/ops/ops-alerts";
 import { buildOpsAlerts, filterAlertsForStation } from "@/lib/ops-alerts";
 import {
@@ -47,8 +48,14 @@ export function StationHome({
       <p className="mt-2 max-w-2xl text-[var(--ag-muted)]">{label.job}</p>
 
       <div className="mt-6">
-        <OpsAlerts stationId={stationId} initialAlerts={alerts} />
+        {/* Booking toast is the primary new-order cue; keep OpsAlerts bar only (no loud modal). */}
+        <OpsAlerts stationId={stationId} initialAlerts={alerts} popup={false} />
       </div>
+
+      <CounterBookingToast
+        stationId={stationId}
+        quiet={stationId === "admin" || stationId === "manager"}
+      />
 
       {stats && stats.length > 0 ? (
         <div className="mt-2 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">

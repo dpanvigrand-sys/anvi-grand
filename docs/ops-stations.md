@@ -69,7 +69,15 @@ Shared component + `GET /api/ops/alerts` (reads `data/ops.json`).
 | **salary** (optional tip) | Unpaid salaries this month | Accounts, Admin |
 | **housekeeping** | Dirty/cleaning rooms, linen/dhobi queue | HK, Reception, Admin |
 
-UI: persistent alert bar + dismissible modal on critical/warn. Session dismiss per station.
+UI: persistent alert **bar** only on stations (loud modal muted). Session dismiss per station.
+
+## Counter booking toast (primary new-order cue)
+
+Calm bottom-left OK toast for **new customer** room / banquet / mini-hall / food bookings — see `docs/counter-booking-popups.md`.
+
+- Component: `CounterBookingToast` · API: `GET /api/ops/counter-bookings`
+- Reception · Banquet · Kitchen · Server (hub/admin quiet strip)
+- OK → `localStorage` ack; does not block UI
 
 ## Settings
 

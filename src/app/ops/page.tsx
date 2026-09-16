@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import { CounterBookingToast } from "@/components/ops/counter-booking-toast";
 import { OpsAlerts } from "@/components/ops/ops-alerts";
 import { buildOpsAlerts } from "@/lib/ops-alerts";
 import { OPS_STATIONS, resolveStationLabel } from "@/lib/ops-stations";
@@ -40,8 +41,11 @@ export default async function OpsHomePage() {
       </div>
 
       <div className="mt-6">
-        <OpsAlerts stationId="hub" initialAlerts={alerts} />
+        {/* Quiet strip only — new bookings use CounterBookingToast (bottom-left). */}
+        <OpsAlerts stationId="hub" initialAlerts={alerts} popup={false} />
       </div>
+
+      <CounterBookingToast stationId="hub" quiet />
 
       <section className="mt-8" aria-labelledby="ops-quick-edit">
         <h2 id="ops-quick-edit" className="font-display text-2xl text-[var(--ag-ink)]">

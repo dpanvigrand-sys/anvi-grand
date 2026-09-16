@@ -119,6 +119,17 @@
   }
 }
 
+@keyframes counter-toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @keyframes ken-burns {
   from {
     transform: scale(1);
@@ -149,4 +160,8 @@
 
 .animate-drift-delay {
   animation: drift 0.85s ease-out 0.1s both;
+}
+
+.animate-counter-toast-in {
+  animation: counter-toast-in 0.35s ease-out both;
 }

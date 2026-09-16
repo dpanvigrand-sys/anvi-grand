@@ -1,6 +1,26 @@
 {
   "roomBookings": [
     {
+      "id": "cb-demo-room-now",
+      "type": "room",
+      "roomId": "deluxe",
+      "roomName": "Deluxe Room",
+      "guestName": "Lakshmi Prasad",
+      "email": "lakshmi@example.com",
+      "phone": "9876501234",
+      "address": "Benz Circle, Vijayawada",
+      "checkIn": "2026-09-16",
+      "checkOut": "2026-09-18",
+      "guests": 2,
+      "nights": 2,
+      "total": 7000,
+      "advance": 2000,
+      "balance": 5000,
+      "notes": "Counter toast demo \u2014 room",
+      "status": "pending",
+      "createdAt": "2026-09-16T02:36:27.000Z"
+    },
+    {
       "id": "ag-demo-occupied",
       "type": "room",
       "roomId": "family-twin",
@@ -119,6 +139,45 @@
   ],
   "venueBookings": [
     {
+      "id": "cb-demo-mini-now",
+      "type": "party-hall",
+      "venueId": "party-hall",
+      "venueName": "Mini Party Hall",
+      "guestName": "Meena Birthday",
+      "email": "meena@example.com",
+      "phone": "9123456780",
+      "eventDate": "2026-09-16",
+      "guests": 45,
+      "functionDetails": "Kids birthday",
+      "withFood": false,
+      "total": 18000,
+      "advance": 5000,
+      "balance": 13000,
+      "notes": "Counter toast demo \u2014 mini hall",
+      "status": "pending",
+      "createdAt": "2026-09-16T02:35:42.000Z"
+    },
+    {
+      "id": "cb-demo-banquet-now",
+      "type": "banquet",
+      "venueId": "banquet-hall",
+      "venueName": "Grand Banquet Hall",
+      "guestName": "Ravi & Anitha Wedding",
+      "email": "ravi@example.com",
+      "phone": "9988776655",
+      "address": "Eluru Road",
+      "eventDate": "2026-09-16",
+      "guests": 180,
+      "functionDetails": "Evening reception",
+      "withFood": true,
+      "total": 85000,
+      "advance": 25000,
+      "balance": 60000,
+      "notes": "Counter toast demo \u2014 banquet",
+      "status": "pending",
+      "createdAt": "2026-09-16T02:35:57.000Z"
+    },
+    {
       "id": "vn-demo-today",
       "type": "banquet",
       "venueId": "royal-grand-ballroom",
@@ -161,6 +220,34 @@
     }
   ],
   "foodOrders": [
+    {
+      "id": "cb-demo-food-now",
+      "type": "food",
+      "guestName": "Arjun Online",
+      "phone": "9000012345",
+      "address": "Room 204",
+      "roomNumber": "204",
+      "items": [
+        {
+          "menuId": "m1",
+          "name": "Chicken Biryani",
+          "qty": 2,
+          "price": 320
+        },
+        {
+          "menuId": "m2",
+          "name": "Gutti Vankaya",
+          "qty": 1,
+          "price": 180
+        }
+      ],
+      "total": 820,
+      "advance": 0,
+      "balance": 820,
+      "status": "placed",
+      "source": "online",
+      "createdAt": "2026-09-16T02:36:12.000Z"
+    },
     {
       "id": "fo-demo-food-month",
       "type": "food",
@@ -287,7 +374,7 @@
       "id": "led-mtxdusnedx8z",
       "kind": "income",
       "category": "room",
-      "description": "Executive Suite · Smoke Test",
+      "description": "Executive Suite \u00b7 Smoke Test",
       "amount": 10400,
       "refId": "ag-mtxdusnd0ar9",
       "createdAt": "2026-09-11T20:02:33.481Z"
@@ -296,7 +383,7 @@
       "id": "led-mtxdtn0m0x0f",
       "kind": "income",
       "category": "food",
-      "description": "CHIGURU · Sita",
+      "description": "CHIGURU \u00b7 Sita",
       "amount": 420,
       "refId": "fo-mtxdtn0ljek6",
       "createdAt": "2026-09-11T20:01:39.525Z"
@@ -305,7 +392,7 @@
       "id": "led-mtxdtn0bw2et",
       "kind": "income",
       "category": "room",
-      "description": "Deluxe King · Ravi Kumar",
+      "description": "Deluxe King \u00b7 Ravi Kumar",
       "amount": 6400,
       "refId": "ag-mtxdtn0a3v05",
       "createdAt": "2026-09-11T20:01:39.514Z"
@@ -314,7 +401,7 @@
       "id": "led-mtxdsbrw1h7r",
       "kind": "income",
       "category": "room",
-      "description": "Deluxe King · Test Guest",
+      "description": "Deluxe King \u00b7 Test Guest",
       "amount": 6400,
       "refId": "ag-mtxdsbrvw8fx",
       "createdAt": "2026-09-11T20:00:38.299Z"
@@ -325,7 +412,7 @@
       "id": "db-demo-1",
       "date": "2026-09-13",
       "voucherNo": "DB-001",
-      "particular": "Room advance — Lakshmi Devi",
+      "particular": "Room advance \u2014 Lakshmi Devi",
       "debit": 2000,
       "credit": 0,
       "balance": 2000,
@@ -337,7 +424,7 @@
       "id": "db-demo-2",
       "date": "2026-09-13",
       "voucherNo": "DB-002",
-      "particular": "Vegetable purchase — Rythu Bazaar",
+      "particular": "Vegetable purchase \u2014 Rythu Bazaar",
       "debit": 0,
       "credit": 1800,
       "balance": 200,
@@ -349,7 +436,7 @@
       "id": "db-demo-3",
       "date": "2026-09-12",
       "voucherNo": "DB-003",
-      "particular": "Bank deposit — rooms collection",
+      "particular": "Bank deposit \u2014 rooms collection",
       "debit": 5000,
       "credit": 0,
       "balance": 5200,
@@ -371,7 +458,7 @@
       "date": "2026-09-13",
       "staffName": "Padma Kumari",
       "status": "half",
-      "notes": "Housekeeping — left after lunch",
+      "notes": "Housekeeping \u2014 left after lunch",
       "createdAt": "2026-09-13T07:05:00.000Z"
     },
     {
@@ -596,7 +683,7 @@
       "advance": 0,
       "balance": 1960,
       "date": "2026-09-13",
-      "notes": "Fryer top-up — leaves low stock",
+      "notes": "Fryer top-up \u2014 leaves low stock",
       "createdAt": "2026-09-13T07:00:00.000Z"
     }
   ],
