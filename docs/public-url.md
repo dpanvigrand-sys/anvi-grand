@@ -2,9 +2,9 @@
 
 Guest site + staff ops share one public base via Cloudflare quick tunnel → Next on `:3947`.
 
-**Current base (auto-healed 2026-09-16T05:20Z):**
+**Current base (auto-healed 2026-09-16T05:27Z):**
 
-https://reflects-meyer-recorders-partner.trycloudflare.com
+https://minolta-scratch-boundaries-principles.trycloudflare.com
 
 > Quick tunnels recycle when `cloudflared` restarts. Keep-alive (`scripts/ops-keep-alive.sh`) only restarts when the tunnel **process** is dead — not on transient DNS/curl failures. Hostname may rotate after a real restart. DNS can lag inside the VM; Try Live local always works.
 
@@ -28,17 +28,17 @@ Password: `anviops2026`
 
 | Screen | URL |
 |--------|-----|
-| Guest home | https://reflects-meyer-recorders-partner.trycloudflare.com/ |
-| Ops hub (Quick edit: Photos + Menu) | https://reflects-meyer-recorders-partner.trycloudflare.com/ops?unlock=anviops2026 |
-| Reception (counter toast) | https://reflects-meyer-recorders-partner.trycloudflare.com/ops/reception?unlock=anviops2026 |
-| Banquet | https://reflects-meyer-recorders-partner.trycloudflare.com/ops/banquet?unlock=anviops2026 |
-| Kitchen | https://reflects-meyer-recorders-partner.trycloudflare.com/ops/kitchen?unlock=anviops2026 |
-| Server | https://reflects-meyer-recorders-partner.trycloudflare.com/ops/server?unlock=anviops2026 |
-| Admin.1 | https://reflects-meyer-recorders-partner.trycloudflare.com/ops/admin?unlock=anviops2026 |
-| Photos — Add / Edit | https://reflects-meyer-recorders-partner.trycloudflare.com/ops/admin/photos?unlock=anviops2026 |
-| Menu (Food) — Add / Edit | https://reflects-meyer-recorders-partner.trycloudflare.com/ops/admin/food?unlock=anviops2026 |
-| Bookings reports | https://reflects-meyer-recorders-partner.trycloudflare.com/ops/admin/bookings?unlock=anviops2026 |
-| Venue bookings | https://reflects-meyer-recorders-partner.trycloudflare.com/ops/admin/venue-bookings?unlock=anviops2026 |
+| Guest home | https://minolta-scratch-boundaries-principles.trycloudflare.com/ |
+| Ops hub (Quick edit: Photos + Menu) | https://minolta-scratch-boundaries-principles.trycloudflare.com/ops?unlock=anviops2026 |
+| Reception (counter toast) | https://minolta-scratch-boundaries-principles.trycloudflare.com/ops/reception?unlock=anviops2026 |
+| Banquet | https://minolta-scratch-boundaries-principles.trycloudflare.com/ops/banquet?unlock=anviops2026 |
+| Kitchen | https://minolta-scratch-boundaries-principles.trycloudflare.com/ops/kitchen?unlock=anviops2026 |
+| Server | https://minolta-scratch-boundaries-principles.trycloudflare.com/ops/server?unlock=anviops2026 |
+| Admin.1 | https://minolta-scratch-boundaries-principles.trycloudflare.com/ops/admin?unlock=anviops2026 |
+| Photos — Add / Edit | https://minolta-scratch-boundaries-principles.trycloudflare.com/ops/admin/photos?unlock=anviops2026 |
+| Menu (Food) — Add / Edit | https://minolta-scratch-boundaries-principles.trycloudflare.com/ops/admin/food?unlock=anviops2026 |
+| Bookings reports | https://minolta-scratch-boundaries-principles.trycloudflare.com/ops/admin/bookings?unlock=anviops2026 |
+| Venue bookings | https://minolta-scratch-boundaries-principles.trycloudflare.com/ops/admin/venue-bookings?unlock=anviops2026 |
 
 ## Counter booking toast
 
