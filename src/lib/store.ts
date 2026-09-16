@@ -66,6 +66,8 @@ async function writeJson<T>(file: string, data: T): Promise<void> {
 }
 
 async function getOpsStore(): Promise<OpsStore> {
+  // Always re-read ops.json on request so staff refresh sees CMS/data edits.
+  noStore();
   const raw = await readJson<Partial<OpsStore>>("ops.json", emptyOps);
   return {
     ...emptyOps,

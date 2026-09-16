@@ -258,7 +258,16 @@ heal_once() {
     return 0
   fi
 
-  echo "[keep-alive] tunnel process dead/unregistered — restarting"
+  # CRITICAL: if the documented public base is still HTTP 200 (another warm
+  # agent / sibling tunnel), ADOPT it — do NOT start a new quick tunnel
+  # (hostname rotation). Only rotate when the current base is dead.
+  if [[ -n "$base" ]] && public_http_ok "$base"; then
+    write_public_url "$base"
+    echo "[keep-alive] adopting healthy public base (no rotate) $base"
+    return 0
+  fi
+
+  echo "[keep-alive] tunnel process dead/unregistered AND public base down — starting new tunnel"
   start_tunnel
 }
 

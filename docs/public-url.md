@@ -2,54 +2,53 @@
 
 Guest site + staff ops share one public base via Cloudflare quick tunnel → Next on `:3947`.
 
-**Current base (auto-healed 2026-09-16T09:06Z):**
+**Current base (auto-healed 2026-09-16T10:24Z):**
 
-https://queensland-edited-part-simon.trycloudflare.com
+https://prague-amendment-tours-rentals.trycloudflare.com
 
-> Quick tunnels recycle when `cloudflared` restarts. Keep-alive (`scripts/ops-keep-alive.sh`) only restarts when the tunnel **process** is dead — not on transient DNS/curl failures. Hostname may rotate after a real restart. DNS can lag inside the VM; Try Live local always works.
+> **Hard limit:** Quick tunnels die when this cloud VM is recycled or the agent is archived. Keep-alive in **tmux** (`npm run ops:persist`) survives agent *turn end* on the same VM — not VM death. Hostname rotates whenever `cloudflared` truly restarts. Open these URLs on **your laptop browser** while a warm agent is RUNNING.
+
+> Keep-alive only restarts when the tunnel **process** is dead — not on transient DNS/curl failures.
 
 ## Language
 
 Ops web UI is **English only** (no Telugu labels).
 
-## Local (Try Live — always works)
+## Local (Try Live desktop — only visible if you open Try Live)
 
 - http://localhost:3947/
 - http://localhost:3947/ops?unlock=anviops2026
-- http://localhost:3947/ops/reception?unlock=anviops2026
-- http://localhost:3947/ops/banquet?unlock=anviops2026
-- http://localhost:3947/ops/kitchen?unlock=anviops2026
-- http://localhost:3947/ops/server?unlock=anviops2026
 - http://localhost:3947/ops/admin?unlock=anviops2026
 
-## Public ops + guest
+## Public — open on YOUR laptop (primary)
 
 Password: `anviops2026`
 
 | Screen | URL |
 |--------|-----|
-| Guest home | https://queensland-edited-part-simon.trycloudflare.com/ |
-| Ops hub (Quick edit: Photos + Menu) | https://queensland-edited-part-simon.trycloudflare.com/ops?unlock=anviops2026 |
-| Reception (counter toast) | https://queensland-edited-part-simon.trycloudflare.com/ops/reception?unlock=anviops2026 |
-| Banquet | https://queensland-edited-part-simon.trycloudflare.com/ops/banquet?unlock=anviops2026 |
-| Kitchen | https://queensland-edited-part-simon.trycloudflare.com/ops/kitchen?unlock=anviops2026 |
-| Server | https://queensland-edited-part-simon.trycloudflare.com/ops/server?unlock=anviops2026 |
-| Admin.1 | https://queensland-edited-part-simon.trycloudflare.com/ops/admin?unlock=anviops2026 |
-| Photos — Add / Edit | https://queensland-edited-part-simon.trycloudflare.com/ops/admin/photos?unlock=anviops2026 |
-| Menu (Food) — Add / Edit | https://queensland-edited-part-simon.trycloudflare.com/ops/admin/food?unlock=anviops2026 |
-| Bookings reports | https://queensland-edited-part-simon.trycloudflare.com/ops/admin/bookings?unlock=anviops2026 |
-| Venue bookings | https://queensland-edited-part-simon.trycloudflare.com/ops/admin/venue-bookings?unlock=anviops2026 |
+| 1. Website (guest) | https://prague-amendment-tours-rentals.trycloudflare.com/ |
+| 2. Ops hub | https://prague-amendment-tours-rentals.trycloudflare.com/ops?unlock=anviops2026 |
+| 3. Admin.1 | https://prague-amendment-tours-rentals.trycloudflare.com/ops/admin?unlock=anviops2026 |
+| Reception | https://prague-amendment-tours-rentals.trycloudflare.com/ops/reception?unlock=anviops2026 |
+| Photos — Add / Edit | https://prague-amendment-tours-rentals.trycloudflare.com/ops/admin/photos?unlock=anviops2026 |
+| Menu (Food) — Add / Edit | https://prague-amendment-tours-rentals.trycloudflare.com/ops/admin/food?unlock=anviops2026 |
+| Bookings reports | https://prague-amendment-tours-rentals.trycloudflare.com/ops/admin/bookings?unlock=anviops2026 |
+| Venue bookings | https://prague-amendment-tours-rentals.trycloudflare.com/ops/admin/venue-bookings?unlock=anviops2026 |
 
-## Counter booking toast
+## Unlock note
 
-Calm bottom-left OK toast on reception / banquet / kitchen / server — see `docs/counter-booking-popups.md`.
+`?unlock=anviops2026` writes `localStorage` on **that hostname only**. A new `*.trycloudflare.com` name is a new origin — paste the unlock query again after hostname rotation.
 
 ## Auto browser refresh
 
-After every UI update: `npm run live:refresh` — opens unlocked `/ops` + guest `/`. See `docs/auto-open-rule.md`.
+After every UI update: `npm run live:refresh` — opens unlocked `/ops` + guest `/` on Try Live. See `docs/auto-open-rule.md`.
 
-## Keep-alive
+## Keep-alive (durable on this VM)
 
 ```bash
-bash scripts/ops-keep-alive.sh loop
+npm run ops:persist          # tmux-backed; survives turn end
+# or: bash scripts/ops-persist.sh ensure
+bash scripts/ops-keep-alive.sh loop   # foreground loop (dies with shell)
 ```
+
+See `docs/open-failure-deep-check.md` for root causes.

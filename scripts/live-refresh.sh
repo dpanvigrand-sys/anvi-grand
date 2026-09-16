@@ -84,8 +84,23 @@ health_curl() {
   [[ "$code" == "200" ]]
 }
 
+# Rebuild when source/data is newer than .next (code updates must not stick
+# on a forever-pinned next start process).
+needs_rebuild() {
+  [[ ! -f .next/BUILD_ID ]] && return 0
+  local newest build_mtime
+  build_mtime=$(stat -c %Y .next/BUILD_ID 2>/dev/null || echo 0)
+  newest=$(find src data scripts package.json next.config.ts -type f -printf '%T@\n' 2>/dev/null | sort -nr | head -1 | cut -d. -f1)
+  [[ -z "$newest" ]] && return 1
+  [[ "$newest" -gt "$build_mtime" ]]
+}
+
 ensure_server() {
-  if site_ok; then
+  local rebuild=0
+  if needs_rebuild; then
+    echo "[live:refresh] source newer than .next — rebuild + restart"
+    rebuild=1
+  elif site_ok; then
     echo "[live:refresh] server OK on ${LOCAL_BASE}/"
     return 0
   fi
@@ -93,7 +108,7 @@ ensure_server() {
   pkill -f "next-server|next start|next dev" 2>/dev/null || true
   fuser -k "${PORT}/tcp" 2>/dev/null || true
   sleep 1
-  if [[ ! -f .next/BUILD_ID ]]; then
+  if [[ "$rebuild" == "1" ]] || [[ ! -f .next/BUILD_ID ]]; then
     echo "[live:refresh] building…"
     npm run build >>"$LOG" 2>&1
   fi
@@ -343,13 +358,21 @@ open_or_refresh_chrome() {
 
 OPS_URL="$LOCAL_OPS"
 GUEST_URL="$LOCAL_HOME"
+ADMIN_URL="${LOCAL_BASE}/ops/admin?unlock=${PASS}"
 
 ensure_server
-open_or_refresh_chrome
+# Default durable three: guest / + ops + Admin.1 (public preferred).
+if [[ -x "$ROOT/scripts/open-three-screens.sh" ]]; then
+  bash "$ROOT/scripts/open-three-screens.sh" >>"$LOG" 2>&1 || open_or_refresh_chrome
+else
+  open_or_refresh_chrome
+fi
+# Ensure shot.jpg even if open-three already wrote one
 capture_shot
-echo "[live:refresh] DONE — guest home + ops open (no manual refresh / continue)"
+echo "[live:refresh] DONE — three screens (guest + ops + Admin.1); F5 shows data updates"
 echo "[live:refresh] shot=$SHOT"
 echo "[live:refresh] local_ops=$LOCAL_OPS"
 echo "[live:refresh] local_home=$LOCAL_HOME"
 echo "[live:refresh] guest=$GUEST_URL"
 echo "[live:refresh] ops=$OPS_URL"
+echo "[live:refresh] admin=$ADMIN_URL"

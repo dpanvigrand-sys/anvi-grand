@@ -19,6 +19,30 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // Guest + ops HTML/JSON must not stick in browser/CDN forever — F5 shows
+  // agent CMS/data updates. Static hashed /_next/static/* stays immutable.
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "private, no-cache, no-store, max-age=0, must-revalidate",
+          },
+        ],
+      },
+      {
+        source: "/_next/static/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "public, max-age=31536000, immutable",
+          },
+        ],
+      },
+    ];
+  },
   // Route /uploads/* through a dynamic handler so files added after `next start`
   // are visible immediately (static public/ map is fixed at process boot).
   async rewrites() {
