@@ -369,10 +369,12 @@ else
 fi
 # Ensure shot.jpg even if open-three already wrote one
 capture_shot
-echo "[live:refresh] DONE — three screens (guest + ops + Admin.1); F5 shows data updates"
+PHOTOS_URL="${LOCAL_BASE}/ops/admin/photos?unlock=${PASS}"
+echo "[live:refresh] DONE — all live screens (guest + ops + Admin.1 + Photos); stamp-poll auto-updates"
 echo "[live:refresh] shot=$SHOT"
 echo "[live:refresh] local_ops=$LOCAL_OPS"
 echo "[live:refresh] local_home=$LOCAL_HOME"
 echo "[live:refresh] guest=$GUEST_URL"
 echo "[live:refresh] ops=$OPS_URL"
 echo "[live:refresh] admin=$ADMIN_URL"
+echo "[live:refresh] photos=$PHOTOS_URL"

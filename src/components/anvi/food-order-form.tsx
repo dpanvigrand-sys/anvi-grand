@@ -85,7 +85,7 @@ export function FoodOrderForm({
         return;
       }
       setSuccess(
-        `Order ${data.order.id} paid · ${formatINR(data.order.total)}. IRAA kitchen is on it.`,
+        `Order ${data.order.id} paid · ${formatINR(data.order.total)}. IRAA Dine kitchen is on it.`,
       );
       setCart({});
     } catch {
@@ -222,7 +222,7 @@ export function FoodOrderForm({
         className="h-fit overflow-hidden rounded-lg shadow-lg ring-1 ring-black/5 lg:sticky lg:top-24"
       >
         <div className="bg-[var(--ag-cart-pink)] px-4 py-3">
-          <p className="text-sm font-bold text-[var(--ag-red)]">IRAA Order Cart</p>
+          <p className="text-sm font-bold text-[var(--ag-red)]">IRAA Dine Order Cart</p>
         </div>
         <div className="space-y-3 bg-white p-4">
           {items.length === 0 ? (

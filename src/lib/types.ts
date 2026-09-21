@@ -11,7 +11,7 @@ export type HotelInfo = {
   foodLogo?: string;
   /** Rooms booking line — shown on /rooms */
   roomsPhone?: string;
-  /** Food / IRAA booking line — shown on /food */
+  /** Food / IRAA Dine booking line — shown on /food */
   foodPhone?: string;
   /** Reception / front desk — header, footer, contact */
   receptionPhone?: string;

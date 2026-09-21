@@ -34,7 +34,7 @@ function asRows(): Promise<BookingRow[]> {
       status: o.status,
       detail:
         o.items.map((i) => `${i.qty}× ${i.name}`).join(", ") ||
-        (o.roomNumber ? `Room ${o.roomNumber}` : "IRAA order"),
+        (o.roomNumber ? `Room ${o.roomNumber}` : "IRAA Dine order"),
     }));
     return [...rooms, ...food].sort((a, b) => b.date.localeCompare(a.date));
   });

@@ -19,7 +19,7 @@ Keep the original 7 client desks and **add 2** for real hotel + restaurant + ban
 | 1 | Reception.1 | Reception | `/ops/reception` | Room check-in/out, bookings ledger, guest desk, walk-ins, phone contacts |
 | 2 | Server.1 | Server | `/ops/server` | Floor order take/serve, table status, send to kitchen |
 | 3 | Kitchen.1 | KT Kitchen | `/ops/kitchen` | Incoming food tickets, prep status, mark ready |
-| 4 | Restaurant Manager.1 | Restaurant Manager | `/ops/manager` | IRAA oversight — menu ₹, food bookings, KT/server pulse, food alerts |
+| 4 | Restaurant Manager.1 | Restaurant Manager | `/ops/manager` | IRAA Dine oversight — menu ₹, food bookings, KT/server pulse, food alerts |
 | 5 | Store.1 | Store | `/ops/store` | Inward/outward, stock reports, grocery/ingredients/HK purchase links |
 | 6 | Accounts.1 | Accounts | `/ops/accounts` | Day book, ledger, muster, salaries, purchases |
 | 7 | Admin.1 | Admin | `/ops/admin` | CMS: rooms, food, venues, photos, contacts, bookings reports, settings |
@@ -85,7 +85,7 @@ Calm bottom-left OK toast for **new customer** room / banquet / mini-hall / food
 
 Persisted in `ops.json` → `settings`:
 
-- Hotel name line, IRAA food brand line
+- Hotel name line, IRAA Dine food brand line
 - Ops password note (demo unlock remains `anviops2026` unless changed in code)
 - Low stock qty threshold
 - Banquet reminder hours

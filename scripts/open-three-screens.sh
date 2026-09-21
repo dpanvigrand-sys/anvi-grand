@@ -26,13 +26,15 @@ BASE="${BASE%/}"
 U1="${BASE}/"
 U2="${BASE}/ops?unlock=${PASS}"
 U3="${BASE}/ops/admin?unlock=${PASS}"
+U4="${BASE}/ops/admin/photos?unlock=${PASS}"
 
 echo "[open-three] 1 $U1"
 echo "[open-three] 2 $U2"
 echo "[open-three] 3 $U3"
+echo "[open-three] 4 $U4"
 
 # Verify HTTP from this host (public may need -4)
-for u in "$U1" "$U2" "$U3"; do
+for u in "$U1" "$U2" "$U3" "$U4"; do
   code=$(curl -4 -s -o /dev/null -w "%{http_code}" --max-time 15 "$u" 2>/dev/null || echo 000)
   echo "[open-three] HTTP $code  $u"
 done
@@ -59,14 +61,17 @@ COMMON=(
 pkill -f 'google-chrome-anvi-three' 2>/dev/null || true
 sleep 0.5
 
-# Three tiled windows
-nohup "$CHROME_BIN" "${COMMON[@]}" --window-size=640,1000 --window-position=0,0 --new-window "$U1" \
+# Four tiled windows (guest + ops + admin + photos)
+nohup "$CHROME_BIN" "${COMMON[@]}" --window-size=480,1000 --window-position=0,0 --new-window "$U1" \
   >>/tmp/chrome-three.log 2>&1 &
-sleep 1.5
-nohup "$CHROME_BIN" "${COMMON[@]}" --window-size=640,1000 --window-position=640,0 --new-window "$U2" \
+sleep 1.2
+nohup "$CHROME_BIN" "${COMMON[@]}" --window-size=480,1000 --window-position=480,0 --new-window "$U2" \
   >>/tmp/chrome-three.log 2>&1 &
-sleep 1.5
-nohup "$CHROME_BIN" "${COMMON[@]}" --window-size=640,1000 --window-position=1280,0 --new-window "$U3" \
+sleep 1.2
+nohup "$CHROME_BIN" "${COMMON[@]}" --window-size=480,1000 --window-position=960,0 --new-window "$U3" \
+  >>/tmp/chrome-three.log 2>&1 &
+sleep 1.2
+nohup "$CHROME_BIN" "${COMMON[@]}" --window-size=480,1000 --window-position=1440,0 --new-window "$U4" \
   >>/tmp/chrome-three.log 2>&1 &
 sleep 4
 
@@ -100,6 +105,7 @@ const pass = 'anviops2026';
   await shot(store + '/media/shot-guest.png', base + '/', null);
   await shot(store + '/media/shot-ops.png', base + '/ops?unlock=' + pass, 'Checking staff access');
   await shot(store + '/media/shot-admin.png', base + '/ops/admin?unlock=' + pass, 'Checking staff access');
+  await shot(store + '/media/shot-photos.png', base + '/ops/admin/photos?unlock=' + pass, 'Checking staff access');
   await browser.close();
 })().catch((e) => { console.error(e); process.exitCode = 1; });
 NODE

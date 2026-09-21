@@ -48,7 +48,7 @@ export const OPS_STATIONS: OpsStationDef[] = [
     clientLabel: "Restaurant Manager.1",
     href: "/ops/manager",
     en: "Restaurant Manager",
-    job: "IRAA oversight — menu ₹, food bookings, kitchen/server pulse",
+    job: "IRAA Dine oversight — menu ₹, food bookings, kitchen/server pulse",
     tone: "bg-[var(--ag-chocolate)]",
     alertKinds: ["food", "grocery"],
   },
@@ -101,7 +101,7 @@ export const OPS_STATIONS: OpsStationDef[] = [
 
 export const DEFAULT_OPS_SETTINGS: OpsSettings = {
   hotelNameLine: "ANVI GRAND",
-  foodBrandLine: "IRAA",
+  foodBrandLine: "IRAA Dine",
   opsPasswordNote: "Demo password: anviops2026 (change only via code / deploy secrets)",
   lowStockQty: 15,
   banquetReminderHours: 36,

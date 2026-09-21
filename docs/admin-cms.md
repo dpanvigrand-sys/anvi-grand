@@ -71,7 +71,7 @@ Inline **Save ₹ + capacity**, full **Edit** (name, type, tagline, description,
 
 **Photo place mapping:** Admin Photos → website place `venue:royal-grand-ballroom` / `venue:imperial-ruby-mini` write-through updates the same field (and home cards) live.
 
-## Food (IRAA menu & buffets) — full item edit
+## Food (IRAA Dine menu & buffets) — full item edit
 
 - **Label everywhere:** **Menu (Food) — Add / Edit**
 - **Admin UI:** `/ops/admin/food` — hub **Quick edit**, Admin.1 first cards, Restaurant Manager.1, deep link `?unlock=anviops2026`

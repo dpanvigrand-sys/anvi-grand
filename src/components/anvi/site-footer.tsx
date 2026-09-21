@@ -46,7 +46,7 @@ export function SiteFooter({
           <div className="mt-4">
             <Image
               src="/logos/iraa.svg"
-              alt="IRAA"
+              alt="IRAA Dine"
               width={140}
               height={40}
               className="h-8 w-auto"
@@ -54,7 +54,7 @@ export function SiteFooter({
           </div>
           <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/70">
             Hotel stays and celebrations near Benz Circle, with Andhra flavours
-            from our IRAA kitchen.
+            from our IRAA Dine kitchen.
           </p>
         </div>
         <div>
@@ -114,7 +114,7 @@ export function SiteFooter({
               Party hall
             </Link>
             <Link href="/food" className="hover:text-[#ffb4b4]">
-              IRAA menu
+              IRAA Dine menu
             </Link>
             <Link href="/buffet" className="hover:text-[#ffb4b4]">
               Buffet booking

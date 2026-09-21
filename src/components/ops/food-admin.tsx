@@ -316,7 +316,7 @@ export function FoodAdmin({ initialMenu, initialBuffets }: Props) {
       <section className="space-y-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="font-display text-2xl text-[var(--ag-ink)]">IRAA menu</h2>
+            <h2 className="font-display text-2xl text-[var(--ag-ink)]">IRAA Dine menu</h2>
             <p className="mt-1 text-sm text-[var(--ag-muted)]">
               <strong>Edit item</strong> opens the full form (name, description, category, veg/non-veg,
               price, image URL). Keep <strong>Save ₹</strong> for rate-only updates. Add / Delete stay

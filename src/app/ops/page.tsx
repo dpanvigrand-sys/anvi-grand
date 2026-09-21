@@ -79,7 +79,7 @@ export default async function OpsHomePage() {
             <div className="h-2 w-full bg-[var(--ag-maroon)]" />
             <div className="flex flex-1 flex-col justify-center p-5">
               <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ag-maroon)]">
-                Admin CMS · IRAA
+                Admin CMS · IRAA Dine
               </p>
               <h3 className="mt-2 font-display text-2xl text-[var(--ag-ink)] group-hover:text-[var(--ag-red)] md:text-3xl">
                 Menu — Add / Edit / Delete

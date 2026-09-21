@@ -21,7 +21,7 @@ export default async function ContactPage() {
           Anvi Grand
         </h1>
         <p className="mt-4 text-[var(--ag-muted)]">
-          Questions on rooms, banquet, party hall, or IRAA catering—call the
+          Questions on rooms, banquet, party hall, or IRAA Dine catering—call the
           right desk or write to us near Benz Circle, Eluru Road.
         </p>
         <div className="mt-8 space-y-4 text-sm text-[var(--ag-ink)]">

@@ -24,7 +24,7 @@ const ROLES: {
   {
     key: "foodPhone",
     title: "Food booking",
-    hint: "Shown on /food (IRAA) ordering pages",
+    hint: "Shown on /food (IRAA Dine) ordering pages",
     guest: "/food",
   },
   {

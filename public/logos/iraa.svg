@@ -1,13 +1,14 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 80" role="img" aria-label="IRAA">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80" role="img" aria-label="IRAA Dine">
   <defs>
     <linearGradient id="iraa" x1="0%" y1="0%" x2="100%" y2="100%">
       <stop offset="0%" stop-color="#F5E6B8"/>
       <stop offset="100%" stop-color="#D4AF37"/>
     </linearGradient>
   </defs>
-  <rect width="280" height="80" fill="#8B0000"/>
-  <rect x="0" y="0" width="280" height="6" fill="url(#iraa)"/>
-  <circle cx="44" cy="42" r="18" fill="none" stroke="#FFFAF7" stroke-width="3"/>
-  <path d="M36 42h16M44 34v16" stroke="#D4AF37" stroke-width="2.5" stroke-linecap="round"/>
-  <text x="78" y="52" fill="#FFFAF7" font-family="Georgia, 'Times New Roman', serif" font-size="34" letter-spacing="6">IRAA</text>
+  <rect width="320" height="80" fill="#8B0000"/>
+  <rect x="0" y="0" width="320" height="6" fill="url(#iraa)"/>
+  <circle cx="40" cy="42" r="16" fill="none" stroke="#FFFAF7" stroke-width="3"/>
+  <path d="M33 42h14M40 35v14" stroke="#D4AF37" stroke-width="2.5" stroke-linecap="round"/>
+  <text x="68" y="40" fill="#FFFAF7" font-family="Georgia, 'Times New Roman', serif" font-size="28" letter-spacing="5">IRAA</text>
+  <text x="68" y="62" fill="#F5E6B8" font-family="Georgia, 'Times New Roman', serif" font-size="14" letter-spacing="8">DINE</text>
 </svg>

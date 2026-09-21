@@ -1,6 +1,6 @@
 # ANVI GRAND
 
-Full-stack hotel website for **ANVI GRAND** (Vijayawada) with **IRAA** dining and password-gated staff ops.
+Full-stack hotel website for **ANVI GRAND** (Vijayawada) with **IRAA Dine** dining and password-gated staff ops.
 
 ## Brand
 

@@ -34,7 +34,7 @@ export default async function ServerPage() {
         },
         {
           href: "/food",
-          title: "IRAA menu (guest)",
+          title: "IRAA Dine Dine menu (guest)",
           desc: "Reference dishes and ₹ while taking orders",
         },
         {

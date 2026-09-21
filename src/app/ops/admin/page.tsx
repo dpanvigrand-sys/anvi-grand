@@ -34,7 +34,7 @@ export default async function AdminPage() {
         {
           href: "/ops/admin/food",
           title: "Menu — Add / Edit / Delete",
-          desc: "IRAA dishes, prices, buffets · full item fields",
+          desc: "IRAA Dine dishes, prices, buffets · full item fields",
         },
         {
           href: "/ops/admin/rooms",
@@ -99,7 +99,7 @@ export default async function AdminPage() {
         </table>
       </div>
 
-      <h2 className="mt-10 font-display text-2xl">IRAA menu (sample)</h2>
+      <h2 className="mt-10 font-display text-2xl">IRAA Dine menu (sample)</h2>
       <div className="mt-4 overflow-x-auto border border-[var(--ag-line)] bg-white">
         <table className="w-full text-left text-sm">
           <thead className="border-b border-[var(--ag-line)] bg-[var(--ag-soft)] text-xs uppercase tracking-[0.12em] text-[var(--ag-muted)]">

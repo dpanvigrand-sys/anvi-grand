@@ -190,7 +190,7 @@
       "guests": 220,
       "functionDetails": "Wedding reception",
       "withFood": true,
-      "recommendPersonName": "Ravi (IRAA)",
+      "recommendPersonName": "Ravi (IRAA Dine)",
       "total": 185000,
       "advance": 75000,
       "balance": 110000,
@@ -383,7 +383,7 @@
       "id": "led-mtxdtn0m0x0f",
       "kind": "income",
       "category": "food",
-      "description": "IRAA \u00b7 Sita",
+      "description": "IRAA Dine \u00b7 Sita",
       "amount": 420,
       "refId": "fo-mtxdtn0ljek6",
       "createdAt": "2026-09-11T20:01:39.525Z"
@@ -429,7 +429,7 @@
       "credit": 1800,
       "balance": 200,
       "category": "Groceries",
-      "notes": "IRAA produce",
+      "notes": "IRAA Dine produce",
       "createdAt": "2026-09-13T09:15:00.000Z"
     },
     {
@@ -466,7 +466,7 @@
       "date": "2026-09-13",
       "staffName": "Ramesh KT",
       "status": "present",
-      "notes": "IRAA kitchen",
+      "notes": "IRAA Dine kitchen",
       "createdAt": "2026-09-13T07:10:00.000Z"
     },
     {
@@ -534,7 +534,7 @@
       "qty": 5,
       "unit": "kg",
       "amount": 2500,
-      "notes": "IRAA kitchen",
+      "notes": "IRAA Dine kitchen",
       "createdAt": "2026-09-13T09:00:00.000Z"
     },
     {
@@ -612,7 +612,7 @@
       "advance": 500,
       "balance": 1300,
       "date": "2026-09-12",
-      "notes": "IRAA produce",
+      "notes": "IRAA Dine produce",
       "createdAt": "2026-09-12T08:00:00.000Z"
     },
     {
@@ -636,7 +636,7 @@
       "item": "Basmati rice",
       "quantity": 10,
       "unit": "kg",
-      "vendorOrDept": "IRAA kitchen",
+      "vendorOrDept": "IRAA Dine kitchen",
       "amount": 900,
       "advance": 0,
       "balance": 900,
@@ -664,7 +664,7 @@
       "item": "Sunflower oil",
       "quantity": 4,
       "unit": "L",
-      "vendorOrDept": "IRAA kitchen",
+      "vendorOrDept": "IRAA Dine kitchen",
       "amount": 560,
       "advance": 0,
       "balance": 560,
@@ -678,7 +678,7 @@
       "item": "Sunflower oil",
       "quantity": 14,
       "unit": "L",
-      "vendorOrDept": "IRAA kitchen",
+      "vendorOrDept": "IRAA Dine kitchen",
       "amount": 1960,
       "advance": 0,
       "balance": 1960,
@@ -779,7 +779,7 @@
   ],
   "settings": {
     "hotelNameLine": "ANVI GRAND",
-    "foodBrandLine": "IRAA",
+    "foodBrandLine": "IRAA Dine",
     "opsPasswordNote": "Demo password: anviops2026 (change only via code / deploy secrets)",
     "lowStockQty": 15,
     "banquetReminderHours": 36,

@@ -19,11 +19,11 @@ const outfit = Outfit({
 
 export const metadata: Metadata = {
   title: {
-    default: "ANVI GRAND — Hotel & IRAA, Vijayawada",
+    default: "ANVI GRAND — Hotel & IRAA Dine, Vijayawada",
     template: "%s · ANVI GRAND",
   },
   description:
-    "ANVI GRAND near Benz Circle, Eluru Road, Vijayawada. Rooms, banquet, party hall, and IRAA dining. Call 7569494949.",
+    "ANVI GRAND near Benz Circle, Eluru Road, Vijayawada. Rooms, banquet, party hall, and IRAA Dine. Call 7569494949.",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: "/icons/icon.svg",

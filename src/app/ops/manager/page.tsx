@@ -28,7 +28,7 @@ export default async function ManagerPage() {
         {
           href: "/ops/admin/food",
           title: "Menu — Add / Edit / Delete",
-          desc: "IRAA dishes, prices, buffets · full item fields",
+          desc: "IRAA Dine dishes, prices, buffets · full item fields",
         },
         {
           href: "/ops/admin/bookings",
@@ -53,7 +53,7 @@ export default async function ManagerPage() {
         {
           href: "/ops/banquet",
           title: "Banquet with food",
-          desc: "Events that need IRAA catering",
+          desc: "Events that need IRAA Dine catering",
         },
       ]}
     >

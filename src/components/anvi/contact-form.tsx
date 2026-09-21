@@ -86,7 +86,7 @@ export function ContactForm() {
           value={subject}
           onChange={(e) => setSubject(e.target.value)}
           className="rounded-none"
-          placeholder="Rooms, banquet, IRAA…"
+          placeholder="Rooms, banquet, IRAA Dine…"
         />
       </div>
       <div className="space-y-2">
