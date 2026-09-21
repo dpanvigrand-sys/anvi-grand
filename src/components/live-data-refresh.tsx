@@ -9,7 +9,7 @@ import { useRouter } from "next/navigation";
  * tab focus/visibility.
  */
 export function LiveDataRefresh({
-  intervalMs = 8_000,
+  intervalMs = 5_000,
 }: {
   intervalMs?: number;
 }) {
