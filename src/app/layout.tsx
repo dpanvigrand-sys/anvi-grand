@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Outfit } from "next/font/google";
 import { SiteFooter } from "@/components/anvi/site-footer";
 import { SiteHeader } from "@/components/anvi/site-header";
+import { StickyLocationMark } from "@/components/anvi/sticky-location-mark";
 import { LiveDataRefresh } from "@/components/live-data-refresh";
 import { getHotel, resolveHotelPhones } from "@/lib/store";
 import "./globals.css";
@@ -53,6 +54,7 @@ export default async function RootLayout({
           email={hotel.email}
           address={hotel.address}
         />
+        <StickyLocationMark address={hotel.address} />
       </body>
     </html>
   );
