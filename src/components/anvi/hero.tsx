@@ -73,32 +73,33 @@ export function Hero({
         </p>
       </div>
 
-      {/* Right top — opposite Welcome: IRAA logo + IRAA Dine */}
+      {/* Right top — opposite Welcome: IRAA logo + IRAA Dine (no box) */}
       <Link
         href="/food"
-        className="absolute right-3 top-5 z-20 flex max-w-[42%] flex-col items-end gap-1.5 text-right sm:right-5 md:right-8 md:top-7"
+        className="absolute right-3 top-5 z-20 flex max-w-[42%] items-center gap-2.5 text-right sm:right-5 sm:gap-3 md:right-8 md:top-7"
         aria-label={`${brand} — open dining menu`}
       >
-        <span className="flex items-center gap-2 rounded-sm bg-[rgba(90,0,0,0.72)] px-2.5 py-2 ring-1 ring-[var(--ag-gold)]/65 backdrop-blur-sm sm:gap-3 sm:px-3 sm:py-2.5">
-          <Image
-            src={logo}
-            alt=""
-            width={56}
-            height={56}
-            className="h-11 w-11 shrink-0 drop-shadow md:h-14 md:w-14"
-            unoptimized
-            priority
-          />
-          <span className="pr-0.5 text-left">
-            <span
-              className="block font-display text-lg leading-none tracking-[0.12em] text-white sm:text-xl md:text-2xl"
-              style={{ textShadow: "0 1px 10px rgba(0,0,0,0.45)" }}
-            >
-              IRAA
-            </span>
-            <span className="mt-1 block text-[10px] font-semibold uppercase tracking-[0.28em] text-[var(--ag-gold)] sm:text-xs">
-              Dine
-            </span>
+        <Image
+          src={logo}
+          alt=""
+          width={64}
+          height={64}
+          className="h-12 w-12 shrink-0 drop-shadow-[0_4px_14px_rgba(0,0,0,0.55)] md:h-16 md:w-16"
+          unoptimized
+          priority
+        />
+        <span className="text-left">
+          <span
+            className="block font-display text-xl leading-none tracking-[0.14em] text-white sm:text-2xl md:text-3xl"
+            style={{ textShadow: "0 2px 14px rgba(0,0,0,0.65)" }}
+          >
+            IRAA
+          </span>
+          <span
+            className="mt-1.5 block text-[11px] font-semibold uppercase tracking-[0.32em] text-[var(--ag-gold)] sm:text-xs"
+            style={{ textShadow: "0 1px 10px rgba(0,0,0,0.55)" }}
+          >
+            Dine
           </span>
         </span>
       </Link>
