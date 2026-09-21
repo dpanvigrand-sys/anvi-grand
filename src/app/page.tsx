@@ -25,7 +25,12 @@ export default async function HomePage() {
 
   return (
     <>
-      <Hero imageSrc={hotel.heroImage} receptionPhone={phones.reception} />
+      <Hero
+        imageSrc={hotel.heroImage}
+        receptionPhone={phones.reception}
+        foodBrand={hotel.foodBrand}
+        foodLogo={hotel.foodLogo?.includes("iraa") ? "/logos/iraa-mark.svg" : hotel.foodLogo || "/logos/iraa-mark.svg"}
+      />
 
       <section className="bg-[var(--ag-soft)] py-14 md:py-20">
         <div className="mx-auto grid w-full max-w-6xl gap-6 px-5 md:grid-cols-3 md:px-8">
