@@ -26,7 +26,7 @@ export default function OpsLayout({ children }: { children: React.ReactNode }) {
                 ANVI OPS
               </Link>
               <p className="text-xs text-white/80">
-                9 client stations · hotel + CHIGURU + banquet
+                9 client stations · hotel + IRAA + banquet
               </p>
             </div>
             <Link

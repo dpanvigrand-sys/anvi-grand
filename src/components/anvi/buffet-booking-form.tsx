@@ -52,7 +52,7 @@ export function BuffetBookingForm({
         return;
       }
       setSuccess(
-        `Buffet booked · ${data.booking.id} · ${formatINR(data.booking.total)}. See you at CHIGURU.`,
+        `Buffet booked · ${data.booking.id} · ${formatINR(data.booking.total)}. See you at IRAA.`,
       );
     } catch {
       setError("Network error. Please try again.");

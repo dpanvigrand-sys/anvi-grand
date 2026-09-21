@@ -34,7 +34,7 @@ export default async function ServerPage() {
         },
         {
           href: "/food",
-          title: "CHIGURU menu (guest)",
+          title: "IRAA menu (guest)",
           desc: "Reference dishes and ₹ while taking orders",
         },
         {

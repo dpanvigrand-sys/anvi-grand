@@ -27,4 +27,4 @@ Staff password: **`anviops2026`**
 
 ## Data
 
-Persisted in `data/ops.json`. Guest room booking and CHIGURU order forms also capture address + advance.
+Persisted in `data/ops.json`. Guest room booking and IRAA order forms also capture address + advance.

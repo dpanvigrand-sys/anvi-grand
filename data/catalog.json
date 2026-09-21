@@ -5,10 +5,10 @@
     "address": "Anvi Grand, near Benz Circle, Eluru Road, Vijayawada",
     "phone": "7569494949",
     "email": "stay@anvigrand.in",
-    "foodBrand": "CHIGURU",
+    "foodBrand": "IRAA",
     "heroImage": "/images/anvi-entrance.jpg",
     "logo": "/logos/anvi-grand.svg",
-    "foodLogo": "/logos/chiguru.svg",
+    "foodLogo": "/logos/iraa.svg",
     "roomsPhone": "7569494949",
     "foodPhone": "7569494949",
     "receptionPhone": "7569494949"
@@ -45,7 +45,7 @@
         "Work desk",
         "Complimentary breakfast"
       ],
-      "image": "https://images.unsplash.com/photo-1618773928121-c32242e63f39?auto=format&fit=crop&w=1600&q=80",
+      "image": "/uploads/media-mubhdjiutswb-whatsapp-image-2026-09-07-at-4.27.55-am.jpeg",
       "available": true
     },
     {
@@ -62,14 +62,14 @@
         "Wi-Fi",
         "Tea/coffee"
       ],
-      "image": "https://images.unsplash.com/photo-1595576508898-0ad5c879a061?auto=format&fit=crop&w=1600&q=80",
+      "image": "/uploads/media-mubgsyzjr9pg-whatsapp-image-2026-09-12-at-5.21.07-pm-2-.jpeg",
       "available": true
     },
     {
       "id": "grand-presidential",
       "name": "Grand Presidential",
       "tagline": "Top-floor grandeur for celebrations",
-      "description": "Our signature presidential floor\u2014private dining nook, butler desk, and panoramic Eluru Road views for weddings and corporate hosts.",
+      "description": "Our signature presidential floor—private dining nook, butler desk, and panoramic Eluru Road views for weddings and corporate hosts.",
       "pricePerNight": 9999,
       "capacity": 4,
       "amenities": [
@@ -89,7 +89,7 @@
       "type": "banquet",
       "name": "Royal Grand Ballroom",
       "tagline": "Flagship banquet for weddings and conferences",
-      "description": "Our flagship banquet at Anvi Grand \u2014 weddings, conferences, and grand receptions with stage, LED wall, bridal suite, and valet near Benz Circle.",
+      "description": "Our flagship banquet at Anvi Grand — weddings, conferences, and grand receptions with stage, LED wall, bridal suite, and valet near Benz Circle.",
       "capacity": 550,
       "priceFrom": 55000,
       "image": "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=1600&q=80",
@@ -106,7 +106,7 @@
       "type": "party-hall",
       "name": "Imperial Ruby Mini Hall",
       "tagline": "Intimate celebrations",
-      "description": "A warm party hall for birthdays, engagements, and corporate evenings \u2014 stage, AC, and CHIGURU catering on call.",
+      "description": "A warm party hall for birthdays, engagements, and corporate evenings — stage, AC, and IRAA catering on call.",
       "capacity": 150,
       "priceFrom": 20000,
       "image": "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=1600&q=80",
@@ -121,7 +121,7 @@
       "id": "chiguru-handi-biryani",
       "name": "Handi Biryani",
       "category": "biryani",
-      "description": "Slow-cooked dum biryani from the CHIGURU kitchen \u2014 fragrant basmati, sealed handi, Andhra spice.",
+      "description": "Slow-cooked dum biryani from the IRAA kitchen — fragrant basmati, sealed handi, Andhra spice.",
       "price": 389,
       "veg": false,
       "image": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=800&q=80"
@@ -130,7 +130,7 @@
       "id": "gongura-mutton",
       "name": "Gongura Mutton",
       "category": "non-veg",
-      "description": "Andhra classic\u2014tangy gongura with slow-cooked mutton.",
+      "description": "Andhra classic—tangy gongura with slow-cooked mutton.",
       "price": 449,
       "veg": false,
       "image": "https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=800&q=80"
@@ -148,7 +148,7 @@
       "id": "panasa-pottu",
       "name": "Panasa Pottu Biryani",
       "category": "veg",
-      "description": "Jackfruit biryani from coastal Andhra kitchens\u2014aromatic and filling.",
+      "description": "Jackfruit biryani from coastal Andhra kitchens—aromatic and filling.",
       "price": 279,
       "veg": true,
       "image": "https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=800&q=80"
@@ -166,7 +166,7 @@
       "id": "bobbatlu",
       "name": "Bobbattu",
       "category": "dessert",
-      "description": "Sweet lentil-stuffed flatbread\u2014festival favourite.",
+      "description": "Sweet lentil-stuffed flatbread—festival favourite.",
       "price": 79,
       "veg": true,
       "image": "https://images.unsplash.com/photo-1571115177098-24ec42ed204d?auto=format&fit=crop&w=800&q=80"
@@ -185,7 +185,7 @@
     {
       "id": "weekend-andhra",
       "name": "Weekend Andhra Buffet",
-      "description": "Gongura, pulusu, and rice stations \u2014 weekend lunch favourites from CHIGURU.",
+      "description": "Gongura, pulusu, and rice stations — weekend lunch favourites from IRAA.",
       "pricePerPerson": 949,
       "meal": "lunch",
       "image": "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1400&q=80"
@@ -193,7 +193,7 @@
     {
       "id": "executive-dinner",
       "name": "Executive Dinner Buffet",
-      "description": "Weeknight dinner buffet for walk-ins and in-house guests\u2014veg and non-veg live counters.",
+      "description": "Weeknight dinner buffet for walk-ins and in-house guests—veg and non-veg live counters.",
       "pricePerPerson": 1099,
       "meal": "dinner",
       "image": "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1400&q=80"
@@ -203,7 +203,7 @@
     {
       "id": "pool",
       "name": "Rooftop Pool",
-      "description": "Evening swims with city views\u2014open 6 AM to 10 PM.",
+      "description": "Evening swims with city views—open 6 AM to 10 PM.",
       "image": "https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=1200&q=80"
     },
     {
@@ -215,7 +215,7 @@
     {
       "id": "gym",
       "name": "Fitness Centre",
-      "description": "Cardio and free weights\u201424-hour access for in-house guests.",
+      "description": "Cardio and free weights—24-hour access for in-house guests.",
       "image": "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80"
     },
     {

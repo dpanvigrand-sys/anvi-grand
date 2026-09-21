@@ -15,7 +15,7 @@ export function websitePlace(
     return `Banquet / party hall · ${item.label} (/banquet, /party-hall)`;
   }
   if (key.startsWith("menu:")) {
-    return `CHIGURU menu · ${item.label} (/food)`;
+    return `IRAA menu · ${item.label} (/food)`;
   }
   if (key.startsWith("buffet:")) {
     return `Buffet · ${item.label} (/buffet)`;

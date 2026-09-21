@@ -14,7 +14,7 @@ Staff password: **`anviops2026`**
 - **Storage:** `data/ops.json` → `roomBookings[]` / `foodOrders[]` with `address`, `advance`, `balance`
 - **API:** `PATCH /api/ops/bookings/[id]` `{ guestName, address, phone, advance, balance }`
 - **UI:** `src/components/ops/bookings-admin.tsx` · page `src/app/ops/admin/bookings/page.tsx`
-- **Guest forms:** room book + CHIGURU order collect address + advance (balance = total − advance)
+- **Guest forms:** room book + IRAA order collect address + advance (balance = total − advance)
 
 Inline **Edit / Save** on any row updates ops.json live.
 
@@ -41,7 +41,7 @@ Inline **Edit / Save** on any row updates ops.json live.
 | Role | Guest pages |
 |------|-------------|
 | Rooms booking | `/rooms`, `/rooms/[id]`, `/book` |
-| Food booking | `/food`, `/buffet`, home CHIGURU order |
+| Food booking | `/food`, `/buffet`, home IRAA order |
 | Reception | Header mobile call, footer, hero, `/contact` |
 
 **Add / Save / Delete (clear)** per role. Saving Reception also updates `hotel.phone` so the main desk stays in sync. Cleared roles fall back to `hotel.phone` — existing `7569494949` is kept unless Reception is replaced in CMS.
@@ -71,7 +71,7 @@ Inline **Save ₹ + capacity**, full **Edit** (name, type, tagline, description,
 
 **Photo place mapping:** Admin Photos → website place `venue:royal-grand-ballroom` / `venue:imperial-ruby-mini` write-through updates the same field (and home cards) live.
 
-## Food (CHIGURU menu & buffets) — full item edit
+## Food (IRAA menu & buffets) — full item edit
 
 - **Label everywhere:** **Menu (Food) — Add / Edit**
 - **Admin UI:** `/ops/admin/food` — hub **Quick edit**, Admin.1 first cards, Restaurant Manager.1, deep link `?unlock=anviops2026`
@@ -107,7 +107,7 @@ Inline **Save ₹ + capacity**, full **Edit** (name, type, tagline, description,
 |-------|---------------------|------------|
 | Home hero | `hotel:hero` → `hotel.heroImage` | `/` |
 | Room card / detail | `room:{id}` → `rooms[].image` | `/rooms`, `/rooms/[id]` |
-| CHIGURU dish | `menu:{id}` → `menu[].image` | `/food` |
+| IRAA dish | `menu:{id}` → `menu[].image` | `/food` |
 | Buffet package | `buffet:{id}` → `buffets[].image` | `/buffet` |
 | Banquet / party hall | `venue:{id}` → `venues[].image` | `/banquet`, `/party-hall` |
 | Facility | `facility:{id}` → `facilities[].image` | `/facilities` |
@@ -124,7 +124,7 @@ Inline **Save ₹ + capacity**, full **Edit** (name, type, tagline, description,
 
 ### Live guest visibility checklist
 
-1. Pick **Website place** (e.g. Home hero `/`, a room, a CHIGURU dish) — not only category “Website”.
+1. Pick **Website place** (e.g. Home hero `/`, a room, a IRAA dish) — not only category “Website”.
 2. Click **Choose from computer** → pick a local image (or paste a URL) → saved under `public/uploads/` and served at `/uploads/…`.
 3. Hard-refresh `/`, `/gallery`, `/rooms`, `/food` — no server restart needed (`force-dynamic` + `noStore` on catalog/media).
 4. Unplaced library rows show **“Not on guest pages yet — assign a website place”** until you assign a place on Edit.

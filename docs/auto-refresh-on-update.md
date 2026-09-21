@@ -1,34 +1,28 @@
-# Screens locked + Refresh = auto update
+# Screens locked + automatic live updates
 
-**Locked default four** (bookmark these — do not keep asking agents to reopen):
+**Locked default four** (bookmark — agents keep these current):
 
 Password: `anviops2026`  
-Live base: see [`public-url.md`](./public-url.md) / `internal/public-url.txt`.
+Live base: see [`public-url.md`](./public-url.md)
 
 1. **Website** — `{base}/`
 2. **Ops hub** — `{base}/ops?unlock=anviops2026`
 3. **Admin.1** — `{base}/ops/admin?unlock=anviops2026`
 4. **Photos** — `{base}/ops/admin/photos?unlock=anviops2026`
 
-Use **public** `*.trycloudflare.com` on Redmi tab / laptop Chrome. `localhost` only works on Try Live.
+## Automatic updates (no Continue needed)
 
-## Ops update → screen update
+| What changed | What open tabs do |
+|--------------|-------------------|
+| CMS / photos / menu / JSON / uploads | Poll `/api/live-stamp` every ~8s → **auto soft-refresh** when stamp changes |
+| Tab focus / come back to screen | Soft-refresh immediately |
+| Agent code/UI change | Agent runs `npm run live:refresh` (rebuild + hard reload all four) |
 
-| You do | What happens |
-|--------|----------------|
-| **Refresh (F5 / pull-to-refresh)** after photos/menu/rooms/CMS change | Page is `force-dynamic` + `no-store` — **new content loads automatically** |
-| Leave tab open | Soft auto-refresh ~every 45s + when you come back to the tab |
-| Agent changes UI code | Agent runs `live:refresh` (rebuild); then you **F5** once |
+You can still press **F5** anytime. Public `*.trycloudflare.com` only on Redmi/Realme/laptop — not `localhost`.
 
-You do **not** need Continue / reopen tabs / ask “open cheyandi” after every CMS edit.
-
-## Staff lock (LOCK OPS)
-
-Top-right **LOCK OPS** clears unlock on that browser. To open again, paste a `?unlock=anviops2026` link from the four above.
-
-## Agent side
+## Agent
 
 ```bash
-npm run ops:persist     # keep Next + tunnel; do not rotate while HTTP 200
-npm run live:refresh    # after code/UI change — Try Live hard reload
+npm run ops:persist
+npm run live:refresh    # after every UI update — opens/refreshes all live screens
 ```

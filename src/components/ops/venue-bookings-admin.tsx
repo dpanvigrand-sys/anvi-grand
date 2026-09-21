@@ -218,7 +218,7 @@ export function VenueBookingsAdmin({ venues, initial }: Props) {
             checked={form.withFood}
             onChange={(e) => setForm({ ...form, withFood: e.target.checked })}
           />
-          With food / CHIGURU package
+          With food / IRAA package
         </label>
         <div className="grid gap-2 md:col-span-2">
           <Label>Notes</Label>

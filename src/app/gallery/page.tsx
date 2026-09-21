@@ -63,7 +63,7 @@ export default async function GalleryPage() {
         ANVI GRAND in frames
       </h1>
       <p className="mt-3 max-w-2xl text-[var(--ag-muted)]">
-        Rooms, banquet halls, CHIGURU dining spaces, and hotel facilities near
+        Rooms, banquet halls, IRAA dining spaces, and hotel facilities near
         Benz Circle, Eluru Road, Vijayawada.
       </p>
       {shots.length === 0 ? (

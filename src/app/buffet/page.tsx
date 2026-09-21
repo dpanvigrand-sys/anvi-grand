@@ -13,7 +13,7 @@ export default async function BuffetPage() {
   const phones = resolveHotelPhones(hotel);
   return (
     <div className="mx-auto max-w-6xl px-5 py-12 md:px-8">
-      <p className="text-xs uppercase tracking-[0.2em] text-[var(--ag-red)]">CHIGURU Buffet</p>
+      <p className="text-xs uppercase tracking-[0.2em] text-[var(--ag-red)]">IRAA Buffet</p>
       <h1 className="mt-3 font-display text-5xl text-[var(--ag-ink)]">Book your table</h1>
       <p className="mt-4 max-w-2xl text-[var(--ag-muted)]">
         Weekend Andhra lunch and executive dinner buffets. Call food desk{" "}
@@ -26,7 +26,7 @@ export default async function BuffetPage() {
         {buffets.length === 0 ? (
           <p className="col-span-full rounded-lg border border-[var(--ag-line)] bg-white px-6 py-16 text-center text-[var(--ag-muted)]">
             Buffet menus are being updated. Call {phones.food} for today&apos;s
-            CHIGURU buffet.
+            IRAA buffet.
           </p>
         ) : (
           buffets.map((b) => (

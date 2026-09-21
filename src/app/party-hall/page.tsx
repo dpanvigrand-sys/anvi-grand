@@ -34,7 +34,7 @@ export default async function PartyHallPage() {
       </section>
       <section className="mx-auto grid max-w-6xl gap-12 px-5 py-14 md:grid-cols-[1.1fr_0.9fr] md:px-8">
         <div>
-          <h2 className="font-display text-3xl text-[var(--ag-ink)]">Celebrate with CHIGURU energy</h2>
+          <h2 className="font-display text-3xl text-[var(--ag-ink)]">Celebrate with IRAA energy</h2>
           <p className="mt-4 leading-relaxed text-[var(--ag-muted)]">{venue.description}</p>
           <ul className="mt-6 flex flex-wrap gap-x-6 gap-y-2 text-sm text-[var(--ag-ink)]">
             <li>Up to {venue.capacity} guests</li>

@@ -37,7 +37,7 @@ export default async function BanquetPage() {
         },
         {
           href: "/ops/manager",
-          title: "Food package (CHIGURU)",
+          title: "Food package (IRAA)",
           desc: "Coordinate catering with restaurant manager",
         },
         {

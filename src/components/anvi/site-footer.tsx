@@ -45,8 +45,8 @@ export function SiteFooter({
           </div>
           <div className="mt-4">
             <Image
-              src="/logos/chiguru.svg"
-              alt="CHIGURU"
+              src="/logos/iraa.svg"
+              alt="IRAA"
               width={140}
               height={40}
               className="h-8 w-auto"
@@ -54,7 +54,7 @@ export function SiteFooter({
           </div>
           <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/70">
             Hotel stays and celebrations near Benz Circle, with Andhra flavours
-            from our CHIGURU kitchen.
+            from our IRAA kitchen.
           </p>
         </div>
         <div>
@@ -114,7 +114,7 @@ export function SiteFooter({
               Party hall
             </Link>
             <Link href="/food" className="hover:text-[#ffb4b4]">
-              CHIGURU menu
+              IRAA menu
             </Link>
             <Link href="/buffet" className="hover:text-[#ffb4b4]">
               Buffet booking

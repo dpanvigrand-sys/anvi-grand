@@ -1,15 +1,15 @@
 # ANVI GRAND
 
-Full-stack hotel website for **ANVI GRAND** (Vijayawada) with **CHIGURU** dining and password-gated staff ops.
+Full-stack hotel website for **ANVI GRAND** (Vijayawada) with **IRAA** dining and password-gated staff ops.
 
 ## Brand
 
 - Hotel: ANVI GRAND  
-- Restaurant: CHIGURU  
+- Restaurant: IRAA  
 - Address: Anvi Grand, near Benz Circle, Eluru Road, Vijayawada  
 - Phone: [7569494949](tel:7569494949)  
 - Theme: red / chocolate brown / maroon / white  
-- Logos: `public/logos/anvi-grand.svg`, `public/logos/chiguru.svg`
+- Logos: `public/logos/anvi-grand.svg`, `public/logos/iraa.svg`
 
 ## Run locally
 
@@ -73,7 +73,7 @@ Opens `http://127.0.0.1:3947/`. A web app manifest is also at `public/manifest.w
 - `/` brand-first hero + rates teaser + map  
 - `/rooms`, `/rooms/[id]`, `/book`, `/bookings/[id]` — room booking with ₹ rates  
 - `/banquet`, `/party-hall` — venue booking  
-- `/food` — CHIGURU online order with cart + Pay Now checkout
+- `/food` — IRAA online order with cart + Pay Now checkout
 - `/gallery` — photo gallery of rooms, halls, and facilities  
 - `/buffet` — buffet booking  
 - `/facilities`, `/contact`

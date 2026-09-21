@@ -13,7 +13,7 @@ export default async function AdminFoodPage() {
         Admin · Food
       </p>
       <h1 className="mt-2 font-display text-4xl text-[var(--ag-ink)]">
-        CHIGURU menu & buffets
+        IRAA menu & buffets
       </h1>
       <p className="mt-2 max-w-2xl text-[var(--ag-muted)]">
         Full item edit (name, description, category, veg, price, image), plus quick Save ₹,

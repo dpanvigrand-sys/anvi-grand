@@ -185,7 +185,7 @@ export function buildOpsAlerts(
       kind: "grocery",
       severity: "info",
       title: "No inward in last 2 days",
-      detail: "Consider fresh grocery / ingredient inward for CHIGURU & HK",
+      detail: "Consider fresh grocery / ingredient inward for IRAA & HK",
       href: "/ops/inward",
       stations: ["store", "manager", "admin"],
     });

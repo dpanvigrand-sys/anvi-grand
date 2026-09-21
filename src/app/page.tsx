@@ -110,7 +110,7 @@ export default async function HomePage() {
       <section id="dining" className="bg-white py-14 md:py-20">
         <div className="mx-auto w-full max-w-6xl px-5 md:px-8">
           <h2 className="font-display text-3xl text-[var(--ag-red)] md:text-4xl">
-            Order from CHIGURU Restaurant
+            Order from IRAA Restaurant
           </h2>
           <p className="mt-2 max-w-2xl text-[var(--ag-muted)]">
             Andhra favourites with clear ₹ pricing. Add to cart and pay through
@@ -122,7 +122,7 @@ export default async function HomePage() {
           <p className="mt-6 text-sm text-[var(--ag-muted)]">
             Full menu on{" "}
             <Link href="/food" className="font-medium text-[var(--ag-red)] hover:underline">
-              the CHIGURU dining page
+              the IRAA dining page
             </Link>
             .
           </p>
