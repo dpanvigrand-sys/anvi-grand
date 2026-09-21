@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Outfit } from "next/font/google";
 import { SiteFooter } from "@/components/anvi/site-footer";
 import { SiteHeader } from "@/components/anvi/site-header";
+import { LiveDataRefresh } from "@/components/live-data-refresh";
 import { getHotel, resolveHotelPhones } from "@/lib/store";
 import "./globals.css";
 
@@ -42,6 +43,7 @@ export default async function RootLayout({
       className={`${fraunces.variable} ${outfit.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col font-sans">
+        <LiveDataRefresh />
         <SiteHeader receptionPhone={phones.reception} />
         <main className="flex-1">{children}</main>
         <SiteFooter

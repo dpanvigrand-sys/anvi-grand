@@ -1,32 +1,34 @@
-# After we update — you Refresh (F5)
+# Screens locked + Refresh = auto update
 
-**User rule:** When agents change the website or ops content, open your usual three tabs and press **Refresh (F5 / Ctrl+R)**. New content appears. You do **not** need to press Continue, reopen tabs, or ask the agent to open screens again.
-
-## The three default screens (bookmark these)
+**Locked default four** (bookmark these — do not keep asking agents to reopen):
 
 Password: `anviops2026`  
-Current public base: see [`public-url.md`](./public-url.md) (also `internal/public-url.txt`).
+Live base: see [`public-url.md`](./public-url.md) / `internal/public-url.txt`.
 
 1. **Website** — `{base}/`
 2. **Ops hub** — `{base}/ops?unlock=anviops2026`
 3. **Admin.1** — `{base}/ops/admin?unlock=anviops2026`
+4. **Photos** — `{base}/ops/admin/photos?unlock=anviops2026`
 
-Use the **public** `*.trycloudflare.com` links on your laptop (not `localhost` — that only works on Try Live).
+Use **public** `*.trycloudflare.com` on Redmi tab / laptop Chrome. `localhost` only works on Try Live.
 
-## What Refresh picks up
+## Ops update → screen update
 
-| Change type | What you do | How it works |
-|-------------|-------------|--------------|
-| CMS / JSON / photos / menu (`data/*`, uploads) | **F5** | Pages are `force-dynamic` + `noStore`; HTML sent with `Cache-Control: no-store` |
-| Code / UI layout | Wait for agent `live:refresh` (rebuild+restart), then **F5** | Agent runs rebuild when source is newer than `.next` |
+| You do | What happens |
+|--------|----------------|
+| **Refresh (F5 / pull-to-refresh)** after photos/menu/rooms/CMS change | Page is `force-dynamic` + `no-store` — **new content loads automatically** |
+| Leave tab open | Soft auto-refresh ~every 45s + when you come back to the tab |
+| Agent changes UI code | Agent runs `live:refresh` (rebuild); then you **F5** once |
 
-## Agent side (automatic)
+You do **not** need Continue / reopen tabs / ask “open cheyandi” after every CMS edit.
 
-- Durable stack: `npm run ops:persist` (tmux keep-alive; does **not** rotate a healthy public tunnel)
-- After UI work: `npm run live:refresh` → opens the three screens on Try Live
-- Open three anytime: `npm run ops:open-three`
+## Staff lock (LOCK OPS)
 
-## Limits (honest)
+Top-right **LOCK OPS** clears unlock on that browser. To open again, paste a `?unlock=anviops2026` link from the four above.
 
-- Quick tunnel dies if the **cloud VM** is recycled → Error 1033. Then use the **updated** base from `public-url.md`.
-- `localhost` on your laptop will fail (Error -102). Always use the public URLs.
+## Agent side
+
+```bash
+npm run ops:persist     # keep Next + tunnel; do not rotate while HTTP 200
+npm run live:refresh    # after code/UI change — Try Live hard reload
+```

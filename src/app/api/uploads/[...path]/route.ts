@@ -42,7 +42,9 @@ export async function GET(_req: Request, ctx: Ctx) {
       status: 200,
       headers: {
         "Content-Type": MIME[ext] || "application/octet-stream",
-        "Cache-Control": "public, max-age=0, must-revalidate",
+        // F5 / hard refresh must show newly uploaded staff photos immediately
+        // (Cloudflare quick tunnel / browser must not stick on an old image body).
+        "Cache-Control": "private, no-cache, no-store, max-age=0, must-revalidate",
         "Content-Length": String(bytes.length),
       },
     });
