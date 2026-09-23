@@ -9609,12 +9609,12 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
   justify-content: space-between;
   gap: 18px;
   padding: 18px;
-  border-top: 4px solid #0f766e;
+  border-top: 4px solid #1d4ed8;
 }
 
 .hospitality-eyebrow {
   display: block;
-  color: #0f766e;
+  color: #b91c1c;
   font-size: 12px;
   font-weight: 900;
   text-transform: uppercase;
@@ -9667,13 +9667,13 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
 }
 
 .hospitality-kpi span {
-  color: var(--muted);
+  color: #1d4ed8;
   font-size: 12px;
   font-weight: 800;
 }
 
 .hospitality-kpi strong {
-  color: #0f5132;
+  color: #111827;
   font-size: 21px;
 }
 
@@ -10892,8 +10892,8 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
 .anvi-admin-shell {
   min-height: 100vh;
   background:
-    linear-gradient(180deg, #fffaf7 0%, #f7fff8 46%, #fff7f7 100%);
-  color: #241313;
+    linear-gradient(180deg, #ffffff 0%, #f7fbff 46%, #fff7f7 100%);
+  color: #111827;
 }
 
 .anvi-admin-topbar {
@@ -10906,8 +10906,8 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
   gap: 16px;
   padding: 14px 24px calc(14px + 5mm) 148px;
   background: rgba(255, 255, 255, 0.96);
-  border-bottom: 1px solid rgba(20, 83, 45, 0.12);
-  box-shadow: 0 14px 34px rgba(56, 28, 28, 0.08);
+  border-bottom: 1px solid rgba(37, 99, 235, 0.14);
+  box-shadow: 0 14px 34px rgba(17, 24, 39, 0.08);
   backdrop-filter: blur(8px);
 }
 
@@ -10919,16 +10919,18 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
   height: 34px;
   object-fit: contain;
   padding: 4px 8px;
-  border: 1px solid rgba(127, 29, 29, 0.14);
+  border: 1px solid rgba(37, 99, 235, 0.18);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 10px 24px rgba(127, 29, 29, 0.08);
+  box-shadow: 0 10px 24px rgba(37, 99, 235, 0.10);
 }
 
 .anvi-admin-topbar h1 {
   margin: 4px 0 0;
   font-size: 1.4rem;
   letter-spacing: 0;
+  color: #111827;
+  font-weight: 900;
 }
 
 .anvi-admin-topbar > div {
@@ -10954,32 +10956,39 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
 
 .anvi-ops-app .hospitality-hero {
   align-items: flex-start;
-  border: 1px solid rgba(20, 83, 45, 0.14);
+  border: 1px solid rgba(37, 99, 235, 0.15);
   background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 247, 237, 0.96) 48%, rgba(240, 253, 244, 0.96) 100%);
-  box-shadow: 0 18px 42px rgba(56, 28, 28, 0.08);
+    linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(239, 246, 255, 0.96) 48%, rgba(255, 241, 242, 0.96) 100%);
+  box-shadow: 0 18px 42px rgba(17, 24, 39, 0.08);
 }
 
 .anvi-ops-app .hospitality-hero h1 {
-  color: #4c1111;
+  color: #111827;
   font-size: clamp(26px, 2.4vw, 38px);
+  font-weight: 900;
 }
 
 .anvi-ops-app .hospitality-hero p {
   max-width: 860px;
-  color: #4b5563;
+  color: #1f2937;
+  font-weight: 600;
 }
 
 .anvi-ops-app > .panel,
 .anvi-ops-app .hospitality-two-column > .panel,
 .anvi-ops-app .anvi-booking-planner > .panel {
-  border: 1px solid rgba(20, 83, 45, 0.13);
-  box-shadow: 0 12px 28px rgba(56, 28, 28, 0.06);
+  border: 1px solid rgba(37, 99, 235, 0.12);
+  box-shadow: 0 12px 28px rgba(17, 24, 39, 0.06);
 }
 
 .anvi-ops-app .panel-header.green {
-  background: linear-gradient(90deg, rgba(20, 83, 45, 0.08), rgba(127, 29, 29, 0.05));
-  border-bottom: 1px solid rgba(20, 83, 45, 0.12);
+  background: linear-gradient(90deg, rgba(37, 99, 235, 0.08), rgba(185, 28, 28, 0.07));
+  border-bottom: 1px solid rgba(37, 99, 235, 0.13);
+}
+
+.anvi-ops-app .panel-title {
+  color: #111827;
+  font-weight: 900;
 }
 
 .anvi-ops-nav {
@@ -10991,18 +11000,19 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
 
 .anvi-ops-nav .mode-pill,
 .hospitality-tabs .mode-pill {
-  border: 1px solid rgba(20, 83, 45, 0.22);
+  border: 1px solid rgba(37, 99, 235, 0.26);
   background: rgba(255, 255, 255, 0.9);
-  color: #14532d;
-  box-shadow: 0 6px 16px rgba(20, 83, 45, 0.06);
+  color: #1d4ed8;
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.08);
+  font-weight: 900;
 }
 
 .anvi-ops-nav .mode-pill.active,
 .hospitality-tabs .mode-pill.active {
-  background: #14532d;
-  border-color: #14532d;
+  background: #111827;
+  border-color: #111827;
   color: #ffffff;
-  box-shadow: 0 10px 24px rgba(20, 83, 45, 0.18);
+  box-shadow: 0 10px 24px rgba(17, 24, 39, 0.18);
 }
 
 .anvi-ops-app .primary-button.compact-primary {
@@ -11027,11 +11037,12 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
 
 .anvi-ops-note {
   padding: 14px 16px;
-  border: 1px solid rgba(20, 83, 45, 0.18);
+  border: 1px solid rgba(37, 99, 235, 0.18);
   border-radius: 8px;
-  background: linear-gradient(135deg, #f0fdf4, #fff7ed);
-  color: #13351f;
+  background: linear-gradient(135deg, #eff6ff, #fff1f2);
+  color: #111827;
   line-height: 1.45;
+  font-weight: 700;
 }
 
 .anvi-ops-grid {
@@ -11043,19 +11054,20 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
 
 .anvi-ops-guide-card {
   padding: 14px;
-  border: 1px solid rgba(20, 83, 45, 0.13);
+  border: 1px solid rgba(37, 99, 235, 0.13);
   background: rgba(255, 255, 255, 0.94);
 }
 
 .anvi-ops-guide-card h3 {
   margin: 0 0 8px;
-  color: #7f1d1d;
+  color: #b91c1c;
   font-size: 1rem;
+  font-weight: 900;
 }
 
 .anvi-ops-guide-card p {
   margin: 0;
-  color: #374151;
+  color: #111827;
   line-height: 1.45;
 }
 
@@ -11078,9 +11090,10 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
 }
 
 .hospitality-view .history-table th {
-  background: #fff7ed;
-  color: #4c1111;
-  font-weight: 800;
+  background: #eff6ff;
+  color: #111827;
+  font-weight: 900;
+  border-bottom-color: rgba(37, 99, 235, 0.18);
 }
 
 .hospitality-view .history-table td {
