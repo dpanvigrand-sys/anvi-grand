@@ -54,7 +54,7 @@ export function SiteFooter({
           </div>
           <p className="mt-4 max-w-sm text-sm leading-relaxed text-white/70">
             Hotel stays and celebrations near Benz Circle, with Andhra flavours
-            from our IRAA Dine kitchen.
+            from IRAA Dine.
           </p>
         </div>
         <div>

@@ -35,29 +35,43 @@ export function SiteHeader({ receptionPhone = "7569494949" }: Props) {
   if (isOps) return null;
 
   return (
-    <header className="sticky top-0 z-50 border-b border-[var(--ag-gold)]/35 bg-[var(--ag-red)] text-white shadow-md">
+    <header className="sticky top-0 z-50 bg-[var(--ag-red)] text-white shadow-[0_2px_24px_rgba(60,0,0,0.35)]">
+      <div className="h-[2px] bg-[linear-gradient(90deg,#6b0000,#d4af37,#6b0000)]" />
+      <div className="border-b border-white/10">
+        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-1.5 text-[11px] tracking-[0.14em] text-white/75 md:px-8">
+          <span className="hidden sm:inline">ANVI GRAND · Vijayawada</span>
+          <a href={`tel:${phone}`} className="font-medium text-[var(--ag-gold-soft)] hover:text-white">
+            Reception {phone}
+          </a>
+        </div>
+      </div>
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 md:px-8">
         <Link href="/" className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logos/ag-mark.svg"
             alt=""
-            className="h-10 w-10 rounded-sm shadow-sm ring-1 ring-[var(--ag-gold)]/40"
+            className="h-11 w-11 ring-1 ring-[var(--ag-gold)]/50"
           />
-          <span className="font-display text-lg font-semibold tracking-[0.12em] text-white md:text-xl">
-            ANVI GRAND
+          <span className="flex flex-col leading-none">
+            <span className="font-display text-lg tracking-[0.16em] text-white md:text-xl">
+              ANVI GRAND
+            </span>
+            <span className="mt-1 text-[10px] uppercase tracking-[0.22em] text-[var(--ag-gold-soft)]">
+              Hotel & Celebrations
+            </span>
           </span>
         </Link>
 
-        <nav className="hidden items-center gap-6 lg:flex">
+        <nav className="hidden items-center gap-7 lg:flex">
           {links.map((l) => (
             <Link
               key={l.href}
               href={l.href}
               className={cn(
-                "text-sm font-medium text-white/90 transition hover:text-[var(--ag-gold-soft)]",
+                "text-[13px] font-medium uppercase tracking-[0.12em] text-white/85 transition hover:text-[var(--ag-gold-soft)]",
                 pathname === l.href &&
-                  "text-[var(--ag-gold-soft)] underline decoration-[var(--ag-gold)] underline-offset-8",
+                  "text-[var(--ag-gold-soft)] underline decoration-[var(--ag-gold)] underline-offset-[10px]",
               )}
             >
               {l.label}
@@ -65,25 +79,19 @@ export function SiteHeader({ receptionPhone = "7569494949" }: Props) {
           ))}
           <Button
             render={<Link href="/book" />}
-            className="h-9 rounded-md border border-[var(--ag-gold)] bg-white px-4 text-sm font-semibold text-[var(--ag-red)] hover:bg-[var(--ag-gold-soft)]"
+            className="h-9 rounded-none border border-[var(--ag-gold)] bg-[var(--ag-gold)] px-4 text-xs font-semibold uppercase tracking-[0.12em] text-[var(--ag-red-deep)] hover:bg-[var(--ag-gold-soft)]"
           >
             Book Now
           </Button>
-          <a
-            href={`tel:${phone}`}
-            className="text-sm font-medium text-[var(--ag-gold-soft)] transition hover:text-white"
-          >
-            {phone}
-          </a>
         </nav>
 
         <div className="flex items-center gap-2 lg:hidden">
           <Button
             render={<Link href="/book" />}
             size="sm"
-            className="h-8 rounded-md border border-[var(--ag-gold)] bg-white px-3 text-xs font-semibold text-[var(--ag-red)] hover:bg-[var(--ag-gold-soft)]"
+            className="h-8 rounded-none border border-[var(--ag-gold)] bg-[var(--ag-gold)] px-3 text-[11px] font-semibold uppercase tracking-wide text-[var(--ag-red-deep)]"
           >
-            Book Now
+            Book
           </Button>
           <Sheet open={open} onOpenChange={setOpen}>
             <SheetTrigger
@@ -100,15 +108,12 @@ export function SiteHeader({ receptionPhone = "7569494949" }: Props) {
             </SheetTrigger>
             <SheetContent side="right" className="bg-white">
               <SheetHeader>
-                <SheetTitle className="font-display text-xl tracking-[0.08em] text-[var(--ag-red)]">
+                <SheetTitle className="font-display text-xl tracking-[0.1em] text-[var(--ag-red)]">
                   ANVI GRAND
                 </SheetTitle>
               </SheetHeader>
               <nav className="flex flex-col gap-1 px-4 pb-6">
-                <a
-                  href={`tel:${phone}`}
-                  className="py-3 font-medium text-[var(--ag-red)]"
-                >
+                <a href={`tel:${phone}`} className="py-3 font-medium text-[var(--ag-red)]">
                   Call {phone}
                 </a>
                 {links.map((l) => (
@@ -116,7 +121,7 @@ export function SiteHeader({ receptionPhone = "7569494949" }: Props) {
                     key={l.href}
                     href={l.href}
                     onClick={() => setOpen(false)}
-                    className="border-b border-[var(--ag-line)] py-3 text-base text-[var(--ag-ink)]"
+                    className="border-b border-[var(--ag-line)] py-3 text-base uppercase tracking-[0.08em] text-[var(--ag-ink)]"
                   >
                     {l.label}
                   </Link>
@@ -124,7 +129,7 @@ export function SiteHeader({ receptionPhone = "7569494949" }: Props) {
                 <Link
                   href="/book"
                   onClick={() => setOpen(false)}
-                  className="mt-4 rounded-md bg-[var(--ag-red)] py-3 text-center font-semibold text-white"
+                  className="mt-4 bg-[var(--ag-red)] py-3 text-center font-semibold uppercase tracking-wide text-white"
                 >
                   Book Now
                 </Link>
