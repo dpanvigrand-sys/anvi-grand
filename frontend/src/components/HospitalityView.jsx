@@ -44,6 +44,13 @@ const monthEnd = (value) => {
 };
 
 const bookingTypes = ['ALL', 'ROOM', 'BANQUET', 'FOOD'];
+const bookingSources = [
+  ['CURRENT_COUNTER', 'Current Counter Booking'],
+  ['PHONE', 'Phone Booking'],
+  ['ONLINE_PLATFORM', 'Online Platform Booking'],
+  ['WALKIN', 'Walk-in Booking'],
+  ['AGENT', 'Agent / Travel Desk']
+];
 const bookingStatuses = ['ENQUIRY', 'ADVANCE', 'CONFIRMED', 'CHECKED_IN', 'COMPLETED', 'CANCELLED'];
 const orderStatuses = ['NEW', 'KITCHEN', 'READY', 'SERVED', 'DISPATCHED', 'DELIVERED', 'CANCELLED'];
 const taskAreas = ['RECEPTION', 'KITCHEN', 'MANAGER', 'SERVER', 'SUPPLIER', 'STORE', 'HOUSEKEEPING', 'LAUNDRY', 'DOBI', 'SECURITY', 'TAKEAWAY', 'ACCOUNTS'];
@@ -114,6 +121,9 @@ const bookingBlank = {
   customer_name: '',
   customer_phone: '',
   customer_address: '',
+  booking_source: 'CURRENT_COUNTER',
+  booking_platform: '',
+  booking_reference: '',
   item_title: '',
   table_number: '',
   server_id: '',
@@ -167,6 +177,10 @@ function bookingLabel(type) {
   if (type === 'ROOM') return 'Room Booking';
   if (type === 'BANQUET') return 'Banquet Booking';
   return 'Restaurant Order';
+}
+
+function bookingSourceLabel(value) {
+  return bookingSources.find(([key]) => key === value)?.[1] || value || 'Current Counter Booking';
 }
 
 function escapeHtml(value) {
@@ -361,6 +375,9 @@ export default function HospitalityView({ currentUser = null }) {
       ['Guest', row.customer_name],
       ['Phone', row.customer_phone],
       ['Booking', bookingLabel(row.booking_type)],
+      ['Booking Source', bookingSourceLabel(row.booking_source)],
+      ['Platform / Counter', row.booking_platform],
+      ['Reference', row.booking_reference],
       [row.booking_type === 'FOOD' ? 'Table' : row.booking_type === 'ROOM' ? 'Room' : 'Hall', row.table_number || row.item_title],
       ['Server / Supplier', row.server_id],
       ['Date', `${row.booking_date}${row.end_date && row.end_date !== row.booking_date ? ` to ${row.end_date}` : ''}`],
@@ -704,11 +721,12 @@ export default function HospitalityView({ currentUser = null }) {
                 </div>
                 <div className="table-scroll">
                   <table className="history-table hospitality-table">
-                    <thead><tr><th>Type</th><th>Guest / Customer</th><th>Room / Hall / Table</th><th>Food / Notes</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
-                    <tbody>{calendarDetailRows.length === 0 ? <tr><td colSpan="7">This date has no bookings. You can create a new booking below.</td></tr> : calendarDetailRows.map((row) => (
+                    <thead><tr><th>Type</th><th>Guest / Customer</th><th>Source</th><th>Room / Hall / Table</th><th>Food / Notes</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody>{calendarDetailRows.length === 0 ? <tr><td colSpan="8">This date has no bookings. You can create a new booking below.</td></tr> : calendarDetailRows.map((row) => (
                       <tr key={row.id}>
                         <td>{bookingLabel(row.booking_type)}<span className="muted">{row.time_slot || ''}</span></td>
                         <td><strong>{row.customer_name}</strong><span className="muted">{row.customer_phone}</span></td>
+                        <td>{bookingSourceLabel(row.booking_source)}<span className="muted">{row.booking_platform || row.booking_reference || ''}</span></td>
                         <td>{row.table_number || row.item_title || '-'}<span className="muted">{row.server_id || ''}</span></td>
                         <td>{row.food_plan === 'WITH_FOOD' ? 'With Food' : 'Without Food'}<span className="muted">{row.food_details || row.complimentary_breakfast || row.notes || ''}</span></td>
                         <td>{formatMoney(row.total_amount)}<span className="muted">Advance {formatMoney(row.advance_amount)} | Balance {formatMoney(row.balance_amount)}</span></td>
@@ -766,6 +784,9 @@ export default function HospitalityView({ currentUser = null }) {
               <Field label="Slot / Time"><input className="field" value={bookingForm.time_slot} onChange={(event) => setBookingForm((current) => ({ ...current, time_slot: event.target.value }))} placeholder="Check-in / Lunch / Evening / Full day" /></Field>
               <Field label="Customer Name"><input className="field" value={bookingForm.customer_name} onChange={(event) => setBookingForm((current) => ({ ...current, customer_name: event.target.value }))} required /></Field>
               <Field label="Phone"><input className="field" value={bookingForm.customer_phone} onChange={(event) => setBookingForm((current) => ({ ...current, customer_phone: event.target.value }))} required /></Field>
+              <Field label="Booking Source"><select className="select" value={bookingForm.booking_source || 'CURRENT_COUNTER'} onChange={(event) => setBookingForm((current) => ({ ...current, booking_source: event.target.value }))}>{bookingSources.map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></Field>
+              <Field label="Online Platform / Counter"><input className="field" value={bookingForm.booking_platform || ''} onChange={(event) => setBookingForm((current) => ({ ...current, booking_platform: event.target.value }))} placeholder="MakeMyTrip / Goibibo / Phone / Front Counter" /></Field>
+              <Field label="Booking Reference"><input className="field" value={bookingForm.booking_reference || ''} onChange={(event) => setBookingForm((current) => ({ ...current, booking_reference: event.target.value }))} placeholder="OTA ID / phone call note / counter receipt no" /></Field>
               <Field label="Room / Hall / Food Item"><input className="field" value={bookingForm.item_title} onChange={(event) => setBookingForm((current) => ({ ...current, item_title: event.target.value }))} /></Field>
               <Field label="Room / Table / Hall No"><input className="field" value={bookingForm.table_number || ''} onChange={(event) => setBookingForm((current) => ({ ...current, table_number: event.target.value }))} placeholder="Room 203 / Table 5 / Hall A" /></Field>
               <Field label="Server / Supplier ID"><input className="field" value={bookingForm.server_id || ''} onChange={(event) => setBookingForm((current) => ({ ...current, server_id: event.target.value }))} placeholder="Server name, waiter ID, supplier ref" /></Field>
@@ -800,9 +821,9 @@ export default function HospitalityView({ currentUser = null }) {
             </div>
             <div className="table-scroll">
               <table className="history-table hospitality-table">
-                <thead><tr><th>Dates</th><th>Type</th><th>Customer</th><th>Room/Table</th><th>Food / Notes</th><th>Total</th><th>Advance</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
-                <tbody>{bookings.length === 0 ? <tr><td colSpan="10">No bookings in selected dates.</td></tr> : bookings.map((row) => (
-                  <tr key={row.id}><td>{row.booking_date}{row.end_date && row.end_date !== row.booking_date ? ` to ${row.end_date}` : ''}<span className="muted">{row.time_slot || ''}</span></td><td>{bookingLabel(row.booking_type)}</td><td><strong>{row.customer_name}</strong><span className="muted">{row.customer_phone}</span></td><td>{row.table_number || row.item_title || '-'}<span className="muted">{row.server_id || row.item_title || ''}</span></td><td>{row.food_plan === 'WITH_FOOD' ? 'With Food' : 'Without Food'}<span className="muted">{row.food_details || row.complimentary_breakfast || row.notes || ''}</span></td><td>{formatMoney(row.total_amount)}<span className="muted">GST {formatMoney(row.gst_amount)}</span></td><td>{formatMoney(row.advance_amount)}</td><td>{formatMoney(row.balance_amount)}</td><td><span className="status-chip info">{row.status}</span></td><td><div className="table-actions"><button className="secondary-button" type="button" onClick={() => editBooking(row)}>Edit</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Advance Booking Receipt', 'A4')}>Advance A4</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Check-in Receipt', 'A4')}>Check-in A4</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Check-out Report', 'A4')}>Check-out A4</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Reprint Final Bill', 'A4')}>Reprint A4</button><button className="secondary-button" type="button" onClick={() => printBooking(row, row.booking_type === 'FOOD' ? 'Restaurant Thermal Bill' : 'Thermal Receipt', 'THERMAL')}>Thermal</button></div></td></tr>
+                <thead><tr><th>Dates</th><th>Type</th><th>Customer</th><th>Source</th><th>Room/Table</th><th>Food / Notes</th><th>Total</th><th>Advance</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
+                <tbody>{bookings.length === 0 ? <tr><td colSpan="11">No bookings in selected dates.</td></tr> : bookings.map((row) => (
+                  <tr key={row.id}><td>{row.booking_date}{row.end_date && row.end_date !== row.booking_date ? ` to ${row.end_date}` : ''}<span className="muted">{row.time_slot || ''}</span></td><td>{bookingLabel(row.booking_type)}</td><td><strong>{row.customer_name}</strong><span className="muted">{row.customer_phone}</span></td><td>{bookingSourceLabel(row.booking_source)}<span className="muted">{row.booking_platform || row.booking_reference || ''}</span></td><td>{row.table_number || row.item_title || '-'}<span className="muted">{row.server_id || row.item_title || ''}</span></td><td>{row.food_plan === 'WITH_FOOD' ? 'With Food' : 'Without Food'}<span className="muted">{row.food_details || row.complimentary_breakfast || row.notes || ''}</span></td><td>{formatMoney(row.total_amount)}<span className="muted">GST {formatMoney(row.gst_amount)}</span></td><td>{formatMoney(row.advance_amount)}</td><td>{formatMoney(row.balance_amount)}</td><td><span className="status-chip info">{row.status}</span></td><td><div className="table-actions"><button className="secondary-button" type="button" onClick={() => editBooking(row)}>Edit</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Advance Booking Receipt', 'A4')}>Advance A4</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Check-in Receipt', 'A4')}>Check-in A4</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Check-out Report', 'A4')}>Check-out A4</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Reprint Final Bill', 'A4')}>Reprint A4</button><button className="secondary-button" type="button" onClick={() => printBooking(row, row.booking_type === 'FOOD' ? 'Restaurant Thermal Bill' : 'Thermal Receipt', 'THERMAL')}>Thermal</button></div></td></tr>
                 ))}</tbody>
               </table>
             </div>

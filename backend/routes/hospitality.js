@@ -131,6 +131,9 @@ async function ensureSchema() {
           customer_name VARCHAR(160) NOT NULL,
           customer_phone VARCHAR(20) NOT NULL,
           customer_address VARCHAR(500) DEFAULT '',
+          booking_source VARCHAR(80) DEFAULT 'CURRENT_COUNTER',
+          booking_platform VARCHAR(120) DEFAULT '',
+          booking_reference VARCHAR(120) DEFAULT '',
           item_title VARCHAR(160) DEFAULT '',
           table_number VARCHAR(40) DEFAULT '',
           server_id VARCHAR(80) DEFAULT '',
@@ -163,6 +166,9 @@ async function ensureSchema() {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
       await addColumnIfMissing('hospitality_bookings', 'end_date', 'DATE DEFAULT NULL AFTER booking_date');
+      await addColumnIfMissing('hospitality_bookings', 'booking_source', "VARCHAR(80) DEFAULT 'CURRENT_COUNTER' AFTER customer_address");
+      await addColumnIfMissing('hospitality_bookings', 'booking_platform', "VARCHAR(120) DEFAULT '' AFTER booking_source");
+      await addColumnIfMissing('hospitality_bookings', 'booking_reference', "VARCHAR(120) DEFAULT '' AFTER booking_platform");
       await addColumnIfMissing('hospitality_bookings', 'table_number', "VARCHAR(40) DEFAULT '' AFTER item_title");
       await addColumnIfMissing('hospitality_bookings', 'server_id', "VARCHAR(80) DEFAULT '' AFTER table_number");
       await addColumnIfMissing('hospitality_bookings', 'waiter_name', "VARCHAR(120) DEFAULT '' AFTER server_id");
@@ -328,6 +334,9 @@ async function saveBookingRecord(req, res, createdBy = '') {
     customerName,
     customerPhone,
     cleanText(req.body?.customer_address, 500),
+    cleanText(req.body?.booking_source, 80) || 'CURRENT_COUNTER',
+    cleanText(req.body?.booking_platform, 120),
+    cleanText(req.body?.booking_reference, 120),
     cleanText(req.body?.item_title, 160),
     cleanText(req.body?.table_number, 40),
     cleanText(req.body?.server_id, 80),
@@ -358,7 +367,7 @@ async function saveBookingRecord(req, res, createdBy = '') {
     await db.query(
       `UPDATE hospitality_bookings
        SET booking_type = ?, booking_date = ?, end_date = ?, time_slot = ?, customer_name = ?, customer_phone = ?,
-           customer_address = ?, item_title = ?, table_number = ?, server_id = ?, waiter_name = ?, supplier_name = ?,
+           customer_address = ?, booking_source = ?, booking_platform = ?, booking_reference = ?, item_title = ?, table_number = ?, server_id = ?, waiter_name = ?, supplier_name = ?,
            order_status = ?, delivery_status = ?, dispatch_details = ?, upi_qr_text = ?, guest_count = ?, food_plan = ?, food_details = ?,
            complimentary_breakfast = ?, room_facilities = ?, travel_notes = ?, print_format = ?, gst_percent = ?, gst_amount = ?, total_amount = ?, advance_amount = ?,
            balance_amount = ?, payment_mode = ?, status = ?, notes = ?
@@ -370,12 +379,12 @@ async function saveBookingRecord(req, res, createdBy = '') {
 
   const [result] = await db.query(
     `INSERT INTO hospitality_bookings
-     (booking_type, booking_date, end_date, time_slot, customer_name, customer_phone, customer_address, item_title,
-      table_number, server_id, waiter_name, supplier_name, order_status, delivery_status, dispatch_details, upi_qr_text,
+     (booking_type, booking_date, end_date, time_slot, customer_name, customer_phone, customer_address,
+      booking_source, booking_platform, booking_reference, item_title, table_number, server_id, waiter_name, supplier_name, order_status, delivery_status, dispatch_details, upi_qr_text,
       guest_count, food_plan, food_details, complimentary_breakfast, room_facilities, travel_notes,
       print_format, gst_percent, gst_amount, total_amount, advance_amount, balance_amount,
       payment_mode, status, notes, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [...payload, createdBy]
   );
   res.json({ success: true, id: result.insertId });
@@ -505,6 +514,7 @@ router.get('/bookings', async (req, res) => {
     `SELECT id, booking_type, DATE_FORMAT(booking_date, '%Y-%m-%d') AS booking_date,
             DATE_FORMAT(COALESCE(end_date, booking_date), '%Y-%m-%d') AS end_date, time_slot,
             customer_name, customer_phone, customer_address, item_title, guest_count, total_amount,
+            booking_source, booking_platform, booking_reference,
             table_number, server_id, waiter_name, supplier_name, order_status, delivery_status, dispatch_details, upi_qr_text,
             food_plan, food_details, complimentary_breakfast, room_facilities, travel_notes,
             print_format, gst_percent, gst_amount, advance_amount, balance_amount, payment_mode, status, notes
