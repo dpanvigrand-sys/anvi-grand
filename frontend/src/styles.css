@@ -11247,6 +11247,43 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
   font-weight: 900;
 }
 
+.anvi-admin-shell .hospitality-eyebrow,
+.anvi-admin-shell .field-label,
+.anvi-admin-shell .mode-pill,
+.anvi-admin-shell .secondary-button,
+.anvi-admin-shell .primary-button,
+.anvi-admin-shell .danger-button,
+.anvi-admin-shell .status-chip,
+.anvi-admin-shell .anvi-day-pill,
+.anvi-admin-shell .hospitality-kpi span,
+.anvi-admin-shell .anvi-date-total-box,
+.anvi-admin-shell .history-table th {
+  font-weight: 600;
+}
+
+.anvi-admin-shell .panel-title,
+.anvi-admin-topbar h1,
+.anvi-ops-app .hospitality-hero h1 {
+  font-weight: 700;
+}
+
+.anvi-admin-shell .history-table td,
+.anvi-admin-shell .anvi-ops-note,
+.anvi-admin-shell .anvi-ops-guide-card p,
+.anvi-admin-shell .hospitality-hero p {
+  font-weight: 400;
+}
+
+.anvi-admin-shell .history-table td strong,
+.anvi-admin-shell .hospitality-kpi strong,
+.anvi-admin-shell .anvi-calendar-day span,
+.anvi-admin-shell .anvi-calendar-day small,
+.anvi-admin-shell .anvi-day-summary strong,
+.anvi-admin-shell .anvi-ops-guide-card h3,
+.anvi-admin-shell .anvi-ops-note strong {
+  font-weight: 600;
+}
+
 @media (max-width: 820px) {
   .anvi-admin-topbar {
     align-items: flex-start;
