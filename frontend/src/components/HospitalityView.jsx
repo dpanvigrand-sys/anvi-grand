@@ -97,8 +97,8 @@ const roleScopeCards = [
 const alertTemplates = [
   ['Booking Confirmation', 'WhatsApp/SMS', 'Dear guest, your ANVI GRAND booking is confirmed. Advance received: {advance}. Balance: {balance}.'],
   ['Check-in Welcome', 'WhatsApp', 'Welcome to ANVI GRAND. WiFi, hot water and room service details are available at reception.'],
-  ['Restaurant Bill Paid', 'SMS/WhatsApp', 'Thank you for dining at CHIGURU. Bill amount: {total}. Payment: {payment_mode}.'],
-  ['Takeaway Ready', 'WhatsApp/SMS', 'Your CHIGURU takeaway order is ready. Please collect from parcel counter.'],
+  ['Restaurant Bill Paid', 'SMS/WhatsApp', 'Thank you for dining at IRAA dine. Bill amount: {total}. Payment: {payment_mode}.'],
+  ['Takeaway Ready', 'WhatsApp/SMS', 'Your IRAA dine takeaway order is ready. Please collect from parcel counter.'],
   ['Room Ready', 'Internal Alert', 'Room {room} cleaned and ready. Housekeeping updated the status.'],
   ['Low Stock', 'Internal Alert', '{item} stock is low. Store room should raise purchase/inward entry.'],
   ['Security Incident', 'WhatsApp to Manager', 'Security note: {details}. Please review at manager desk.']
@@ -145,7 +145,7 @@ const attendanceBlank = { staff_id: '', attendance_date: today(), staff_name: ''
 const walkinBlank = { visit_date: today(), customer_name: '', customer_phone: '', purpose: '', notes: '' };
 const profileBlank = {
   hotel_name: 'ANVI GRAND',
-  restaurant_name: 'CHIGURU',
+  restaurant_name: 'IRAA dine',
   platform_name: 'ANVI GRAND Operations',
   address: 'Near Benz Circle, Eluru Road, Vijayawada, Krishna Dist, Andhra Pradesh',
   phone: '7569494949',

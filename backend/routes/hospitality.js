@@ -7,7 +7,7 @@ const router = express.Router();
 
 const BUSINESS_PROFILE = {
   hotel_name: 'ANVI GRAND',
-  restaurant_name: 'CHIGURU',
+  restaurant_name: 'IRAA dine',
   platform_name: 'ANVI GRAND Hospitality Platform',
   address: 'Near Benz Circle, Eluru Road, Vijayawada, Krishna Dist, Andhra Pradesh',
   phone: '7569494949',
@@ -276,8 +276,8 @@ async function ensureSchema() {
            VALUES ?`,
           [[
             ['GALLERY', 'ANVI GRAND Front View', 'Hotel, restaurant and banquet experience near Benz Circle.', '', 0, '', null, 1, 'system'],
-            ['FOOD', 'CHIGURU Veg Meals', 'Fresh Andhra meals for dine-in and online food orders.', '', 180, 'plate', null, 1, 'system'],
-            ['FOOD', 'CHIGURU Special Biryani', 'Signature restaurant item for quick menu setup.', '', 260, 'plate', null, 2, 'system'],
+            ['FOOD', 'IRAA dine Veg Meals', 'Fresh Andhra meals for dine-in and online food orders.', '', 180, 'plate', null, 1, 'system'],
+            ['FOOD', 'IRAA dine Special Biryani', 'Signature restaurant item for quick menu setup.', '', 260, 'plate', null, 2, 'system'],
             ['ROOM', 'Deluxe Room', 'Comfortable room for family and business guests.', '', 2500, 'night', 2, 1, 'system'],
             ['BANQUET', 'Banquet Hall', 'Event hall for functions, meetings and celebrations.', '', 25000, 'event', 250, 1, 'system'],
             ['BANQUET', 'Mini Hall', 'Compact hall for birthdays and small family events.', '', 12000, 'event', 80, 2, 'system']
