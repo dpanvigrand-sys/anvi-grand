@@ -10906,9 +10906,9 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
   gap: 16px;
   min-height: 15mm;
   padding: 0 24px 0 146px;
-  background: #102f52;
-  border-bottom: 3px solid #b91c1c;
-  box-shadow: 0 12px 30px rgba(16, 47, 82, 0.22);
+  background: #b91c1c;
+  border-bottom: 3px solid #7f1d1d;
+  box-shadow: 0 12px 30px rgba(185, 28, 28, 0.24);
 }
 
 .anvi-admin-badizo-mark {
