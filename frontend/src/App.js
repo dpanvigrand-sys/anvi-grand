@@ -37,6 +37,8 @@ function canUseAnviOps(user) {
   return ['SERVER', 'ADMIN'].includes(String(user?.role || '').toUpperCase());
 }
 
+const ANVI_BUILD_SIGNATURE_KEY = 'anvi_grand_build_signature';
+
 export default function App() {
   const pathname = window.location.pathname;
   const isAnviAdminRoute = pathname === '/anvi-grand-admin';
@@ -45,6 +47,37 @@ export default function App() {
   const [mountedWorkspaces, setMountedWorkspaces] = useState(() => new Set(['billing']));
   const [currentUser, setCurrentUser] = useState(getStoredUser);
   const [backupAlert, setBackupAlert] = useState(null);
+
+  useEffect(() => {
+    if (!isAnviAdminRoute) return undefined;
+    let cancelled = false;
+
+    const showLoginWhenBuildChanges = async () => {
+      try {
+        const response = await fetch(`/asset-manifest.json?ts=${Date.now()}`, { cache: 'no-store' });
+        if (!response.ok) return;
+        const manifest = await response.json();
+        const files = manifest?.files || {};
+        const signature = [files['main.js'], files['main.css']].filter(Boolean).join('|');
+        if (!signature || cancelled) return;
+
+        const storedSignature = window.localStorage.getItem(ANVI_BUILD_SIGNATURE_KEY);
+        if (storedSignature === signature) return;
+        window.localStorage.setItem(ANVI_BUILD_SIGNATURE_KEY, signature);
+        if (!currentUser) return;
+
+        clearAuthSession();
+        setCurrentUser(null);
+      } catch (_err) {
+        // If the manifest is unavailable, keep the current screen instead of forcing logout.
+      }
+    };
+
+    showLoginWhenBuildChanges();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser, isAnviAdminRoute]);
 
   useEffect(() => {
     setMountedWorkspaces((current) => {
