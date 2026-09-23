@@ -47,7 +47,7 @@ export function SiteHeader({ receptionPhone = "7569494949" }: Props) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src="/logos/badizo.jpg"
+              src="/logos/badizo.png"
               alt="Badizo"
               className="h-7 w-auto max-w-[150px] object-contain sm:h-8 sm:max-w-[170px]"
             />
