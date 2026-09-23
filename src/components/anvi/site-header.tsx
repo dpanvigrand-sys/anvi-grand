@@ -38,9 +38,24 @@ export function SiteHeader({ receptionPhone = "7569494949" }: Props) {
     <header className="sticky top-0 z-50 bg-[var(--ag-red)] text-white shadow-[0_2px_24px_rgba(60,0,0,0.35)]">
       <div className="h-[2px] bg-[linear-gradient(90deg,#6b0000,#d4af37,#6b0000)]" />
       <div className="border-b border-white/10">
-        <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-1.5 text-[11px] tracking-[0.14em] text-white/75 md:px-8">
-          <span className="hidden sm:inline">ANVI GRAND · Vijayawada</span>
-          <a href={`tel:${phone}`} className="font-medium text-[var(--ag-gold-soft)] hover:text-white">
+        <div className="relative mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-2 text-[11px] tracking-[0.14em] text-white/75 md:px-8">
+          <span className="hidden min-w-[7rem] sm:inline">Vijayawada</span>
+          <Link
+            href="/"
+            className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2"
+            aria-label="Badizo"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logos/badizo.jpg"
+              alt="Badizo"
+              className="h-7 w-auto max-w-[150px] object-contain sm:h-8 sm:max-w-[170px]"
+            />
+          </Link>
+          <a
+            href={`tel:${phone}`}
+            className="ml-auto font-medium text-[var(--ag-gold-soft)] hover:text-white"
+          >
             Reception {phone}
           </a>
         </div>
