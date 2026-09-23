@@ -10904,35 +10904,44 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 24px calc(14px + 5mm) 148px;
-  background: rgba(255, 255, 255, 0.96);
-  border-bottom: 1px solid rgba(20, 83, 45, 0.12);
-  box-shadow: 0 14px 34px rgba(56, 28, 28, 0.08);
-  backdrop-filter: blur(8px);
+  min-height: 15mm;
+  padding: 0 24px 0 146px;
+  background: #102f52;
+  border-bottom: 3px solid #b91c1c;
+  box-shadow: 0 12px 30px rgba(16, 47, 82, 0.22);
 }
 
 .anvi-admin-badizo-mark {
   position: absolute;
-  top: calc(14px + 5mm);
+  top: 50%;
   left: 18px;
-  width: 104px;
-  height: 34px;
+  width: 106px;
+  height: 36px;
   object-fit: contain;
+  transform: translateY(-50%);
   padding: 4px 8px;
-  border: 1px solid rgba(127, 29, 29, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.44);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 10px 24px rgba(127, 29, 29, 0.08);
+  background: #ffffff;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18);
 }
 
 .anvi-admin-topbar h1 {
-  margin: 4px 0 0;
+  margin: 2px 0 0;
   font-size: 1.4rem;
   letter-spacing: 0;
+  color: #ffffff;
+  font-weight: 900;
 }
 
 .anvi-admin-topbar > div {
-  transform: translateY(5mm);
+  transform: none;
+  color: #ffffff;
+}
+
+.anvi-admin-topbar .hospitality-eyebrow,
+.anvi-admin-topbar span {
+  color: rgba(255, 255, 255, 0.84);
 }
 
 .anvi-admin-topbar nav {
@@ -10941,6 +10950,14 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
   gap: 10px;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.anvi-admin-topbar .secondary-button,
+.anvi-admin-topbar .danger-button {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.42);
+  color: #ffffff;
+  min-height: 34px;
 }
 
 .anvi-admin-workspace {
