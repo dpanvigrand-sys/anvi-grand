@@ -214,6 +214,7 @@ export default function HospitalityView({ currentUser = null }) {
   const [profileForm, setProfileForm] = useState(profileBlank);
   const [filters, setFilters] = useState({ from: today(), to: today(), bookingType: 'ALL' });
   const [calendarDate, setCalendarDate] = useState(today());
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState('');
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -527,9 +528,14 @@ export default function HospitalityView({ currentUser = null }) {
   }
 
   function selectCalendarDate(date) {
+    setSelectedCalendarDate(date);
     setCalendarDate(date);
     setFilters({ from: date, to: date, bookingType: 'ALL' });
     setActiveSection('bookings');
+  }
+
+  function backToBookingCalendar() {
+    setSelectedCalendarDate('');
   }
 
   function calendarDays() {
@@ -585,6 +591,15 @@ export default function HospitalityView({ currentUser = null }) {
   const recentRows = bookings.slice(0, 5);
   const pendingTasks = tasks.filter((row) => ['OPEN', 'IN_PROGRESS'].includes(row.status)).slice(0, 6);
   const selectedDayBookings = bookingsForDate(bookings, filters.from, 'ALL');
+  const calendarDetailDate = selectedCalendarDate || filters.from;
+  const calendarDetailRows = selectedCalendarDate ? bookingsForDate(bookings, selectedCalendarDate, 'ALL') : [];
+  const calendarRoomStatus = roomStatusForDate(calendarDetailDate);
+  const calendarDetailTotals = calendarDetailRows.reduce((acc, row) => {
+    acc.total += Number(row.total_amount || 0);
+    acc.advance += Number(row.advance_amount || 0);
+    acc.balance += Number(row.balance_amount || 0);
+    return acc;
+  }, { total: 0, advance: 0, balance: 0 });
   const dayIncome = selectedDayBookings.reduce((sum, row) => sum + Number(row.advance_amount || 0), 0);
   const daySales = selectedDayBookings.reduce((sum, row) => sum + Number(row.total_amount || 0), 0);
   const dayReceivables = selectedDayBookings.reduce((sum, row) => sum + Number(row.balance_amount || 0), 0);
@@ -672,44 +687,78 @@ export default function HospitalityView({ currentUser = null }) {
         <section className="panel">
           <div className="panel-header green"><h2 className="panel-title">Rooms, Banquet & Restaurant Bookings</h2></div>
           <div className="panel-body hospitality-section-body">
-            <div className="anvi-booking-planner">
-              <div className="panel anvi-calendar-panel">
-                <div className="anvi-calendar-head">
-                  <button className="secondary-button" type="button" onClick={() => setCalendarDate(addDays(monthStart(calendarDate), -1))}>Prev</button>
-                  <strong>{toDate(calendarDate).toLocaleString('en-IN', { month: 'long', year: 'numeric' })}</strong>
-                  <button className="secondary-button" type="button" onClick={() => setCalendarDate(addDays(monthEnd(calendarDate), 1))}>Next</button>
+            {selectedCalendarDate ? (
+              <div className="panel anvi-date-detail-panel">
+                <div className="anvi-date-detail-head">
+                  <button className="secondary-button" type="button" onClick={backToBookingCalendar}>Back to Calendar</button>
+                  <div>
+                    <span className="hospitality-eyebrow">Selected Date</span>
+                    <h2>{toDate(selectedCalendarDate).toLocaleDateString('en-IN', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</h2>
+                    <p className={`anvi-day-pill ${calendarRoomStatus.tone}`}>{calendarRoomStatus.label}: {calendarRoomStatus.available}/{calendarRoomStatus.totalRooms || 0} rooms available</p>
+                  </div>
+                  <div className="anvi-date-total-box">
+                    <span>Total {formatMoney(calendarDetailTotals.total)}</span>
+                    <span>Advance {formatMoney(calendarDetailTotals.advance)}</span>
+                    <span>Balance {formatMoney(calendarDetailTotals.balance)}</span>
+                  </div>
                 </div>
-                <div className="anvi-calendar-legend"><span className="free">Green: rooms empty</span><span className="partial">Blue: some rooms available</span><span className="full">Red: rooms full</span></div>
-                <div className="anvi-calendar-grid">
-                  {calendarDays().map((date) => {
-                    const status = roomStatusForDate(date);
-                    const isSelected = date === filters.from && filters.from === filters.to;
-                    return (
-                      <button key={date} type="button" className={`anvi-calendar-day ${status.tone} ${isSelected ? 'selected' : ''}`} onClick={() => selectCalendarDate(date)} title={`${status.label}: ${status.available}/${status.totalRooms || 0} available`}>
-                        <span>{toDate(date).getDate()}</span>
-                        <small>{status.available}/{status.totalRooms || 0}</small>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <div className="panel anvi-three-day-panel">
-                <div className="panel-header green"><h2 className="panel-title">Yesterday / Today / Tomorrow Rooms</h2></div>
-                <div className="panel-body hospitality-section-body">
-                  {threeDayDates.map(([label, date]) => {
-                    const rows = dailyBookingRows(date);
-                    const status = roomStatusForDate(date);
-                    return (
-                      <div className="anvi-day-summary" key={date}>
-                        <strong>{label} <span>{date}</span></strong>
-                        <p className={`anvi-day-pill ${status.tone}`}>{status.label}: {status.available}/{status.totalRooms || 0} rooms available</p>
-                        {rows.length === 0 ? <p className="muted">No room bookings.</p> : rows.map((row) => <p key={row.id}>{row.table_number || row.item_title || 'Room'} - {row.customer_name} <span className="muted">{row.status}</span></p>)}
-                      </div>
-                    );
-                  })}
+                <div className="table-scroll">
+                  <table className="history-table hospitality-table">
+                    <thead><tr><th>Type</th><th>Guest / Customer</th><th>Room / Hall / Table</th><th>Food / Notes</th><th>Amount</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody>{calendarDetailRows.length === 0 ? <tr><td colSpan="7">This date has no bookings. You can create a new booking below.</td></tr> : calendarDetailRows.map((row) => (
+                      <tr key={row.id}>
+                        <td>{bookingLabel(row.booking_type)}<span className="muted">{row.time_slot || ''}</span></td>
+                        <td><strong>{row.customer_name}</strong><span className="muted">{row.customer_phone}</span></td>
+                        <td>{row.table_number || row.item_title || '-'}<span className="muted">{row.server_id || ''}</span></td>
+                        <td>{row.food_plan === 'WITH_FOOD' ? 'With Food' : 'Without Food'}<span className="muted">{row.food_details || row.complimentary_breakfast || row.notes || ''}</span></td>
+                        <td>{formatMoney(row.total_amount)}<span className="muted">Advance {formatMoney(row.advance_amount)} | Balance {formatMoney(row.balance_amount)}</span></td>
+                        <td><span className="status-chip info">{row.status}</span></td>
+                        <td><div className="table-actions"><button className="secondary-button" type="button" onClick={() => editBooking(row)}>Edit</button><button className="secondary-button" type="button" onClick={() => printBooking(row, row.booking_type === 'FOOD' ? 'Restaurant Thermal Bill' : 'Check-in Receipt', row.booking_type === 'FOOD' ? 'THERMAL' : 'A4')}>Print</button></div></td>
+                      </tr>
+                    ))}</tbody>
+                  </table>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="anvi-booking-planner">
+                <div className="panel anvi-calendar-panel">
+                  <div className="anvi-calendar-head">
+                    <button className="secondary-button" type="button" onClick={() => setCalendarDate(addDays(monthStart(calendarDate), -1))}>Prev</button>
+                    <strong>{toDate(calendarDate).toLocaleString('en-IN', { month: 'long', year: 'numeric' })}</strong>
+                    <button className="secondary-button" type="button" onClick={() => setCalendarDate(addDays(monthEnd(calendarDate), 1))}>Next</button>
+                  </div>
+                  <div className="anvi-calendar-legend"><span className="free">Green: rooms empty</span><span className="partial">Blue: some rooms available</span><span className="full">Red: rooms full</span></div>
+                  <div className="anvi-calendar-grid">
+                    {calendarDays().map((date) => {
+                      const status = roomStatusForDate(date);
+                      const isSelected = date === filters.from && filters.from === filters.to;
+                      return (
+                        <button key={date} type="button" className={`anvi-calendar-day ${status.tone} ${isSelected ? 'selected' : ''}`} onClick={() => selectCalendarDate(date)} title={`${status.label}: ${status.available}/${status.totalRooms || 0} available`}>
+                          <span>{toDate(date).getDate()}</span>
+                          <small>{status.available}/{status.totalRooms || 0}</small>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div className="panel anvi-three-day-panel">
+                  <div className="panel-header green"><h2 className="panel-title">Yesterday / Today / Tomorrow Rooms</h2></div>
+                  <div className="panel-body hospitality-section-body">
+                    {threeDayDates.map(([label, date]) => {
+                      const rows = dailyBookingRows(date);
+                      const status = roomStatusForDate(date);
+                      return (
+                        <div className="anvi-day-summary" key={date}>
+                          <strong>{label} <span>{date}</span></strong>
+                          <p className={`anvi-day-pill ${status.tone}`}>{status.label}: {status.available}/{status.totalRooms || 0} rooms available</p>
+                          {rows.length === 0 ? <p className="muted">No room bookings.</p> : rows.map((row) => <p key={row.id}>{row.table_number || row.item_title || 'Room'} - {row.customer_name} <span className="muted">{row.status}</span></p>)}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
             <form className="hospitality-form-grid" onSubmit={handleBookingSave}>
               <Field label="Booking Type"><select className="select" value={bookingForm.booking_type} onChange={(event) => setBookingForm((current) => ({ ...current, booking_type: event.target.value }))}>{bookingTypes.filter((type) => type !== 'ALL').map((type) => <option key={type} value={type}>{bookingLabel(type)}</option>)}</select></Field>
               <Field label="Date From"><input className="field" type="date" value={bookingForm.booking_date} onChange={(event) => setBookingForm((current) => ({ ...current, booking_date: event.target.value, end_date: current.end_date || event.target.value }))} /></Field>
