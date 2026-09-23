@@ -23,6 +23,9 @@ const BOOKING_STATUS = new Set(['ENQUIRY', 'ADVANCE', 'CONFIRMED', 'CHECKED_IN',
 const TASK_AREAS = new Set(['RECEPTION', 'KITCHEN', 'MANAGER', 'SERVER', 'SUPPLIER', 'STORE', 'HOUSEKEEPING', 'LAUNDRY', 'DOBI', 'SECURITY', 'TAKEAWAY', 'ACCOUNTS']);
 const TASK_STATUS = new Set(['OPEN', 'IN_PROGRESS', 'DONE', 'CANCELLED']);
 const STOCK_DIRECTIONS = new Set(['INWARD', 'OUTWARD']);
+const ORDER_STATUS = new Set(['NEW', 'KITCHEN', 'READY', 'SERVED', 'DISPATCHED', 'DELIVERED', 'CANCELLED']);
+const STAFF_ROLES = new Set(['MANAGER', 'RECEPTION', 'WAITER', 'SUPPLIER', 'KITCHEN', 'HOUSEKEEPING', 'DOBI', 'SECURITY', 'STORE', 'ACCOUNTS']);
+const ATTENDANCE_STATUS = new Set(['PRESENT', 'ABSENT', 'HALF_DAY', 'LEAVE']);
 
 let schemaReadyPromise = null;
 
@@ -57,6 +60,21 @@ function taskArea(value) {
 function taskStatus(value) {
   const normalized = String(value || '').toUpperCase();
   return TASK_STATUS.has(normalized) ? normalized : 'OPEN';
+}
+
+function orderStatus(value) {
+  const normalized = String(value || '').toUpperCase();
+  return ORDER_STATUS.has(normalized) ? normalized : 'NEW';
+}
+
+function staffRole(value) {
+  const normalized = String(value || '').toUpperCase();
+  return STAFF_ROLES.has(normalized) ? normalized : 'WAITER';
+}
+
+function attendanceStatus(value) {
+  const normalized = String(value || '').toUpperCase();
+  return ATTENDANCE_STATUS.has(normalized) ? normalized : 'PRESENT';
 }
 
 async function addColumnIfMissing(tableName, columnName, definition) {
@@ -116,6 +134,12 @@ async function ensureSchema() {
           item_title VARCHAR(160) DEFAULT '',
           table_number VARCHAR(40) DEFAULT '',
           server_id VARCHAR(80) DEFAULT '',
+          waiter_name VARCHAR(120) DEFAULT '',
+          supplier_name VARCHAR(120) DEFAULT '',
+          order_status ENUM('NEW','KITCHEN','READY','SERVED','DISPATCHED','DELIVERED','CANCELLED') NOT NULL DEFAULT 'NEW',
+          delivery_status VARCHAR(120) DEFAULT '',
+          dispatch_details VARCHAR(500) DEFAULT '',
+          upi_qr_text VARCHAR(500) DEFAULT '',
           guest_count INT DEFAULT NULL,
           food_plan ENUM('WITH_FOOD','WITHOUT_FOOD') NOT NULL DEFAULT 'WITHOUT_FOOD',
           food_details VARCHAR(500) DEFAULT '',
@@ -141,6 +165,12 @@ async function ensureSchema() {
       await addColumnIfMissing('hospitality_bookings', 'end_date', 'DATE DEFAULT NULL AFTER booking_date');
       await addColumnIfMissing('hospitality_bookings', 'table_number', "VARCHAR(40) DEFAULT '' AFTER item_title");
       await addColumnIfMissing('hospitality_bookings', 'server_id', "VARCHAR(80) DEFAULT '' AFTER table_number");
+      await addColumnIfMissing('hospitality_bookings', 'waiter_name', "VARCHAR(120) DEFAULT '' AFTER server_id");
+      await addColumnIfMissing('hospitality_bookings', 'supplier_name', "VARCHAR(120) DEFAULT '' AFTER waiter_name");
+      await addColumnIfMissing('hospitality_bookings', 'order_status', "ENUM('NEW','KITCHEN','READY','SERVED','DISPATCHED','DELIVERED','CANCELLED') NOT NULL DEFAULT 'NEW' AFTER supplier_name");
+      await addColumnIfMissing('hospitality_bookings', 'delivery_status', "VARCHAR(120) DEFAULT '' AFTER order_status");
+      await addColumnIfMissing('hospitality_bookings', 'dispatch_details', "VARCHAR(500) DEFAULT '' AFTER delivery_status");
+      await addColumnIfMissing('hospitality_bookings', 'upi_qr_text', "VARCHAR(500) DEFAULT '' AFTER dispatch_details");
       await addColumnIfMissing('hospitality_bookings', 'food_plan', "ENUM('WITH_FOOD','WITHOUT_FOOD') NOT NULL DEFAULT 'WITHOUT_FOOD' AFTER guest_count");
       await addColumnIfMissing('hospitality_bookings', 'food_details', "VARCHAR(500) DEFAULT '' AFTER food_plan");
       await addColumnIfMissing('hospitality_bookings', 'complimentary_breakfast', "VARCHAR(500) DEFAULT '' AFTER food_details");
@@ -181,6 +211,50 @@ async function ensureSchema() {
           created_by VARCHAR(100) DEFAULT '',
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
           INDEX idx_hospitality_stock_date_direction (movement_date, direction)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS hospitality_staff (
+          id BIGINT AUTO_INCREMENT PRIMARY KEY,
+          staff_name VARCHAR(160) NOT NULL,
+          role ENUM('MANAGER','RECEPTION','WAITER','SUPPLIER','KITCHEN','HOUSEKEEPING','DOBI','SECURITY','STORE','ACCOUNTS') NOT NULL DEFAULT 'WAITER',
+          phone VARCHAR(20) DEFAULT '',
+          address VARCHAR(500) DEFAULT '',
+          shift_label VARCHAR(80) DEFAULT '',
+          is_active TINYINT(1) NOT NULL DEFAULT 1,
+          created_by VARCHAR(100) DEFAULT '',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          INDEX idx_hospitality_staff_role_active (role, is_active)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS hospitality_staff_attendance (
+          id BIGINT AUTO_INCREMENT PRIMARY KEY,
+          staff_id BIGINT DEFAULT NULL,
+          attendance_date DATE NOT NULL,
+          staff_name VARCHAR(160) NOT NULL,
+          role ENUM('MANAGER','RECEPTION','WAITER','SUPPLIER','KITCHEN','HOUSEKEEPING','DOBI','SECURITY','STORE','ACCOUNTS') NOT NULL DEFAULT 'WAITER',
+          status ENUM('PRESENT','ABSENT','HALF_DAY','LEAVE') NOT NULL DEFAULT 'PRESENT',
+          check_in VARCHAR(20) DEFAULT '',
+          check_out VARCHAR(20) DEFAULT '',
+          notes VARCHAR(500) DEFAULT '',
+          created_by VARCHAR(100) DEFAULT '',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_hospitality_attendance_date_role (attendance_date, role)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+      `);
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS hospitality_walkins (
+          id BIGINT AUTO_INCREMENT PRIMARY KEY,
+          visit_date DATE NOT NULL,
+          customer_name VARCHAR(160) NOT NULL,
+          customer_phone VARCHAR(20) NOT NULL,
+          purpose VARCHAR(120) DEFAULT '',
+          notes VARCHAR(500) DEFAULT '',
+          created_by VARCHAR(100) DEFAULT '',
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+          INDEX idx_hospitality_walkins_phone_date (customer_phone, visit_date)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
       `);
       await db.query(`
@@ -257,6 +331,12 @@ async function saveBookingRecord(req, res, createdBy = '') {
     cleanText(req.body?.item_title, 160),
     cleanText(req.body?.table_number, 40),
     cleanText(req.body?.server_id, 80),
+    cleanText(req.body?.waiter_name, 120),
+    cleanText(req.body?.supplier_name, 120),
+    orderStatus(req.body?.order_status),
+    cleanText(req.body?.delivery_status, 120),
+    cleanText(req.body?.dispatch_details, 500),
+    cleanText(req.body?.upi_qr_text, 500),
     Number.parseInt(req.body?.guest_count, 10) || null,
     foodPlan,
     cleanText(req.body?.food_details, 500),
@@ -278,7 +358,8 @@ async function saveBookingRecord(req, res, createdBy = '') {
     await db.query(
       `UPDATE hospitality_bookings
        SET booking_type = ?, booking_date = ?, end_date = ?, time_slot = ?, customer_name = ?, customer_phone = ?,
-           customer_address = ?, item_title = ?, table_number = ?, server_id = ?, guest_count = ?, food_plan = ?, food_details = ?,
+           customer_address = ?, item_title = ?, table_number = ?, server_id = ?, waiter_name = ?, supplier_name = ?,
+           order_status = ?, delivery_status = ?, dispatch_details = ?, upi_qr_text = ?, guest_count = ?, food_plan = ?, food_details = ?,
            complimentary_breakfast = ?, room_facilities = ?, travel_notes = ?, print_format = ?, gst_percent = ?, gst_amount = ?, total_amount = ?, advance_amount = ?,
            balance_amount = ?, payment_mode = ?, status = ?, notes = ?
        WHERE id = ?`,
@@ -290,10 +371,11 @@ async function saveBookingRecord(req, res, createdBy = '') {
   const [result] = await db.query(
     `INSERT INTO hospitality_bookings
      (booking_type, booking_date, end_date, time_slot, customer_name, customer_phone, customer_address, item_title,
-      table_number, server_id, guest_count, food_plan, food_details, complimentary_breakfast, room_facilities, travel_notes,
+      table_number, server_id, waiter_name, supplier_name, order_status, delivery_status, dispatch_details, upi_qr_text,
+      guest_count, food_plan, food_details, complimentary_breakfast, room_facilities, travel_notes,
       print_format, gst_percent, gst_amount, total_amount, advance_amount, balance_amount,
       payment_mode, status, notes, created_by)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [...payload, createdBy]
   );
   res.json({ success: true, id: result.insertId });
@@ -423,7 +505,8 @@ router.get('/bookings', async (req, res) => {
     `SELECT id, booking_type, DATE_FORMAT(booking_date, '%Y-%m-%d') AS booking_date,
             DATE_FORMAT(COALESCE(end_date, booking_date), '%Y-%m-%d') AS end_date, time_slot,
             customer_name, customer_phone, customer_address, item_title, guest_count, total_amount,
-            table_number, server_id, food_plan, food_details, complimentary_breakfast, room_facilities, travel_notes,
+            table_number, server_id, waiter_name, supplier_name, order_status, delivery_status, dispatch_details, upi_qr_text,
+            food_plan, food_details, complimentary_breakfast, room_facilities, travel_notes,
             print_format, gst_percent, gst_amount, advance_amount, balance_amount, payment_mode, status, notes
      FROM hospitality_bookings
      WHERE ${where.join(' AND ')}
@@ -529,6 +612,128 @@ router.post('/stock-movements', async (req, res) => {
      (movement_date, direction, item_name, supplier_name, quantity, unit_label, amount, purpose, notes, created_by)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [...payload, req.user.username]
+  );
+  res.json({ success: true, id: result.insertId });
+});
+
+router.get('/staff', async (req, res) => {
+  const role = String(req.query.role || 'ALL').toUpperCase();
+  const where = [];
+  const params = [];
+  if (STAFF_ROLES.has(role)) {
+    where.push('role = ?');
+    params.push(role);
+  }
+  const [rows] = await db.query(
+    `SELECT id, staff_name, role, phone, address, shift_label, is_active
+     FROM hospitality_staff
+     ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
+     ORDER BY is_active DESC, role, staff_name
+     LIMIT 500`,
+    params
+  );
+  res.json({ rows });
+});
+
+router.post('/staff', async (req, res) => {
+  const id = Number.parseInt(req.body?.id, 10) || null;
+  const staffName = cleanText(req.body?.staff_name, 160);
+  if (!staffName) return res.status(400).json({ error: 'Staff name is required.' });
+  const payload = [
+    staffName,
+    staffRole(req.body?.role),
+    cleanPhone(req.body?.phone),
+    cleanText(req.body?.address, 500),
+    cleanText(req.body?.shift_label, 80),
+    req.body?.is_active === false || req.body?.is_active === 0 || req.body?.is_active === '0' ? 0 : 1
+  ];
+  if (id) {
+    await db.query(
+      `UPDATE hospitality_staff
+       SET staff_name = ?, role = ?, phone = ?, address = ?, shift_label = ?, is_active = ?
+       WHERE id = ?`,
+      [...payload, id]
+    );
+    return res.json({ success: true, id });
+  }
+  const [result] = await db.query(
+    `INSERT INTO hospitality_staff
+     (staff_name, role, phone, address, shift_label, is_active, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [...payload, req.user.username]
+  );
+  res.json({ success: true, id: result.insertId });
+});
+
+router.get('/attendance', async (req, res) => {
+  const from = normalizeDate(req.query.from, todayIso());
+  const to = normalizeDate(req.query.to, from);
+  const [rows] = await db.query(
+    `SELECT id, staff_id, DATE_FORMAT(attendance_date, '%Y-%m-%d') AS attendance_date,
+            staff_name, role, status, check_in, check_out, notes
+     FROM hospitality_staff_attendance
+     WHERE attendance_date BETWEEN ? AND ?
+     ORDER BY attendance_date DESC, role, staff_name
+     LIMIT 500`,
+    [from <= to ? from : to, from <= to ? to : from]
+  );
+  res.json({ rows });
+});
+
+router.post('/attendance', async (req, res) => {
+  const staffName = cleanText(req.body?.staff_name, 160);
+  if (!staffName) return res.status(400).json({ error: 'Staff name is required.' });
+  const [result] = await db.query(
+    `INSERT INTO hospitality_staff_attendance
+     (staff_id, attendance_date, staff_name, role, status, check_in, check_out, notes, created_by)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [
+      Number.parseInt(req.body?.staff_id, 10) || null,
+      normalizeDate(req.body?.attendance_date, todayIso()),
+      staffName,
+      staffRole(req.body?.role),
+      attendanceStatus(req.body?.status),
+      cleanText(req.body?.check_in, 20),
+      cleanText(req.body?.check_out, 20),
+      cleanText(req.body?.notes, 500),
+      req.user.username
+    ]
+  );
+  res.json({ success: true, id: result.insertId });
+});
+
+router.get('/walkins', async (req, res) => {
+  const from = normalizeDate(req.query.from, todayIso());
+  const to = normalizeDate(req.query.to, from);
+  const [rows] = await db.query(
+    `SELECT w.id, DATE_FORMAT(w.visit_date, '%Y-%m-%d') AS visit_date, w.customer_name, w.customer_phone,
+            w.purpose, w.notes,
+            (SELECT COUNT(*) FROM hospitality_walkins x WHERE x.customer_phone = w.customer_phone) AS visit_count
+     FROM hospitality_walkins w
+     WHERE w.visit_date BETWEEN ? AND ?
+     ORDER BY w.visit_date DESC, w.id DESC
+     LIMIT 500`,
+    [from <= to ? from : to, from <= to ? to : from]
+  );
+  res.json({ rows });
+});
+
+router.post('/walkins', async (req, res) => {
+  const customerName = cleanText(req.body?.customer_name, 160);
+  const customerPhone = cleanPhone(req.body?.customer_phone);
+  if (!customerName || !customerPhone) return res.status(400).json({ error: 'Customer name and phone are required.' });
+  const [result] = await db.query(
+    `INSERT INTO hospitality_walkins
+     (visit_date, customer_name, customer_phone, purpose, notes, created_by)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+    [
+      normalizeDate(req.body?.visit_date, todayIso()),
+      customerName,
+      customerPhone,
+      cleanText(req.body?.purpose, 120),
+      cleanText(req.body?.notes, 500),
+      req.user.username
+    ]
   );
   res.json({ success: true, id: result.insertId });
 });

@@ -1,17 +1,24 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import QRCode from 'qrcode';
 import {
   deleteHospitalityContent,
+  fetchHospitalityAttendance,
   fetchHospitalityBookings,
   fetchHospitalityContent,
   fetchHospitalityProfile,
+  fetchHospitalityStaff,
   fetchHospitalityStockMovements,
   fetchHospitalitySummary,
   fetchHospitalityTasks,
+  fetchHospitalityWalkins,
+  saveHospitalityAttendance,
   saveHospitalityBooking,
   saveHospitalityContent,
   saveHospitalityProfile,
+  saveHospitalityStaff,
   saveHospitalityStockMovement,
-  saveHospitalityTask
+  saveHospitalityTask,
+  saveHospitalityWalkin
 } from '../api/client';
 
 const localIso = (date) => {
@@ -38,8 +45,11 @@ const monthEnd = (value) => {
 
 const bookingTypes = ['ALL', 'ROOM', 'BANQUET', 'FOOD'];
 const bookingStatuses = ['ENQUIRY', 'ADVANCE', 'CONFIRMED', 'CHECKED_IN', 'COMPLETED', 'CANCELLED'];
+const orderStatuses = ['NEW', 'KITCHEN', 'READY', 'SERVED', 'DISPATCHED', 'DELIVERED', 'CANCELLED'];
 const taskAreas = ['RECEPTION', 'KITCHEN', 'MANAGER', 'SERVER', 'SUPPLIER', 'STORE', 'HOUSEKEEPING', 'LAUNDRY', 'DOBI', 'SECURITY', 'TAKEAWAY', 'ACCOUNTS'];
 const taskStatuses = ['OPEN', 'IN_PROGRESS', 'DONE', 'CANCELLED'];
+const staffRoles = ['MANAGER', 'RECEPTION', 'WAITER', 'SUPPLIER', 'KITCHEN', 'HOUSEKEEPING', 'DOBI', 'SECURITY', 'STORE', 'ACCOUNTS'];
+const attendanceStatuses = ['PRESENT', 'ABSENT', 'HALF_DAY', 'LEAVE'];
 const masterTabs = [['ROOM', 'Rooms'], ['BANQUET', 'Banquet Halls'], ['FOOD', 'Restaurant Menu']];
 const systemPlan = [
   ['Reception', '2 computers', 'Windows 11 Pro, Chrome/Edge, UPS required', 'A4 laser/inkjet + 80mm thermal', 'Room booking, check-in slip, check-out final bill, advance receipts and guest ID handling.'],
@@ -97,6 +107,12 @@ const bookingBlank = {
   item_title: '',
   table_number: '',
   server_id: '',
+  waiter_name: '',
+  supplier_name: '',
+  order_status: 'NEW',
+  delivery_status: '',
+  dispatch_details: '',
+  upi_qr_text: '',
   guest_count: '',
   food_plan: 'WITHOUT_FOOD',
   food_details: '',
@@ -114,6 +130,9 @@ const bookingBlank = {
 };
 const taskBlank = { id: null, task_date: today(), area: 'RECEPTION', title: '', assigned_to: '', amount: '', status: 'OPEN', notes: '' };
 const stockBlank = { id: null, movement_date: today(), direction: 'INWARD', item_name: '', supplier_name: '', quantity: '', unit_label: '', amount: '', purpose: '', notes: '' };
+const staffBlank = { id: null, staff_name: '', role: 'WAITER', phone: '', address: '', shift_label: '', is_active: true };
+const attendanceBlank = { staff_id: '', attendance_date: today(), staff_name: '', role: 'WAITER', status: 'PRESENT', check_in: '', check_out: '', notes: '' };
+const walkinBlank = { visit_date: today(), customer_name: '', customer_phone: '', purpose: '', notes: '' };
 const profileBlank = {
   hotel_name: 'ANVI GRAND',
   restaurant_name: 'CHIGURU',
@@ -168,17 +187,23 @@ export default function HospitalityView() {
   const [calendarRows, setCalendarRows] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [stockRows, setStockRows] = useState([]);
+  const [staffRows, setStaffRows] = useState([]);
+  const [attendanceRows, setAttendanceRows] = useState([]);
+  const [walkinRows, setWalkinRows] = useState([]);
   const [contentForm, setContentForm] = useState(contentBlank);
   const [bookingForm, setBookingForm] = useState(bookingBlank);
   const [taskForm, setTaskForm] = useState(taskBlank);
   const [stockForm, setStockForm] = useState(stockBlank);
+  const [staffForm, setStaffForm] = useState(staffBlank);
+  const [attendanceForm, setAttendanceForm] = useState(attendanceBlank);
+  const [walkinForm, setWalkinForm] = useState(walkinBlank);
   const [profileForm, setProfileForm] = useState(profileBlank);
   const [filters, setFilters] = useState({ from: today(), to: today(), bookingType: 'ALL' });
   const [calendarDate, setCalendarDate] = useState(today());
   const [statusMessage, setStatusMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
-  useEffect(() => { loadSummary(); loadRoomMasters(); }, []);
+  useEffect(() => { loadSummary(); loadRoomMasters(); loadPeople(); }, []);
   useEffect(() => { loadMaster(activeMasterType); }, [activeMasterType]);
   useEffect(() => { loadWork(); }, [filters.from, filters.to, filters.bookingType]);
   useEffect(() => { loadCalendar(); }, [calendarDate]);
@@ -219,16 +244,28 @@ export default function HospitalityView() {
 
   async function loadWork() {
     try {
-      const [bookingRows, taskRows, movementRows] = await Promise.all([
+      const [bookingRows, taskRows, movementRows, attendance, walkins] = await Promise.all([
         fetchHospitalityBookings({ from: filters.from, to: filters.to, type: filters.bookingType }),
         fetchHospitalityTasks({ from: filters.from, to: filters.to }),
-        fetchHospitalityStockMovements({ from: filters.from, to: filters.to })
+        fetchHospitalityStockMovements({ from: filters.from, to: filters.to }),
+        fetchHospitalityAttendance({ from: filters.from, to: filters.to }),
+        fetchHospitalityWalkins({ from: filters.from, to: filters.to })
       ]);
       setBookings(bookingRows);
       setTasks(taskRows);
       setStockRows(movementRows);
+      setAttendanceRows(attendance);
+      setWalkinRows(walkins);
     } catch (_err) {
       setErrorMessage('Unable to load operations data.');
+    }
+  }
+
+  async function loadPeople() {
+    try {
+      setStaffRows(await fetchHospitalityStaff('ALL'));
+    } catch (_err) {
+      setStaffRows([]);
     }
   }
 
@@ -269,6 +306,11 @@ export default function HospitalityView() {
     setStockForm({ ...stockBlank, ...row });
   }
 
+  function editStaff(row) {
+    setActiveSection('people');
+    setStaffForm({ ...staffBlank, ...row });
+  }
+
   function startDepartmentTask(area, title) {
     setActiveSection('tasks');
     setTaskForm({ ...taskBlank, area, title, assigned_to: area, notes: 'Created from Operating Software module.' });
@@ -289,7 +331,7 @@ export default function HospitalityView() {
     window.open(url, '_blank', 'noopener,noreferrer');
   }
 
-  function printBooking(row, purpose = 'Final Bill', format = row.print_format || 'A4') {
+  async function printBooking(row, purpose = 'Final Bill', format = row.print_format || 'A4') {
     const profile = profileForm || {};
     const tax = taxBreakup(row);
     const isThermal = format === 'THERMAL';
@@ -318,7 +360,10 @@ export default function HospitalityView() {
     const itemRows = lineItems.length
       ? lineItems.map((item, index) => `<tr><td>${index + 1}</td><td>${escapeHtml(item)}</td><td class="amount">${index === 0 ? formatMoney(tax.taxable) : ''}</td></tr>`).join('')
       : `<tr><td>1</td><td>${escapeHtml(row.item_title || 'Booking charge')}</td><td class="amount">${formatMoney(tax.taxable)}</td></tr>`;
-    const html = `<!doctype html><html><head><title>${escapeHtml(purpose)} - ${escapeHtml(profile.hotel_name || 'ANVI GRAND')}</title><style>${css}</style></head><body><div class="bill"><div class="center"><h1>${escapeHtml(profile.hotel_name || 'ANVI GRAND')}</h1><h2>${escapeHtml(purpose)}</h2><div class="muted">${escapeHtml(profile.address || '')}</div><div class="muted">Phone: ${escapeHtml(profile.phone || profile.reception_phone || '')}</div></div><div class="line"></div><div class="${isThermal ? '' : 'grid'}">${rows}</div><div class="line"></div><table><thead><tr><th>#</th><th>Particulars</th><th class="amount">Amount</th></tr></thead><tbody>${itemRows}<tr><td></td><td>CGST</td><td class="amount">${formatMoney(tax.cgst)}</td></tr><tr><td></td><td>SGST</td><td class="amount">${formatMoney(tax.sgst)}</td></tr><tr class="total"><td></td><td>Total</td><td class="amount">${formatMoney(row.total_amount)}</td></tr><tr><td></td><td>Advance / Paid</td><td class="amount">${formatMoney(tax.advance)}</td></tr><tr class="total"><td></td><td>Balance</td><td class="amount">${formatMoney(tax.balance)}</td></tr></tbody></table><div class="line"></div><div class="muted">Payment: ${escapeHtml(row.payment_mode || 'Cash / UPI / Card')} | Status: ${escapeHtml(row.status || '')}</div><p class="center">Thank you. Visit again.</p></div><script>window.onload=function(){window.print();};</script></body></html>`;
+    const qrText = row.upi_qr_text || (String(row.payment_mode || '').toLowerCase().includes('upi') ? `upi://pay?pn=${encodeURIComponent(profile.hotel_name || 'ANVI GRAND')}&am=${Number(row.balance_amount || row.total_amount || 0)}` : '');
+    const qrImage = qrText ? await QRCode.toDataURL(qrText, { margin: 1, width: isThermal ? 120 : 150 }).catch(() => '') : '';
+    const qrBlock = qrImage ? `<div class="center"><img src="${qrImage}" alt="UPI QR" style="width:${isThermal ? '34mm' : '120px'};height:auto"><div class="muted">${escapeHtml(qrText)}</div></div>` : '';
+    const html = `<!doctype html><html><head><title>${escapeHtml(purpose)} - ${escapeHtml(profile.hotel_name || 'ANVI GRAND')}</title><style>${css}</style></head><body><div class="bill"><div class="center"><h1>${escapeHtml(profile.hotel_name || 'ANVI GRAND')}</h1><h2>${escapeHtml(purpose)}</h2><div class="muted">${escapeHtml(profile.address || '')}</div><div class="muted">Phone: ${escapeHtml(profile.phone || profile.reception_phone || '')}</div></div><div class="line"></div><div class="${isThermal ? '' : 'grid'}">${rows}</div><div class="line"></div><table><thead><tr><th>#</th><th>Particulars</th><th class="amount">Amount</th></tr></thead><tbody>${itemRows}<tr><td></td><td>CGST</td><td class="amount">${formatMoney(tax.cgst)}</td></tr><tr><td></td><td>SGST</td><td class="amount">${formatMoney(tax.sgst)}</td></tr><tr class="total"><td></td><td>Total</td><td class="amount">${formatMoney(row.total_amount)}</td></tr><tr><td></td><td>Advance / Paid</td><td class="amount">${formatMoney(tax.advance)}</td></tr><tr class="total"><td></td><td>Balance</td><td class="amount">${formatMoney(tax.balance)}</td></tr></tbody></table><div class="line"></div>${qrBlock}<div class="muted">Payment: ${escapeHtml(row.payment_mode || 'Cash / UPI / Card')} | Order: ${escapeHtml(row.order_status || '')} | Delivery: ${escapeHtml(row.delivery_status || '')}</div><p class="center">Thank you. Visit again.</p></div><script>window.onload=function(){window.print();};</script></body></html>`;
     const popup = window.open('', '_blank', 'width=900,height=700');
     if (!popup) {
       setErrorMessage('Popup blocked. Please allow popups for printing.');
@@ -405,6 +450,45 @@ export default function HospitalityView() {
     }
   }
 
+  async function handleStaffSave(event) {
+    event.preventDefault();
+    resetMessages();
+    try {
+      await saveHospitalityStaff(staffForm);
+      setStaffForm(staffBlank);
+      setStatusMessage('Staff/security record saved.');
+      await loadPeople();
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || 'Unable to save staff.');
+    }
+  }
+
+  async function handleAttendanceSave(event) {
+    event.preventDefault();
+    resetMessages();
+    try {
+      await saveHospitalityAttendance(attendanceForm);
+      setAttendanceForm(attendanceBlank);
+      setStatusMessage('Attendance saved.');
+      await loadWork();
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || 'Unable to save attendance.');
+    }
+  }
+
+  async function handleWalkinSave(event) {
+    event.preventDefault();
+    resetMessages();
+    try {
+      await saveHospitalityWalkin(walkinForm);
+      setWalkinForm(walkinBlank);
+      setStatusMessage('Walk-in customer saved.');
+      await loadWork();
+    } catch (err) {
+      setErrorMessage(err.response?.data?.error || 'Unable to save walk-in customer.');
+    }
+  }
+
   function bookingsForDate(rows, date, type = 'ALL') {
     return rows.filter((row) => {
       if (type !== 'ALL' && row.booking_type !== type) return false;
@@ -468,6 +552,8 @@ export default function HospitalityView() {
     ['software', 'Operating Software'],
     ['masters', 'Rooms / Halls / Menu'],
     ['restaurant', 'Restaurant Store'],
+    ['restaurantOps', 'Restaurant Ops'],
+    ['people', 'Staff & Walk-ins'],
     ['accounts', 'Accounts'],
     ['tasks', 'Maintenance Tasks'],
     ['settings', 'Hotel Settings']
@@ -611,6 +697,10 @@ export default function HospitalityView() {
               <Field label="Room / Hall / Food Item"><input className="field" value={bookingForm.item_title} onChange={(event) => setBookingForm((current) => ({ ...current, item_title: event.target.value }))} /></Field>
               <Field label="Room / Table / Hall No"><input className="field" value={bookingForm.table_number || ''} onChange={(event) => setBookingForm((current) => ({ ...current, table_number: event.target.value }))} placeholder="Room 203 / Table 5 / Hall A" /></Field>
               <Field label="Server / Supplier ID"><input className="field" value={bookingForm.server_id || ''} onChange={(event) => setBookingForm((current) => ({ ...current, server_id: event.target.value }))} placeholder="Server name, waiter ID, supplier ref" /></Field>
+              <Field label="Waiter / Order Taken By"><input className="field" value={bookingForm.waiter_name || ''} onChange={(event) => setBookingForm((current) => ({ ...current, waiter_name: event.target.value }))} /></Field>
+              <Field label="Supplier / Served By"><input className="field" value={bookingForm.supplier_name || ''} onChange={(event) => setBookingForm((current) => ({ ...current, supplier_name: event.target.value }))} /></Field>
+              <Field label="Order Status"><select className="select" value={bookingForm.order_status || 'NEW'} onChange={(event) => setBookingForm((current) => ({ ...current, order_status: event.target.value }))}>{orderStatuses.map((status) => <option key={status} value={status}>{status}</option>)}</select></Field>
+              <Field label="Delivery Status"><input className="field" value={bookingForm.delivery_status || ''} onChange={(event) => setBookingForm((current) => ({ ...current, delivery_status: event.target.value }))} placeholder="Dine-in / Parcel / Out for delivery / Delivered" /></Field>
               <Field label="Persons / Guests"><input className="field" type="number" value={bookingForm.guest_count} onChange={(event) => setBookingForm((current) => ({ ...current, guest_count: event.target.value }))} /></Field>
               <Field label="Food Plan"><select className="select" value={bookingForm.food_plan || 'WITHOUT_FOOD'} onChange={(event) => setBookingForm((current) => ({ ...current, food_plan: event.target.value }))}><option value="WITHOUT_FOOD">Without Food</option><option value="WITH_FOOD">With Food</option></select></Field>
               <Field label="Print Format"><select className="select" value={bookingForm.print_format || 'A4'} onChange={(event) => setBookingForm((current) => ({ ...current, print_format: event.target.value }))}><option value="A4">A4 Invoice / Form</option><option value="THERMAL">80mm Thermal</option></select></Field>
@@ -618,6 +708,7 @@ export default function HospitalityView() {
               <Field label="Advance"><input className="field" type="number" value={bookingForm.advance_amount} onChange={(event) => setBookingForm((current) => ({ ...current, advance_amount: event.target.value }))} /></Field>
               <Field label="GST %"><input className="field" type="number" value={bookingForm.gst_percent || ''} onChange={(event) => setBookingForm((current) => ({ ...current, gst_percent: event.target.value }))} placeholder="0 / 5 / 12 / 18" /></Field>
               <Field label="GST Amount"><input className="field" type="number" value={bookingForm.gst_amount || ''} onChange={(event) => setBookingForm((current) => ({ ...current, gst_amount: event.target.value }))} placeholder="Auto if blank and GST % given" /></Field>
+              <Field label="UPI QR Text"><input className="field" value={bookingForm.upi_qr_text || ''} onChange={(event) => setBookingForm((current) => ({ ...current, upi_qr_text: event.target.value }))} placeholder="upi://pay?... or UPI ID text for QR" /></Field>
               <Field label="Payment Mode"><input className="field" value={bookingForm.payment_mode} onChange={(event) => setBookingForm((current) => ({ ...current, payment_mode: event.target.value }))} placeholder="Cash / UPI / Card" /></Field>
               <Field label="Status"><select className="select" value={bookingForm.status} onChange={(event) => setBookingForm((current) => ({ ...current, status: event.target.value }))}>{bookingStatuses.map((status) => <option key={status} value={status}>{status}</option>)}</select></Field>
               <Field label="Address"><textarea className="field" rows="2" value={bookingForm.customer_address} onChange={(event) => setBookingForm((current) => ({ ...current, customer_address: event.target.value }))} /></Field>
@@ -625,6 +716,7 @@ export default function HospitalityView() {
               <Field label="Room Breakfast / Notes"><textarea className="field" rows="2" value={bookingForm.complimentary_breakfast || ''} onChange={(event) => setBookingForm((current) => ({ ...current, complimentary_breakfast: event.target.value }))} /></Field>
               <Field label="Room Facilities"><textarea className="field" rows="2" value={bookingForm.room_facilities || ''} onChange={(event) => setBookingForm((current) => ({ ...current, room_facilities: event.target.value }))} placeholder="WiFi, hot water, room service, parking, lift" /></Field>
               <Field label="Travel / Nearby Details"><textarea className="field" rows="2" value={bookingForm.travel_notes || ''} onChange={(event) => setBookingForm((current) => ({ ...current, travel_notes: event.target.value }))} placeholder="Near airport, railway station, bus stand, temple, function venue" /></Field>
+              <Field label="Dispatch / Delivery Details"><textarea className="field" rows="2" value={bookingForm.dispatch_details || ''} onChange={(event) => setBookingForm((current) => ({ ...current, dispatch_details: event.target.value }))} placeholder="Delivery boy, parcel token, address, dispatch time" /></Field>
               <Field label="Internal Notes"><textarea className="field" rows="2" value={bookingForm.notes} onChange={(event) => setBookingForm((current) => ({ ...current, notes: event.target.value }))} /></Field>
               <button className="primary-button compact-primary" type="submit">{bookingForm.id ? 'Update Booking' : 'Save Booking'}</button>
               <button className="secondary-button" type="button" onClick={() => setBookingForm(bookingBlank)}>Clear</button>
@@ -808,6 +900,84 @@ export default function HospitalityView() {
             </div>
           </div>
           <div className="panel"><div className="panel-header green"><h2 className="panel-title">Restaurant Quick Controls</h2></div><div className="panel-body hospitality-section-body anvi-stack-actions"><button type="button" className="primary-button compact-primary" onClick={() => startBooking('FOOD')}>Create Food Order</button><button type="button" className="secondary-button" onClick={() => { setActiveSection('masters'); setActiveMasterType('FOOD'); }}>Maintain Menu</button><button type="button" className="secondary-button" onClick={() => { setActiveSection('tasks'); setTaskForm({ ...taskBlank, area: 'KITCHEN' }); }}>Kitchen Task</button><button type="button" className="secondary-button" onClick={() => setStockForm({ ...stockBlank, direction: 'INWARD' })}>New Inward</button><button type="button" className="secondary-button" onClick={() => setStockForm({ ...stockBlank, direction: 'OUTWARD' })}>New Outward</button></div></div>
+        </section>
+      )}
+
+      {activeSection === 'restaurantOps' && (
+        <section className="panel">
+          <div className="panel-header green"><h2 className="panel-title">Restaurant Orders, Kitchen View & Dispatch</h2></div>
+          <div className="panel-body hospitality-section-body">
+            <div className="anvi-ops-note">
+              Customer order, table, waiter, supplier/server, kitchen status, dispatch and thermal bill are managed from the same food booking record.
+            </div>
+            <div className="anvi-quick-actions">
+              <button className="primary-button compact-primary" type="button" onClick={() => startBooking('FOOD')}>New Table / Takeaway Order</button>
+              <button className="secondary-button" type="button" onClick={() => { setActiveSection('tasks'); setTaskForm({ ...taskBlank, area: 'KITCHEN', title: 'Kitchen KOT follow-up' }); }}>Kitchen Task</button>
+              <button className="secondary-button" type="button" onClick={() => { setActiveSection('tasks'); setTaskForm({ ...taskBlank, area: 'TAKEAWAY', title: 'Takeaway dispatch follow-up' }); }}>Dispatch Task</button>
+            </div>
+            <div className="table-scroll">
+              <table className="history-table hospitality-table">
+                <thead><tr><th>Date</th><th>Table/Token</th><th>Customer</th><th>Order</th><th>Waiter</th><th>Supplier</th><th>Kitchen</th><th>Delivery</th><th>Bill</th><th>Actions</th></tr></thead>
+                <tbody>{bookings.filter((row) => row.booking_type === 'FOOD').length === 0 ? <tr><td colSpan="10">No restaurant orders in selected date.</td></tr> : bookings.filter((row) => row.booking_type === 'FOOD').map((row) => (
+                  <tr key={row.id}>
+                    <td>{row.booking_date}<span className="muted">{row.time_slot}</span></td>
+                    <td>{row.table_number || '-'}</td>
+                    <td>{row.customer_name}<span className="muted">{row.customer_phone}</span></td>
+                    <td>{row.food_details || row.item_title || '-'}</td>
+                    <td>{row.waiter_name || row.server_id || '-'}</td>
+                    <td>{row.supplier_name || '-'}</td>
+                    <td><span className="status-chip info">{row.order_status || 'NEW'}</span></td>
+                    <td>{row.delivery_status || '-'}<span className="muted">{row.dispatch_details || ''}</span></td>
+                    <td>{formatMoney(row.total_amount)}<span className="muted">GST {formatMoney(row.gst_amount)}</span></td>
+                    <td><div className="table-actions"><button className="secondary-button" type="button" onClick={() => editBooking(row)}>Edit</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Kitchen KOT', 'THERMAL')}>KOT</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Food Bill', 'THERMAL')}>Bill</button></div></td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {activeSection === 'people' && (
+        <section className="hospitality-two-column">
+          <div className="panel">
+            <div className="panel-header green"><h2 className="panel-title">Manager, Security & Staff Details</h2></div>
+            <div className="panel-body hospitality-section-body">
+              <form className="hospitality-form-grid compact" onSubmit={handleStaffSave}>
+                <Field label="Staff Name"><input className="field" value={staffForm.staff_name} onChange={(event) => setStaffForm((current) => ({ ...current, staff_name: event.target.value }))} required /></Field>
+                <Field label="Role"><select className="select" value={staffForm.role} onChange={(event) => setStaffForm((current) => ({ ...current, role: event.target.value }))}>{staffRoles.map((role) => <option key={role} value={role}>{role}</option>)}</select></Field>
+                <Field label="Phone"><input className="field" value={staffForm.phone} onChange={(event) => setStaffForm((current) => ({ ...current, phone: event.target.value }))} /></Field>
+                <Field label="Shift"><input className="field" value={staffForm.shift_label} onChange={(event) => setStaffForm((current) => ({ ...current, shift_label: event.target.value }))} placeholder="Morning / Evening / Night" /></Field>
+                <Field label="Address"><textarea className="field" rows="2" value={staffForm.address} onChange={(event) => setStaffForm((current) => ({ ...current, address: event.target.value }))} /></Field>
+                <label className="change-box hospitality-checkbox"><input type="checkbox" checked={Boolean(staffForm.is_active)} onChange={(event) => setStaffForm((current) => ({ ...current, is_active: event.target.checked }))} /> Active</label>
+                <button className="primary-button compact-primary" type="submit">{staffForm.id ? 'Update Staff' : 'Save Staff'}</button>
+                <button className="secondary-button" type="button" onClick={() => setStaffForm(staffBlank)}>Clear</button>
+              </form>
+              <table className="history-table hospitality-table"><thead><tr><th>Name</th><th>Role</th><th>Phone</th><th>Shift</th><th>Status</th><th>Edit</th></tr></thead><tbody>{staffRows.length === 0 ? <tr><td colSpan="6">No staff saved.</td></tr> : staffRows.map((row) => <tr key={row.id}><td>{row.staff_name}<span className="muted">{row.address}</span></td><td>{row.role}</td><td>{row.phone || '-'}</td><td>{row.shift_label || '-'}</td><td>{row.is_active ? 'Active' : 'Inactive'}</td><td><button className="secondary-button" type="button" onClick={() => editStaff(row)}>Edit</button></td></tr>)}</tbody></table>
+            </div>
+          </div>
+          <div className="panel">
+            <div className="panel-header green"><h2 className="panel-title">Attendance & Walk-in Customers</h2></div>
+            <div className="panel-body hospitality-section-body">
+              <form className="hospitality-form-grid compact" onSubmit={handleAttendanceSave}>
+                <Field label="Date"><input className="field" type="date" value={attendanceForm.attendance_date} onChange={(event) => setAttendanceForm((current) => ({ ...current, attendance_date: event.target.value }))} /></Field>
+                <Field label="Name"><input className="field" value={attendanceForm.staff_name} onChange={(event) => setAttendanceForm((current) => ({ ...current, staff_name: event.target.value }))} required /></Field>
+                <Field label="Role"><select className="select" value={attendanceForm.role} onChange={(event) => setAttendanceForm((current) => ({ ...current, role: event.target.value }))}>{staffRoles.map((role) => <option key={role} value={role}>{role}</option>)}</select></Field>
+                <Field label="Status"><select className="select" value={attendanceForm.status} onChange={(event) => setAttendanceForm((current) => ({ ...current, status: event.target.value }))}>{attendanceStatuses.map((status) => <option key={status} value={status}>{status}</option>)}</select></Field>
+                <Field label="In"><input className="field" value={attendanceForm.check_in} onChange={(event) => setAttendanceForm((current) => ({ ...current, check_in: event.target.value }))} placeholder="09:00" /></Field>
+                <Field label="Out"><input className="field" value={attendanceForm.check_out} onChange={(event) => setAttendanceForm((current) => ({ ...current, check_out: event.target.value }))} placeholder="18:00" /></Field>
+                <button className="primary-button compact-primary" type="submit">Save Attendance</button>
+              </form>
+              <form className="hospitality-form-grid compact" onSubmit={handleWalkinSave}>
+                <Field label="Visit Date"><input className="field" type="date" value={walkinForm.visit_date} onChange={(event) => setWalkinForm((current) => ({ ...current, visit_date: event.target.value }))} /></Field>
+                <Field label="Customer Name"><input className="field" value={walkinForm.customer_name} onChange={(event) => setWalkinForm((current) => ({ ...current, customer_name: event.target.value }))} required /></Field>
+                <Field label="Phone"><input className="field" value={walkinForm.customer_phone} onChange={(event) => setWalkinForm((current) => ({ ...current, customer_phone: event.target.value }))} required /></Field>
+                <Field label="Purpose"><input className="field" value={walkinForm.purpose} onChange={(event) => setWalkinForm((current) => ({ ...current, purpose: event.target.value }))} placeholder="Room enquiry / Party hall / Restaurant" /></Field>
+                <button className="primary-button compact-primary" type="submit">Save Walk-in</button>
+              </form>
+              <table className="history-table hospitality-table"><thead><tr><th>Date</th><th>Customer</th><th>Purpose</th><th>Visits</th></tr></thead><tbody>{walkinRows.length === 0 ? <tr><td colSpan="4">No walk-ins.</td></tr> : walkinRows.map((row) => <tr key={row.id}><td>{row.visit_date}</td><td>{row.customer_name}<span className="muted">{row.customer_phone}</span></td><td>{row.purpose || '-'}</td><td>{row.visit_count}</td></tr>)}</tbody></table>
+            </div>
+          </div>
         </section>
       )}
 

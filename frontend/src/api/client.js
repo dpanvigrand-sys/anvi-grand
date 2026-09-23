@@ -1178,4 +1178,34 @@ export async function saveHospitalityStockMovement(payload) {
   return data;
 }
 
+export async function fetchHospitalityStaff(role = 'ALL') {
+  const { data } = await api.get('/hospitality/staff', { params: { role } });
+  return Array.isArray(data.rows) ? data.rows : [];
+}
+
+export async function saveHospitalityStaff(payload) {
+  const { data } = await api.post('/hospitality/staff', payload);
+  return data;
+}
+
+export async function fetchHospitalityAttendance({ from, to } = {}) {
+  const { data } = await api.get('/hospitality/attendance', { params: { from, to } });
+  return Array.isArray(data.rows) ? data.rows : [];
+}
+
+export async function saveHospitalityAttendance(payload) {
+  const { data } = await api.post('/hospitality/attendance', payload);
+  return data;
+}
+
+export async function fetchHospitalityWalkins({ from, to } = {}) {
+  const { data } = await api.get('/hospitality/walkins', { params: { from, to } });
+  return Array.isArray(data.rows) ? data.rows : [];
+}
+
+export async function saveHospitalityWalkin(payload) {
+  const { data } = await api.post('/hospitality/walkins', payload);
+  return data;
+}
+
 export default api;
