@@ -224,7 +224,7 @@ export default function App() {
           </nav>
         </header>
         <main className="anvi-admin-workspace">
-          <HospitalityView />
+          <HospitalityView currentUser={currentUser} />
         </main>
       </div>
     );

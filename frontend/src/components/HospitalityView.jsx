@@ -73,16 +73,26 @@ const printerPlan = [
   ['No Print', 'Kitchen display, housekeeping tasks and manager dashboard can stay screen-only unless paper is required.']
 ];
 const operatingSoftwarePlan = [
-  ['Admin / Owner', 'Admin Control', 'Dashboard, users, rates, GST reports, balances, audit, settings, backups', 'A4 reports', 'Daily sales SMS, high balance alert, backup alert'],
-  ['Reception', 'Front Desk Software', 'Room booking, check-in, check-out, guest ID, room facilities, advance/balance, A4 final bill', 'A4 + thermal receipt', 'Booking confirmation, check-in welcome, balance reminder'],
-  ['Kitchen', 'KOT Software', 'Food order queue, table, server ID, preparation status, parcel/takeaway token', 'Thermal KOT', 'Kitchen delay alert to manager'],
-  ['Food Billing', 'Restaurant POS', 'Dine-in table bill, takeaway bill, GST, payment mode, cashier closing', '80mm thermal bill', 'Payment receipt SMS/WhatsApp'],
-  ['Dobi & Housekeeping', 'Laundry / Room Service', 'Linen issue/return, room cleaning, hot water, towel/bed sheet status, room service task', 'Screen only; A4 only for monthly report', 'Room ready alert to reception'],
-  ['Security', 'Gate & Visitor Log', 'Guest vehicle, supplier entry, banquet crowd, night audit note, key handover', 'A4 visitor/day report optional', 'Visitor/incident alert to manager'],
-  ['Takeaway', 'Parcel Counter', 'Token number, customer phone, food items, payment, kitchen KOT, parcel delivery status', 'Thermal token + thermal bill', 'Order ready WhatsApp/SMS'],
-  ['Store', 'Store & Grocery', 'Grocery inward/outward, supplier bill, kitchen issue, stock value, low stock', 'A4 inward/outward report', 'Low stock and supplier due alert'],
-  ['Server / Waiter', 'Table Order Pad', 'Table order, item notes, server ID, KOT push, bill request', 'No direct printer', 'Order status visible to kitchen/billing'],
-  ['Accounts', 'Accounts Desk', 'GST summary, payment modes, cash/card/UPI split, pending balances, expense tasks', 'A4 reports', 'Daily summary to owner']
+  ['Admin / Owner', 'Admin Control', 'Dashboard, users, rates, GST reports, balances, audit, settings, backups', 'A4 reports', 'Daily sales SMS, high balance alert, backup alert', 'Full property control'],
+  ['Reception', 'Front Desk Software', 'Room booking, advance receipt, check-in receipt, check-out report, walk-in history', 'A4 mandatory', 'Booking confirmation, check-in welcome, balance reminder', 'Rooms/banquet/walk-ins only'],
+  ['Manager', 'Manager Console', 'All department verification, day-wise reports, staff attendance, guest issue follow-up', 'A4 reports', 'Daily summary and incident alerts', 'Verification and approval'],
+  ['Kitchen', 'KOT Software', 'Food order queue, table, server ID, preparation status, parcel/takeaway token', 'Thermal KOT', 'Kitchen delay alert to manager', 'Kitchen orders only'],
+  ['Food Billing', 'Restaurant POS', 'Dine-in table bill, takeaway bill, GST, UPI QR, payment mode, cashier closing', '80mm thermal bill', 'Payment receipt SMS/WhatsApp', 'Restaurant bills only'],
+  ['Dobi & Housekeeping', 'Laundry / Room Service', 'Linen issue/return, room cleaning, hot water, towel/bed sheet status, room service task', 'Screen only; A4 monthly report', 'Room ready alert to reception', 'Rooms/halls cleaning only'],
+  ['Security', 'Gate & Visitor Log', 'Guest vehicle, supplier entry, banquet crowd, night audit note, key handover', 'A4 visitor/day report optional', 'Visitor/incident alert to manager', 'Gate/visitor/security only'],
+  ['Takeaway', 'Parcel Counter', 'Token number, customer phone, food items, payment, kitchen KOT, parcel delivery status', 'Thermal token + thermal bill', 'Order ready WhatsApp/SMS', 'Parcel/takeaway only'],
+  ['Store', 'Store & Grocery', 'Grocery inward/outward, supplier bill, kitchen issue, stock value, low stock', 'A4 inward/outward report', 'Low stock and supplier due alert', 'Store room only'],
+  ['Server / Waiter', 'Table Order Pad', 'Table order, item notes, server ID, KOT push, bill request', 'No direct printer', 'Order status visible to kitchen/billing', 'Order entry only'],
+  ['Accounts', 'Accounts Desk', 'Day book, ledger, cash book, balance sheet, GST summary, pending balances', 'A4 reports', 'Daily summary to owner', 'Accounts only']
+];
+const roleScopeCards = [
+  ['Server System', 'Restaurant Ops, KOT, waiter order, thermal bill, takeaway dispatch', 'Thermal printer near food billing.'],
+  ['Reception System', 'Rooms/banquet booking, advance receipt, check-in receipt, check-out report, walk-in customers', 'A4 printer mandatory at reception.'],
+  ['Manager System', 'All reports, staff attendance, security notes, date-to-date verification', 'A4 report printer.'],
+  ['Kitchen System', 'KOT view, order status, ready/served tracking', 'Thermal KOT printer or kitchen display.'],
+  ['Security System', 'Gate visitor, supplier entry, incident note, attendance', 'A4 optional; screen-first.'],
+  ['Store Room System', 'Grocery inward/outward, supplier bill, kitchen issue, low stock', 'A4 optional for daily store report.'],
+  ['Accountant System', 'Day book, ledger, cash book, balance sheet, GST, pending balances', 'A4 printer mandatory.']
 ];
 const alertTemplates = [
   ['Booking Confirmation', 'WhatsApp/SMS', 'Dear guest, your ANVI GRAND booking is confirmed. Advance received: {advance}. Balance: {balance}.'],
@@ -177,7 +187,11 @@ function taxBreakup(row) {
   };
 }
 
-export default function HospitalityView() {
+export default function HospitalityView({ currentUser = null }) {
+  const userRole = String(currentUser?.role || '').toUpperCase();
+  const isManagerScope = userRole === 'ADMIN';
+  const isServerScope = userRole === 'SERVER';
+  const scopeLabel = isManagerScope ? 'Full manager/admin control' : isServerScope ? 'Server restaurant scope' : 'Department daily-work scope';
   const [activeSection, setActiveSection] = useState('dashboard');
   const [activeMasterType, setActiveMasterType] = useState('ROOM');
   const [summary, setSummary] = useState(null);
@@ -354,8 +368,8 @@ export default function HospitalityView() {
       ['Location Notes', row.travel_notes]
     ].filter(([, value]) => value);
     const css = isThermal
-      ? 'body{font-family:Arial,sans-serif;width:72mm;margin:0;padding:8px;color:#111;font-size:12px}.center{text-align:center}.line{border-top:1px dashed #111;margin:8px 0}.row{display:flex;justify-content:space-between;gap:8px}.muted{font-size:11px;color:#444}h1{font-size:15px;margin:0}h2{font-size:13px;margin:4px 0 0}table{width:100%;border-collapse:collapse}td{padding:2px 0;vertical-align:top}.total{font-weight:700;font-size:13px}'
-      : 'body{font-family:Arial,sans-serif;margin:28px;color:#1f2937}.bill{max-width:820px;margin:0 auto;border:1px solid #ddd;padding:24px}h1{margin:0;color:#7f1d1d}h2{margin:4px 0 18px;color:#14532d}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 22px}.line{border-top:1px solid #ddd;margin:16px 0}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border-bottom:1px solid #eee;padding:8px;text-align:left}.amount{text-align:right}.total{font-weight:700;background:#fff7ed}.muted{color:#6b7280;font-size:12px}@media print{body{margin:0}.bill{border:0}}';
+      ? 'body{font-family:Arial,sans-serif;width:72mm;margin:0;padding:8px;color:#111;font-size:12px}.brand{display:flex;align-items:center;gap:4px;font-weight:900;color:#0f7490;font-size:12px}.brand img{width:24mm;height:auto}.center{text-align:center}.line{border-top:1px dashed #111;margin:8px 0}.row{display:flex;justify-content:space-between;gap:8px}.muted{font-size:11px;color:#444}h1{font-size:15px;margin:0}h2{font-size:13px;margin:4px 0 0}table{width:100%;border-collapse:collapse}td{padding:2px 0;vertical-align:top}.total{font-weight:700;font-size:13px}'
+      : 'body{font-family:Arial,sans-serif;margin:28px;color:#1f2937}.bill{max-width:820px;margin:0 auto;border:1px solid #ddd;padding:24px;position:relative}.brand{position:absolute;left:18px;top:16px;display:flex;align-items:center;gap:6px;font-weight:900;color:#0f7490}.brand img{width:82px;height:auto}h1{margin:0;color:#7f1d1d}h2{margin:4px 0 18px;color:#14532d}.grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 22px}.line{border-top:1px solid #ddd;margin:16px 0}table{width:100%;border-collapse:collapse;margin-top:10px}th,td{border-bottom:1px solid #eee;padding:8px;text-align:left}.amount{text-align:right}.total{font-weight:700;background:#fff7ed}.muted{color:#6b7280;font-size:12px}.center{text-align:center}@media print{body{margin:0}.bill{border:0}}';
     const rows = details.map(([label, value]) => `<div><span class="muted">${escapeHtml(label)}</span><br><strong>${escapeHtml(value)}</strong></div>`).join('');
     const itemRows = lineItems.length
       ? lineItems.map((item, index) => `<tr><td>${index + 1}</td><td>${escapeHtml(item)}</td><td class="amount">${index === 0 ? formatMoney(tax.taxable) : ''}</td></tr>`).join('')
@@ -363,7 +377,8 @@ export default function HospitalityView() {
     const qrText = row.upi_qr_text || (String(row.payment_mode || '').toLowerCase().includes('upi') ? `upi://pay?pn=${encodeURIComponent(profile.hotel_name || 'ANVI GRAND')}&am=${Number(row.balance_amount || row.total_amount || 0)}` : '');
     const qrImage = qrText ? await QRCode.toDataURL(qrText, { margin: 1, width: isThermal ? 120 : 150 }).catch(() => '') : '';
     const qrBlock = qrImage ? `<div class="center"><img src="${qrImage}" alt="UPI QR" style="width:${isThermal ? '34mm' : '120px'};height:auto"><div class="muted">${escapeHtml(qrText)}</div></div>` : '';
-    const html = `<!doctype html><html><head><title>${escapeHtml(purpose)} - ${escapeHtml(profile.hotel_name || 'ANVI GRAND')}</title><style>${css}</style></head><body><div class="bill"><div class="center"><h1>${escapeHtml(profile.hotel_name || 'ANVI GRAND')}</h1><h2>${escapeHtml(purpose)}</h2><div class="muted">${escapeHtml(profile.address || '')}</div><div class="muted">Phone: ${escapeHtml(profile.phone || profile.reception_phone || '')}</div></div><div class="line"></div><div class="${isThermal ? '' : 'grid'}">${rows}</div><div class="line"></div><table><thead><tr><th>#</th><th>Particulars</th><th class="amount">Amount</th></tr></thead><tbody>${itemRows}<tr><td></td><td>CGST</td><td class="amount">${formatMoney(tax.cgst)}</td></tr><tr><td></td><td>SGST</td><td class="amount">${formatMoney(tax.sgst)}</td></tr><tr class="total"><td></td><td>Total</td><td class="amount">${formatMoney(row.total_amount)}</td></tr><tr><td></td><td>Advance / Paid</td><td class="amount">${formatMoney(tax.advance)}</td></tr><tr class="total"><td></td><td>Balance</td><td class="amount">${formatMoney(tax.balance)}</td></tr></tbody></table><div class="line"></div>${qrBlock}<div class="muted">Payment: ${escapeHtml(row.payment_mode || 'Cash / UPI / Card')} | Order: ${escapeHtml(row.order_status || '')} | Delivery: ${escapeHtml(row.delivery_status || '')}</div><p class="center">Thank you. Visit again.</p></div><script>window.onload=function(){window.print();};</script></body></html>`;
+    const brand = '<div class="brand"><img src="/badizo-logo-transparent.png" alt="Badizo"><span>Powered by Badizo</span></div>';
+    const html = `<!doctype html><html><head><title>${escapeHtml(purpose)} - ${escapeHtml(profile.hotel_name || 'ANVI GRAND')}</title><style>${css}</style></head><body><div class="bill">${brand}<div class="center"><h1>${escapeHtml(profile.hotel_name || 'ANVI GRAND')}</h1><h2>${escapeHtml(purpose)}</h2><div class="muted">${escapeHtml(profile.address || '')}</div><div class="muted">Phone: ${escapeHtml(profile.phone || profile.reception_phone || '')}</div></div><div class="line"></div><div class="${isThermal ? '' : 'grid'}">${rows}</div><div class="line"></div><table><thead><tr><th>#</th><th>Particulars</th><th class="amount">Amount</th></tr></thead><tbody>${itemRows}<tr><td></td><td>CGST</td><td class="amount">${formatMoney(tax.cgst)}</td></tr><tr><td></td><td>SGST</td><td class="amount">${formatMoney(tax.sgst)}</td></tr><tr class="total"><td></td><td>Total</td><td class="amount">${formatMoney(row.total_amount)}</td></tr><tr><td></td><td>Advance / Paid</td><td class="amount">${formatMoney(tax.advance)}</td></tr><tr class="total"><td></td><td>Balance</td><td class="amount">${formatMoney(tax.balance)}</td></tr></tbody></table><div class="line"></div>${qrBlock}<div class="muted">Payment: ${escapeHtml(row.payment_mode || 'Cash / UPI / Card')} | Order: ${escapeHtml(row.order_status || '')} | Delivery: ${escapeHtml(row.delivery_status || '')}</div><p class="center">Thank you. Visit again.</p></div><script>window.onload=function(){window.print();};</script></body></html>`;
     const popup = window.open('', '_blank', 'width=900,height=700');
     if (!popup) {
       setErrorMessage('Popup blocked. Please allow popups for printing.');
@@ -557,7 +572,11 @@ export default function HospitalityView() {
     ['accounts', 'Accounts'],
     ['tasks', 'Maintenance Tasks'],
     ['settings', 'Hotel Settings']
-  ];
+  ].filter(([key]) => {
+    if (isManagerScope) return true;
+    if (isServerScope) return ['dashboard', 'bookings', 'restaurantOps', 'restaurant', 'tasks', 'systems', 'software'].includes(key);
+    return ['dashboard', 'tasks', 'systems', 'software'].includes(key);
+  });
 
   const recentRows = bookings.slice(0, 5);
   const pendingTasks = tasks.filter((row) => ['OPEN', 'IN_PROGRESS'].includes(row.status)).slice(0, 6);
@@ -599,7 +618,7 @@ export default function HospitalityView() {
         <div>
           <span className="hospitality-eyebrow">ANVI GRAND Operations App</span>
           <h1>Rooms, Banquet & Restaurant Control</h1>
-          <p>{profileForm.address}. Reception: {profileForm.reception_phone || profileForm.phone}. Restaurant: {profileForm.restaurant_phone || profileForm.phone}.</p>
+          <p>{profileForm.address}. Reception: {profileForm.reception_phone || profileForm.phone}. Restaurant: {profileForm.restaurant_phone || profileForm.phone}. Current scope: {scopeLabel}.</p>
         </div>
         <div className="anvi-quick-actions">
           <button type="button" className="primary-button compact-primary" onClick={() => startBooking('ROOM')}>New Room Booking</button>
@@ -730,7 +749,7 @@ export default function HospitalityView() {
               <table className="history-table hospitality-table">
                 <thead><tr><th>Dates</th><th>Type</th><th>Customer</th><th>Room/Table</th><th>Food / Notes</th><th>Total</th><th>Advance</th><th>Balance</th><th>Status</th><th>Actions</th></tr></thead>
                 <tbody>{bookings.length === 0 ? <tr><td colSpan="10">No bookings in selected dates.</td></tr> : bookings.map((row) => (
-                  <tr key={row.id}><td>{row.booking_date}{row.end_date && row.end_date !== row.booking_date ? ` to ${row.end_date}` : ''}<span className="muted">{row.time_slot || ''}</span></td><td>{bookingLabel(row.booking_type)}</td><td><strong>{row.customer_name}</strong><span className="muted">{row.customer_phone}</span></td><td>{row.table_number || row.item_title || '-'}<span className="muted">{row.server_id || row.item_title || ''}</span></td><td>{row.food_plan === 'WITH_FOOD' ? 'With Food' : 'Without Food'}<span className="muted">{row.food_details || row.complimentary_breakfast || row.notes || ''}</span></td><td>{formatMoney(row.total_amount)}<span className="muted">GST {formatMoney(row.gst_amount)}</span></td><td>{formatMoney(row.advance_amount)}</td><td>{formatMoney(row.balance_amount)}</td><td><span className="status-chip info">{row.status}</span></td><td><div className="table-actions"><button className="secondary-button" type="button" onClick={() => editBooking(row)}>Edit</button><button className="secondary-button" type="button" onClick={() => printBooking(row, row.booking_type === 'ROOM' ? 'Check-in / Stay Form' : row.booking_type === 'FOOD' ? 'Food Bill' : 'Banquet Function Sheet', row.print_format || 'A4')}>Print</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Final Bill', 'A4')}>Final A4</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Thermal Receipt', 'THERMAL')}>Thermal</button></div></td></tr>
+                  <tr key={row.id}><td>{row.booking_date}{row.end_date && row.end_date !== row.booking_date ? ` to ${row.end_date}` : ''}<span className="muted">{row.time_slot || ''}</span></td><td>{bookingLabel(row.booking_type)}</td><td><strong>{row.customer_name}</strong><span className="muted">{row.customer_phone}</span></td><td>{row.table_number || row.item_title || '-'}<span className="muted">{row.server_id || row.item_title || ''}</span></td><td>{row.food_plan === 'WITH_FOOD' ? 'With Food' : 'Without Food'}<span className="muted">{row.food_details || row.complimentary_breakfast || row.notes || ''}</span></td><td>{formatMoney(row.total_amount)}<span className="muted">GST {formatMoney(row.gst_amount)}</span></td><td>{formatMoney(row.advance_amount)}</td><td>{formatMoney(row.balance_amount)}</td><td><span className="status-chip info">{row.status}</span></td><td><div className="table-actions"><button className="secondary-button" type="button" onClick={() => editBooking(row)}>Edit</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Advance Booking Receipt', 'A4')}>Advance A4</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Check-in Receipt', 'A4')}>Check-in A4</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Check-out Report', 'A4')}>Check-out A4</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Reprint Final Bill', 'A4')}>Reprint A4</button><button className="secondary-button" type="button" onClick={() => printBooking(row, row.booking_type === 'FOOD' ? 'Restaurant Thermal Bill' : 'Thermal Receipt', 'THERMAL')}>Thermal</button></div></td></tr>
                 ))}</tbody>
               </table>
             </div>
@@ -746,6 +765,9 @@ export default function HospitalityView() {
               <input className="field" type="date" value={filters.from} onChange={(event) => setFilters((current) => ({ ...current, from: event.target.value, to: event.target.value }))} />
               <button className="secondary-button" type="button" onClick={() => setFilters((current) => ({ ...current, from: today(), to: today() }))}>Today</button>
               <button className="secondary-button" type="button" onClick={() => window.print()}>Print A4</button>
+            </div>
+            <div className="anvi-ops-note">
+              <strong>Date-to-date verification:</strong> selected date controls room bookings, restaurant orders, advance receipts, check-in/check-out reports, store movements, day book, ledger and balance summary for A4 verification.
             </div>
             <section className="hospitality-kpi-grid">
               {accountCards.map(([label, value]) => <div className="panel hospitality-kpi" key={label}><span>{label}</span><strong>{value}</strong></div>)}
@@ -828,14 +850,24 @@ export default function HospitalityView() {
             <div className="anvi-ops-note">
               Every department gets a simple screen: staff should see only their daily work, printer output, and alert action. Real automatic SMS/WhatsApp sending needs provider keys later; until then WhatsApp quick-send links and message templates are ready.
             </div>
+            <div className="anvi-ops-grid role-scope-grid">
+              {roleScopeCards.map(([title, work, printer]) => (
+                <article className="panel anvi-ops-guide-card" key={title}>
+                  <h3>{title}</h3>
+                  <p>{work}</p>
+                  <p><strong>{printer}</strong></p>
+                </article>
+              ))}
+            </div>
             <div className="table-scroll">
               <table className="history-table hospitality-table">
-                <thead><tr><th>System</th><th>Software Screen</th><th>Features</th><th>Printer Output</th><th>Alerts</th><th>Open Work</th></tr></thead>
-                <tbody>{operatingSoftwarePlan.map(([system, screen, features, output, alerts]) => (
+                <thead><tr><th>System</th><th>Software Screen</th><th>Features</th><th>Scope Lock</th><th>Printer Output</th><th>Alerts</th><th>Open Work</th></tr></thead>
+                <tbody>{operatingSoftwarePlan.map(([system, screen, features, output, alerts, scope]) => (
                   <tr key={system}>
                     <td><strong>{system}</strong></td>
                     <td>{screen}</td>
                     <td>{features}</td>
+                    <td><span className="status-chip muted">{scope}</span></td>
                     <td>{output}</td>
                     <td>{alerts}</td>
                     <td><button className="secondary-button" type="button" onClick={() => startDepartmentTask(system.includes('Kitchen') ? 'KITCHEN' : system.includes('Dobi') ? 'DOBI' : system.includes('Housekeeping') ? 'HOUSEKEEPING' : system.includes('Security') ? 'SECURITY' : system.includes('Takeaway') ? 'TAKEAWAY' : system.includes('Store') ? 'STORE' : system.includes('Food') ? 'SERVER' : system.includes('Reception') ? 'RECEPTION' : system.includes('Accounts') ? 'ACCOUNTS' : 'MANAGER', `${screen} setup / daily work`)}>Task</button></td>
@@ -929,7 +961,7 @@ export default function HospitalityView() {
                     <td><span className="status-chip info">{row.order_status || 'NEW'}</span></td>
                     <td>{row.delivery_status || '-'}<span className="muted">{row.dispatch_details || ''}</span></td>
                     <td>{formatMoney(row.total_amount)}<span className="muted">GST {formatMoney(row.gst_amount)}</span></td>
-                    <td><div className="table-actions"><button className="secondary-button" type="button" onClick={() => editBooking(row)}>Edit</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Kitchen KOT', 'THERMAL')}>KOT</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Food Bill', 'THERMAL')}>Bill</button></div></td>
+                    <td><div className="table-actions"><button className="secondary-button" type="button" onClick={() => editBooking(row)}>Edit</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Kitchen KOT', 'THERMAL')}>KOT Thermal</button><button className="secondary-button" type="button" onClick={() => printBooking(row, 'Food Bill', 'THERMAL')}>Bill Thermal</button></div></td>
                   </tr>
                 ))}</tbody>
               </table>

@@ -10891,8 +10891,9 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
 
 .anvi-admin-shell {
   min-height: 100vh;
-  background: #fff7f7;
-  color: #2f1111;
+  background:
+    linear-gradient(180deg, #fffaf7 0%, #f7fff8 46%, #fff7f7 100%);
+  color: #241313;
 }
 
 .anvi-admin-topbar {
@@ -10904,9 +10905,10 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
   justify-content: space-between;
   gap: 16px;
   padding: 14px 24px calc(14px + 5mm) 148px;
-  background: rgba(255, 255, 255, 0.94);
-  border-bottom: 1px solid rgba(127, 29, 29, 0.12);
-  box-shadow: 0 12px 30px rgba(127, 29, 29, 0.08);
+  background: rgba(255, 255, 255, 0.96);
+  border-bottom: 1px solid rgba(20, 83, 45, 0.12);
+  box-shadow: 0 14px 34px rgba(56, 28, 28, 0.08);
+  backdrop-filter: blur(8px);
 }
 
 .anvi-admin-badizo-mark {
@@ -10942,16 +10944,42 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
 }
 
 .anvi-admin-workspace {
-  padding: 18px;
+  padding: 20px;
 }
 
 .anvi-ops-app {
   display: grid;
-  gap: 16px;
+  gap: 18px;
 }
 
 .anvi-ops-app .hospitality-hero {
   align-items: flex-start;
+  border: 1px solid rgba(20, 83, 45, 0.14);
+  background:
+    linear-gradient(135deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 247, 237, 0.96) 48%, rgba(240, 253, 244, 0.96) 100%);
+  box-shadow: 0 18px 42px rgba(56, 28, 28, 0.08);
+}
+
+.anvi-ops-app .hospitality-hero h1 {
+  color: #4c1111;
+  font-size: clamp(26px, 2.4vw, 38px);
+}
+
+.anvi-ops-app .hospitality-hero p {
+  max-width: 860px;
+  color: #4b5563;
+}
+
+.anvi-ops-app > .panel,
+.anvi-ops-app .hospitality-two-column > .panel,
+.anvi-ops-app .anvi-booking-planner > .panel {
+  border: 1px solid rgba(20, 83, 45, 0.13);
+  box-shadow: 0 12px 28px rgba(56, 28, 28, 0.06);
+}
+
+.anvi-ops-app .panel-header.green {
+  background: linear-gradient(90deg, rgba(20, 83, 45, 0.08), rgba(127, 29, 29, 0.05));
+  border-bottom: 1px solid rgba(20, 83, 45, 0.12);
 }
 
 .anvi-ops-nav {
@@ -10959,6 +10987,28 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
   flex-wrap: wrap;
   gap: 10px;
   padding: 0 4px;
+}
+
+.anvi-ops-nav .mode-pill,
+.hospitality-tabs .mode-pill {
+  border: 1px solid rgba(20, 83, 45, 0.22);
+  background: rgba(255, 255, 255, 0.9);
+  color: #14532d;
+  box-shadow: 0 6px 16px rgba(20, 83, 45, 0.06);
+}
+
+.anvi-ops-nav .mode-pill.active,
+.hospitality-tabs .mode-pill.active {
+  background: #14532d;
+  border-color: #14532d;
+  color: #ffffff;
+  box-shadow: 0 10px 24px rgba(20, 83, 45, 0.18);
+}
+
+.anvi-ops-app .primary-button.compact-primary {
+  background: linear-gradient(180deg, #b91c1c, #991b1b);
+  border-color: #991b1b;
+  box-shadow: 0 10px 22px rgba(153, 27, 27, 0.18);
 }
 
 .anvi-quick-actions {
@@ -10979,7 +11029,7 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
   padding: 14px 16px;
   border: 1px solid rgba(20, 83, 45, 0.18);
   border-radius: 8px;
-  background: #f0fdf4;
+  background: linear-gradient(135deg, #f0fdf4, #fff7ed);
   color: #13351f;
   line-height: 1.45;
 }
@@ -10993,7 +11043,8 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
 
 .anvi-ops-guide-card {
   padding: 14px;
-  border: 1px solid rgba(127, 29, 29, 0.12);
+  border: 1px solid rgba(20, 83, 45, 0.13);
+  background: rgba(255, 255, 255, 0.94);
 }
 
 .anvi-ops-guide-card h3 {
@@ -11012,13 +11063,28 @@ body.badizo-ping-fail .brand-pulse-dots span:nth-child(3) {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
-  min-width: 210px;
+  min-width: 260px;
 }
 
 .hospitality-table .table-actions button {
   min-height: 32px;
   padding: 6px 9px;
   font-size: 0.78rem;
+}
+
+.role-scope-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin-bottom: 14px;
+}
+
+.hospitality-view .history-table th {
+  background: #fff7ed;
+  color: #4c1111;
+  font-weight: 800;
+}
+
+.hospitality-view .history-table td {
+  vertical-align: top;
 }
 
 .anvi-booking-planner {
