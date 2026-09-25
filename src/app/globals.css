@@ -165,7 +165,7 @@
 @keyframes opening-pop {
   from {
     opacity: 0;
-    transform: translateY(18px) scale(0.97);
+    transform: translateY(14px) scale(0.98);
   }
   to {
     opacity: 1;
@@ -173,8 +173,23 @@
   }
 }
 
+@keyframes opening-out {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+}
+
 .animate-opening-pop {
-  animation: opening-pop 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: opening-pop 0.38s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-opening-out {
+  animation: opening-out 0.35s ease-in both;
 }
 
 .animate-counter-toast-in {

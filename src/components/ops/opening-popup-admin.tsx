@@ -17,7 +17,7 @@ export function OpeningPopupAdmin({ initialHotel }: Props) {
   );
   const [message, setMessage] = useState(
     initialHotel.openingPopupMessage ||
-      "ANVI GRAND near Benz Circle is getting ready for you — rooms, banquet celebrations, and IRAA Dine. Call reception to reserve your stay.",
+      "Rooms, banquet & IRAA Dine near Benz Circle — call to reserve.",
   );
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");
@@ -72,8 +72,8 @@ export function OpeningPopupAdmin({ initialHotel }: Props) {
             Opening shortly popup
           </h2>
           <p className="mt-1 text-sm text-[var(--ag-muted)]">
-            Rich notice on the guest website (phone & computer). Guests can
-            dismiss it; turn Off anytime to hide it completely.
+            Small notice that appears automatically when guests open the website,
+            then fades away. Turn Off when the hotel is fully open (remove it).
           </p>
         </div>
         <span
