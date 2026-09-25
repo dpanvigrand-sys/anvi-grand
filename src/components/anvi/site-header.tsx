@@ -39,25 +39,28 @@ export function SiteHeader({ receptionPhone = "7569494949" }: Props) {
       <div className="h-[2px] bg-[linear-gradient(90deg,#6b0000,#d4af37,#6b0000)]" />
       <div className="border-b border-white/10">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-5 py-1.5 text-[10px] tracking-[0.12em] text-white/75 sm:gap-3 sm:py-2 sm:text-[11px] sm:tracking-[0.14em] md:px-8">
-          <span className="hidden min-w-[7rem] shrink-0 sm:inline">Vijayawada</span>
+          {/* Phone: Call + number left. Desktop: Vijayawada left, Reception center-right */}
           <a
             href={`tel:${phone}`}
-            className="ml-auto shrink-0 font-medium text-[var(--ag-gold-soft)] hover:text-white"
+            className="shrink-0 font-medium text-[var(--ag-gold-soft)] hover:text-white"
           >
-            <span className="sm:hidden">{phone}</span>
-            <span className="hidden sm:inline">Reception {phone}</span>
+            <span className="sm:hidden">Call {phone}</span>
+            <span className="hidden sm:inline">
+              <span className="mr-3 text-white/70">Vijayawada</span>
+              Reception {phone}
+            </span>
           </a>
-          {/* Tiny Badizo — top-right; white logo background, small, no brand dominate */}
+          {/* Tiny Badizo — top-right, white background (as provided) */}
           <Link
             href="/"
             aria-label="Badizo"
-            className="shrink-0 rounded-[1px] border border-white bg-white p-0.5 leading-none"
+            className="ml-auto shrink-0 rounded-[1px] border border-white bg-white p-0.5 leading-none shadow-sm"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/logos/badizo.png"
               alt="Badizo"
-              className="h-3 w-auto max-w-[40px] bg-white object-contain sm:h-3.5 sm:max-w-[48px]"
+              className="h-3.5 w-auto max-w-[44px] bg-white object-contain sm:h-4 sm:max-w-[52px]"
             />
           </Link>
         </div>
