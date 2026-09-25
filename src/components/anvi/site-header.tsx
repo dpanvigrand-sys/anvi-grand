@@ -38,41 +38,42 @@ export function SiteHeader({ receptionPhone = "7569494949" }: Props) {
     <header className="sticky top-0 z-50 bg-[var(--ag-red)] text-white shadow-[0_2px_24px_rgba(60,0,0,0.35)]">
       <div className="h-[2px] bg-[linear-gradient(90deg,#6b0000,#d4af37,#6b0000)]" />
       <div className="border-b border-white/10">
-        <div className="relative mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-4 py-2 text-[11px] tracking-[0.14em] text-white/75 md:px-8">
-          <span className="hidden min-w-[7rem] sm:inline">Vijayawada</span>
+        <div className="relative mx-auto flex w-full max-w-6xl items-center gap-2 px-5 py-2 text-[10px] tracking-[0.12em] text-white/75 sm:text-[11px] sm:tracking-[0.14em] md:px-8">
+          <span className="hidden min-w-[7rem] shrink-0 sm:inline">Vijayawada</span>
           <Link
             href="/"
-            className="absolute left-1/2 top-1/2 z-10 -translate-x-1/2 -translate-y-1/2"
+            className="relative z-10 mx-auto flex min-w-0 justify-center sm:absolute sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2"
             aria-label="Badizo"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/logos/badizo.png"
               alt="Badizo"
-              className="h-7 w-auto max-w-[150px] object-contain sm:h-8 sm:max-w-[170px]"
+              className="h-6 w-auto max-w-[120px] object-contain sm:h-8 sm:max-w-[170px]"
             />
           </Link>
           <a
             href={`tel:${phone}`}
-            className="ml-auto font-medium text-[var(--ag-gold-soft)] hover:text-white"
+            className="ml-auto shrink-0 font-medium text-[var(--ag-gold-soft)] hover:text-white"
           >
-            Reception {phone}
+            <span className="sm:hidden">{phone}</span>
+            <span className="hidden sm:inline">Reception {phone}</span>
           </a>
         </div>
       </div>
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-4 px-4 py-3 md:px-8">
-        <Link href="/" className="flex items-center gap-3">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-5 py-3 md:gap-4 md:px-8">
+        <Link href="/" className="flex min-w-0 items-center gap-2.5 sm:gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logos/ag-mark.svg"
             alt=""
-            className="h-11 w-11 ring-1 ring-[var(--ag-gold)]/50"
+            className="h-10 w-10 shrink-0 ring-1 ring-[var(--ag-gold)]/50 sm:h-11 sm:w-11"
           />
-          <span className="flex flex-col leading-none">
-            <span className="font-display text-lg tracking-[0.16em] text-white md:text-xl">
+          <span className="flex min-w-0 flex-col leading-none">
+            <span className="font-display text-base tracking-[0.14em] text-white sm:text-lg md:text-xl">
               ANVI GRAND
             </span>
-            <span className="mt-1 text-[10px] uppercase tracking-[0.22em] text-[var(--ag-gold-soft)]">
+            <span className="mt-1 truncate text-[9px] uppercase tracking-[0.2em] text-[var(--ag-gold-soft)] sm:text-[10px] sm:tracking-[0.22em]">
               Hotel & Celebrations
             </span>
           </span>

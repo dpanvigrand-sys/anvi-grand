@@ -116,7 +116,7 @@ export function FoodOrderForm({
     >
       <div className="space-y-8">
         {variant === "home" ? (
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">
             {featured.map((m) => (
               <article
                 key={m.id}
@@ -157,7 +157,7 @@ export function FoodOrderForm({
               <h3 className="text-lg font-semibold capitalize text-[var(--ag-ink)]">
                 {cat.replace("-", " ")}
               </h3>
-              <div className="mt-4 grid gap-5 sm:grid-cols-2">
+              <div className="mt-4 grid gap-5 md:grid-cols-2">
                 {featured
                   .filter((m) => m.category === cat)
                   .map((m) => (

@@ -4,20 +4,24 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+const SITE_URL = "https://www.stayanvigrand.com";
+
 type Props = {
   receptionPhone?: string;
   roomsPhone?: string;
   foodPhone?: string;
   email?: string;
   address?: string;
+  website?: string;
 };
 
 export function SiteFooter({
   receptionPhone = "7569494949",
   roomsPhone,
   foodPhone,
-  email = "stay@anvigrand.in",
+  email = "dpanvigrand@gmail.com",
   address = "Anvi Grand, near Benz Circle, Eluru Road, Vijayawada",
+  website = SITE_URL,
 }: Props) {
   const pathname = usePathname();
   if (pathname.startsWith("/ops")) return null;
@@ -25,11 +29,14 @@ export function SiteFooter({
   const reception = receptionPhone.trim() || "7569494949";
   const rooms = (roomsPhone || reception).trim();
   const food = (foodPhone || reception).trim();
+  const mail = email.trim() || "dpanvigrand@gmail.com";
+  const site = (website || SITE_URL).replace(/\/$/, "");
+  const siteLabel = site.replace(/^https?:\/\//, "");
 
   return (
     <footer className="border-t-4 border-[var(--ag-red)] bg-[linear-gradient(180deg,#3a1618_0%,#2a0e10_100%)] text-white">
       <div className="h-1.5 bg-[linear-gradient(90deg,var(--ag-red)_0%,var(--ag-gold)_50%,var(--ag-red)_100%)]" />
-      <div className="mx-auto grid w-full max-w-6xl gap-10 px-5 py-14 md:grid-cols-[1.4fr_1fr_1fr] md:px-8">
+      <div className="mx-auto grid w-full max-w-6xl gap-10 px-5 py-12 md:grid-cols-[1.4fr_1fr_1fr] md:px-8 md:py-14">
         <div>
           <div className="flex items-center gap-3">
             <Image
@@ -94,8 +101,24 @@ export function SiteFooter({
               {food}
             </a>
             <br />
-            <a href={`mailto:${email}`} className="mt-2 inline-block hover:text-white">
-              {email}
+            <span className="mt-3 block text-xs uppercase tracking-[0.14em] text-[var(--ag-gold)]">
+              Email
+            </span>
+            <a
+              href={`mailto:${mail}`}
+              className="inline-block break-all text-base font-semibold text-[#ffb4b4] hover:underline"
+            >
+              {mail}
+            </a>
+            <br />
+            <span className="mt-3 block text-xs uppercase tracking-[0.14em] text-[var(--ag-gold)]">
+              Website
+            </span>
+            <a
+              href={site}
+              className="inline-block break-all text-base font-semibold text-[#ffb4b4] hover:underline"
+            >
+              {siteLabel}
             </a>
           </p>
         </div>
@@ -132,7 +155,10 @@ export function SiteFooter({
         </div>
       </div>
       <div className="border-t border-white/10 bg-black/20 px-5 py-5 text-center text-xs text-white/60 md:px-8">
-        © {new Date().getFullYear()} ANVI GRAND · Benz Circle, Eluru Road, Vijayawada
+        © {new Date().getFullYear()} ANVI GRAND · Benz Circle, Eluru Road, Vijayawada ·{" "}
+        <a href={site} className="text-white/75 hover:text-white">
+          {siteLabel}
+        </a>
       </div>
     </footer>
   );

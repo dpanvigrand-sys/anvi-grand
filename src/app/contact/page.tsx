@@ -53,7 +53,29 @@ export default async function ContactPage() {
             <span className="block text-xs uppercase tracking-[0.16em] text-[var(--ag-muted)]">
               Email
             </span>
-            {hotel.email}
+            <a
+              href={`mailto:${hotel.email || "dpanvigrand@gmail.com"}`}
+              className="text-lg font-semibold break-all text-[var(--ag-red)] hover:underline"
+            >
+              {hotel.email || "dpanvigrand@gmail.com"}
+            </a>
+          </p>
+          <p>
+            <span className="block text-xs uppercase tracking-[0.16em] text-[var(--ag-muted)]">
+              Website
+            </span>
+            <a
+              href="https://www.stayanvigrand.com"
+              className="text-lg font-semibold text-[var(--ag-red)] hover:underline"
+            >
+              www.stayanvigrand.com
+            </a>
+            <span className="mt-1 block text-sm text-[var(--ag-muted)]">
+              also{" "}
+              <a href="https://stayanvigrand.com" className="text-[var(--ag-red)] hover:underline">
+                stayanvigrand.com
+              </a>
+            </span>
           </p>
           <p>
             <span className="block text-xs uppercase tracking-[0.16em] text-[var(--ag-muted)]">

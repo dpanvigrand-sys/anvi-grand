@@ -18,32 +18,33 @@ export function Hero({
   const logo = foodLogo.trim() || "/logos/iraa-mark.svg";
 
   return (
-    <section className="relative min-h-[78svh] overflow-hidden md:min-h-[88svh]">
+    <section className="relative min-h-[100svh] overflow-hidden md:min-h-[88svh]">
       <div
-        className="animate-ken-burns absolute inset-0 bg-cover bg-[center_28%]"
+        className="animate-ken-burns absolute inset-0 bg-cover bg-[center_22%] sm:bg-[center_28%]"
         style={{ backgroundImage: `url(${src})` }}
         aria-hidden
       />
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(20,8,8,0.55)_0%,rgba(20,8,8,0.25)_42%,rgba(20,8,8,0.72)_100%)]" />
-      <div className="absolute inset-0 bg-[linear-gradient(105deg,rgba(90,0,0,0.45)_0%,transparent_55%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(18,6,6,0.62)_0%,rgba(18,6,6,0.28)_38%,rgba(18,6,6,0.78)_100%)]" />
+      <div className="absolute inset-0 bg-[linear-gradient(105deg,rgba(90,0,0,0.5)_0%,transparent_58%)]" />
       <div className="absolute inset-x-0 top-0 h-[3px] bg-[linear-gradient(90deg,#6b0000_0%,#d4af37_50%,#6b0000_100%)]" />
 
-      <div className="relative z-20 mx-auto flex min-h-[78svh] w-full max-w-6xl flex-col justify-between px-5 pb-10 pt-8 md:min-h-[88svh] md:px-8 md:pb-14 md:pt-10">
-        <div className="flex items-start justify-between gap-4">
-          <div className="animate-drift max-w-xl">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[var(--ag-gold-soft)]">
+      <div className="relative z-20 mx-auto flex min-h-[100svh] w-full max-w-6xl flex-col justify-between px-5 pb-11 pt-7 md:min-h-[88svh] md:px-8 md:pb-14 md:pt-10">
+        {/* One mobile composition: brand stack + IRAA accent under CTA (not side zigzag) */}
+        <div className="flex flex-col gap-8 md:flex-row md:items-start md:justify-between md:gap-6">
+          <div className="animate-drift w-full max-w-xl">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.32em] text-[var(--ag-gold-soft)] sm:text-[11px] sm:tracking-[0.28em]">
               Vijayawada · Benz Circle
             </p>
-            <h1 className="mt-3 font-display text-4xl leading-[1.05] tracking-[0.04em] text-white sm:text-5xl md:text-6xl lg:text-7xl">
-              <span className="block text-lg font-normal tracking-[0.2em] text-white/85 sm:text-xl md:text-2xl">
+            <h1 className="mt-4 font-display text-[2.65rem] leading-[1.02] tracking-[0.04em] text-white sm:text-5xl md:text-6xl lg:text-7xl">
+              <span className="block text-base font-normal tracking-[0.22em] text-white/85 sm:text-xl md:text-2xl">
                 Welcome to
               </span>
-              <span className="mt-1 block">ANVI GRAND</span>
+              <span className="mt-2 block">ANVI GRAND</span>
             </h1>
-            <p className="mt-4 max-w-md font-sans text-base text-[var(--ag-gold-soft)] sm:text-lg">
+            <p className="mt-4 max-w-md font-display text-lg text-[var(--ag-gold-soft)] sm:text-xl">
               Experience Luxury & Comfort
             </p>
-            <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/80 md:text-base">
+            <p className="mt-3 max-w-lg text-[13px] leading-relaxed text-white/80 sm:text-sm md:text-base">
               Hotel stays, banquet celebrations, and IRAA Dine — near Benz Circle,
               Eluru Road. Call{" "}
               <a
@@ -53,25 +54,26 @@ export function Hero({
                 {phone}
               </a>
             </p>
-            <div className="mt-7 flex flex-wrap gap-3">
+            <div className="mt-8 flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap">
               <Link
                 href="/book"
-                className="inline-flex h-11 items-center justify-center bg-[var(--ag-gold)] px-6 text-sm font-semibold tracking-wide text-[var(--ag-red-deep)] transition hover:bg-[var(--ag-gold-soft)]"
+                className="inline-flex h-12 w-full items-center justify-center bg-[var(--ag-gold)] px-6 text-sm font-semibold tracking-wide text-[var(--ag-red-deep)] transition hover:bg-[var(--ag-gold-soft)] sm:w-auto"
               >
                 Book Your Stay
               </Link>
               <Link
                 href="/banquet"
-                className="inline-flex h-11 items-center justify-center border border-white/70 bg-transparent px-6 text-sm font-semibold tracking-wide text-white transition hover:border-[var(--ag-gold)] hover:text-[var(--ag-gold-soft)]"
+                className="inline-flex h-12 w-full items-center justify-center border border-white/70 bg-transparent px-6 text-sm font-semibold tracking-wide text-white transition hover:border-[var(--ag-gold)] hover:text-[var(--ag-gold-soft)] sm:w-auto"
               >
                 Plan an Event
               </Link>
             </div>
           </div>
 
+          {/* Desktop: IRAA opposite Welcome. Mobile: compact strip under brand (no side zigzag) */}
           <Link
             href="/food"
-            className="animate-drift-delay flex shrink-0 flex-col items-center gap-2 text-center"
+            className="animate-drift-delay flex w-full flex-row items-center gap-3 border-t border-white/15 pt-5 md:w-auto md:shrink-0 md:flex-col md:items-center md:gap-2 md:border-0 md:pt-0 md:text-center"
             aria-label={`${brand} — open dining menu`}
           >
             <Image
@@ -79,22 +81,22 @@ export function Hero({
               alt=""
               width={72}
               height={72}
-              className="h-14 w-14 drop-shadow-[0_6px_18px_rgba(0,0,0,0.55)] md:h-[4.5rem] md:w-[4.5rem]"
+              className="h-12 w-12 drop-shadow-[0_6px_18px_rgba(0,0,0,0.55)] md:h-[4.5rem] md:w-[4.5rem]"
               unoptimized
               priority
             />
-            <span>
-              <span className="block font-display text-lg tracking-[0.16em] text-white md:text-xl">
+            <span className="flex flex-col md:items-center">
+              <span className="font-display text-xl tracking-[0.16em] text-white md:text-xl">
                 IRAA
               </span>
-              <span className="mt-1 block text-[10px] font-semibold uppercase tracking-[0.34em] text-[var(--ag-gold)]">
+              <span className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.34em] text-[var(--ag-gold)]">
                 Dine
               </span>
             </span>
           </Link>
         </div>
 
-        <div className="animate-drift mt-10 flex flex-wrap items-end justify-between gap-4 border-t border-white/20 pt-5 text-xs uppercase tracking-[0.18em] text-white/70 md:mt-0">
+        <div className="animate-drift mt-8 flex flex-col gap-3 border-t border-white/20 pt-5 text-[10px] uppercase tracking-[0.2em] text-white/70 sm:mt-10 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4 sm:text-xs sm:tracking-[0.18em] md:mt-0">
           <p>Rooms · Banquet · Party Hall · IRAA Dine</p>
           <Link href="/gallery" className="text-[var(--ag-gold-soft)] hover:text-white">
             View gallery →

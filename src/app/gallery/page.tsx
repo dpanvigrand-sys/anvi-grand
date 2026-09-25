@@ -72,7 +72,7 @@ export default async function GalleryPage() {
           near Benz Circle.
         </p>
       ) : (
-        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-10 grid gap-5 md:grid-cols-2 lg:grid-cols-3">
           {shots.map((shot) => (
             <figure
               key={`${shot.group}-${shot.label}-${shot.src}`}

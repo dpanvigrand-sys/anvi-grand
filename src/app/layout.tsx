@@ -51,8 +51,9 @@ export default async function RootLayout({
           receptionPhone={phones.reception}
           roomsPhone={phones.rooms}
           foodPhone={phones.food}
-          email={hotel.email}
+          email={hotel.email || "dpanvigrand@gmail.com"}
           address={hotel.address}
+          website="https://www.stayanvigrand.com"
         />
         <StickyLocationMark address={hotel.address} />
       </body>

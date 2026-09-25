@@ -36,9 +36,9 @@ export default async function RoomsPage() {
                 <Link href={`/rooms/${room.id}`} className="relative block aspect-[4/3] overflow-hidden">
                   <Image src={room.image} alt={room.name} fill className="object-cover" sizes="(max-width:768px) 100vw, 50vw" unoptimized={isUploadSrc(room.image)} />
                 </Link>
-                <div className="mt-4 flex items-baseline justify-between gap-3">
-                  <h2 className="font-display text-3xl text-[var(--ag-ink)]"><Link href={`/rooms/${room.id}`}>{room.name}</Link></h2>
-                  <p className="text-sm text-[var(--ag-muted)]">{formatINR(room.pricePerNight)}/night</p>
+                <div className="mt-4 flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-3">
+                  <h2 className="font-display text-2xl text-[var(--ag-ink)] sm:text-3xl"><Link href={`/rooms/${room.id}`}>{room.name}</Link></h2>
+                  <p className="shrink-0 text-sm text-[var(--ag-muted)]">{formatINR(room.pricePerNight)}/night</p>
                 </div>
                 <p className="mt-2 text-sm text-[var(--ag-muted)]">{room.tagline}</p>
               </article>
