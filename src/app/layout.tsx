@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces, Outfit } from "next/font/google";
+import { OpeningShortlyPopup } from "@/components/anvi/opening-shortly-popup";
 import { SiteFooter } from "@/components/anvi/site-footer";
 import { SiteHeader } from "@/components/anvi/site-header";
 import { StickyLocationMark } from "@/components/anvi/sticky-location-mark";
@@ -56,6 +57,13 @@ export default async function RootLayout({
           website="https://www.stayanvigrand.com"
         />
         <StickyLocationMark address={hotel.address} />
+        <OpeningShortlyPopup
+          enabled={Boolean(hotel.openingPopupEnabled)}
+          title={hotel.openingPopupTitle}
+          message={hotel.openingPopupMessage}
+          phone={phones.reception}
+          hotelName={hotel.name}
+        />
       </body>
     </html>
   );

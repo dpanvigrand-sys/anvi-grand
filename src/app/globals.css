@@ -162,6 +162,21 @@
   animation: drift 0.85s ease-out 0.1s both;
 }
 
+@keyframes opening-pop {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.animate-opening-pop {
+  animation: opening-pop 0.42s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 .animate-counter-toast-in {
   animation: counter-toast-in 0.35s ease-out both;
 }

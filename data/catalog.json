@@ -11,7 +11,10 @@
     "foodLogo": "/logos/iraa-mark.svg",
     "roomsPhone": "7569494949",
     "foodPhone": "7569494949",
-    "receptionPhone": "7569494949"
+    "receptionPhone": "7569494949",
+    "openingPopupEnabled": true,
+    "openingPopupTitle": "Opening Shortly",
+    "openingPopupMessage": "ANVI GRAND near Benz Circle is getting ready for you — rooms, banquet celebrations, and IRAA Dine. Call reception to reserve your stay."
   },
   "rooms": [
     {

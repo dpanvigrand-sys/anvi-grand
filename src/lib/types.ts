@@ -15,6 +15,12 @@ export type HotelInfo = {
   foodPhone?: string;
   /** Reception / front desk — header, footer, contact */
   receptionPhone?: string;
+  /** Guest site “Opening shortly” popup — on/off */
+  openingPopupEnabled?: boolean;
+  /** Popup headline (default: Opening Shortly) */
+  openingPopupTitle?: string;
+  /** Popup body copy */
+  openingPopupMessage?: string;
 };
 
 export type Room = {
