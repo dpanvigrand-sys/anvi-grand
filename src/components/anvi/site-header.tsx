@@ -38,20 +38,8 @@ export function SiteHeader({ receptionPhone = "7569494949" }: Props) {
     <header className="sticky top-0 z-50 bg-[var(--ag-red)] text-white shadow-[0_2px_24px_rgba(60,0,0,0.35)]">
       <div className="h-[2px] bg-[linear-gradient(90deg,#6b0000,#d4af37,#6b0000)]" />
       <div className="border-b border-white/10">
-        <div className="relative mx-auto flex w-full max-w-6xl items-center gap-2 px-5 py-2 text-[10px] tracking-[0.12em] text-white/75 sm:text-[11px] sm:tracking-[0.14em] md:px-8">
+        <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-5 py-1.5 text-[10px] tracking-[0.12em] text-white/75 sm:gap-3 sm:py-2 sm:text-[11px] sm:tracking-[0.14em] md:px-8">
           <span className="hidden min-w-[7rem] shrink-0 sm:inline">Vijayawada</span>
-          <Link
-            href="/"
-            className="relative z-10 mx-auto flex min-w-0 justify-center sm:absolute sm:left-1/2 sm:top-1/2 sm:-translate-x-1/2 sm:-translate-y-1/2"
-            aria-label="Badizo"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src="/logos/badizo.png"
-              alt="Badizo"
-              className="h-6 w-auto max-w-[120px] object-contain sm:h-8 sm:max-w-[170px]"
-            />
-          </Link>
           <a
             href={`tel:${phone}`}
             className="ml-auto shrink-0 font-medium text-[var(--ag-gold-soft)] hover:text-white"
@@ -59,6 +47,19 @@ export function SiteHeader({ receptionPhone = "7569494949" }: Props) {
             <span className="sm:hidden">{phone}</span>
             <span className="hidden sm:inline">Reception {phone}</span>
           </a>
+          {/* Tiny Badizo — top-right, white border; does not compete with ANVI GRAND */}
+          <Link
+            href="/"
+            aria-label="Badizo"
+            className="shrink-0 rounded-[2px] border border-white bg-transparent p-[2px] leading-none"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/logos/badizo.png"
+              alt="Badizo"
+              className="h-3.5 w-auto max-w-[52px] object-contain sm:h-4 sm:max-w-[60px]"
+            />
+          </Link>
         </div>
       </div>
       <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-5 py-3 md:gap-4 md:px-8">
