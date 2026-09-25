@@ -37,17 +37,17 @@ export default async function HomePage() {
       />
 
       {/* Official intro */}
-      <section className="border-b border-[var(--ag-line)] bg-white py-12 md:py-16">
-        <div className="mx-auto grid max-w-6xl gap-5 px-5 md:grid-cols-[1.2fr_1fr] md:items-end md:gap-8 md:px-8">
+      <section className="border-b border-[var(--ag-line)] bg-white py-11 md:py-16">
+        <div className="mx-auto grid max-w-6xl gap-4 px-5 md:grid-cols-[1.2fr_1fr] md:items-end md:gap-8 md:px-8">
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[var(--ag-red)]">
               Hotel Anvi Grand
             </p>
-            <h2 className="mt-3 font-display text-[1.85rem] leading-tight text-[var(--ag-ink)] sm:text-3xl md:text-4xl">
+            <h2 className="mt-3 font-display text-[1.9rem] leading-[1.15] text-[var(--ag-ink)] sm:text-3xl md:text-4xl">
               A landmark stay near Benz Circle
             </h2>
           </div>
-          <p className="text-sm leading-relaxed text-[var(--ag-muted)] md:text-base">
+          <p className="text-[15px] leading-relaxed text-[var(--ag-muted)] md:text-base">
             Quiet rooms, celebration halls, and IRAA Dine under one roof —
             crafted for business travellers, families, and festive gatherings in
             Vijayawada.
@@ -56,14 +56,14 @@ export default async function HomePage() {
       </section>
 
       {/* Offerings */}
-      <section className="bg-[linear-gradient(180deg,#faf8f6_0%,#f3f1ef_100%)] py-12 md:py-20">
+      <section className="bg-[linear-gradient(180deg,#faf8f6_0%,#f3f1ef_100%)] py-11 md:py-20">
         <div className="mx-auto w-full max-w-6xl px-5 md:px-8">
-          <div className="mb-8 flex flex-col gap-3 md:mb-10 md:flex-row md:flex-wrap md:items-end md:justify-between md:gap-4">
+          <div className="mb-7 flex flex-col gap-2 md:mb-10 md:flex-row md:flex-wrap md:items-end md:justify-between md:gap-4">
             <div>
               <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[var(--ag-red)]">
                 Stay & celebrate
               </p>
-              <h2 className="mt-2 font-display text-[1.85rem] text-[var(--ag-ink)] sm:text-3xl md:text-4xl">
+              <h2 className="mt-2 font-display text-[1.9rem] text-[var(--ag-ink)] sm:text-3xl md:text-4xl">
                 Our signature spaces
               </h2>
             </div>
@@ -75,7 +75,7 @@ export default async function HomePage() {
             </Link>
           </div>
 
-          <div className="grid gap-10 md:grid-cols-3 md:gap-8">
+          <div className="grid gap-9 md:grid-cols-3 md:gap-8">
             {stayRoom && (
               <article className="group">
                 <div className="relative aspect-[4/5] overflow-hidden">
@@ -161,7 +161,7 @@ export default async function HomePage() {
             <p className="text-[11px] font-semibold uppercase tracking-[0.28em] text-[var(--ag-red)]">
               Dining
             </p>
-            <h2 className="mt-2 font-display text-[1.85rem] text-[var(--ag-ink)] sm:text-3xl md:text-4xl">
+            <h2 className="mt-2 font-display text-[1.9rem] text-[var(--ag-ink)] sm:text-3xl md:text-4xl">
               IRAA Dine
             </h2>
             <p className="mt-3 text-[var(--ag-muted)]">

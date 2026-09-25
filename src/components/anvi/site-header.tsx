@@ -65,19 +65,19 @@ export function SiteHeader({ receptionPhone = "7569494949" }: Props) {
           </Link>
         </div>
       </div>
-      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-5 py-3 md:gap-4 md:px-8">
+      <div className="mx-auto flex w-full max-w-6xl items-center justify-between gap-3 px-5 py-2.5 md:gap-4 md:px-8 md:py-3">
         <Link href="/" className="flex min-w-0 items-center gap-2.5 sm:gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logos/ag-mark.svg"
             alt=""
-            className="h-10 w-10 shrink-0 ring-1 ring-[var(--ag-gold)]/50 sm:h-11 sm:w-11"
+            className="h-9 w-9 shrink-0 ring-1 ring-[var(--ag-gold)]/50 sm:h-11 sm:w-11"
           />
           <span className="flex min-w-0 flex-col leading-none">
-            <span className="font-display text-base tracking-[0.14em] text-white sm:text-lg md:text-xl">
+            <span className="font-display text-[0.95rem] tracking-[0.14em] text-white sm:text-lg md:text-xl">
               ANVI GRAND
             </span>
-            <span className="mt-1 truncate text-[9px] uppercase tracking-[0.2em] text-[var(--ag-gold-soft)] sm:text-[10px] sm:tracking-[0.22em]">
+            <span className="mt-1 truncate text-[8px] uppercase tracking-[0.2em] text-[var(--ag-gold-soft)] sm:text-[10px] sm:tracking-[0.22em]">
               Hotel & Celebrations
             </span>
           </span>

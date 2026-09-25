@@ -21,9 +21,9 @@ export function StickyLocationMark({
       rel="noopener noreferrer"
       aria-label={`Open map — ${address}`}
       title={address}
-      className="fixed bottom-5 right-5 z-[70] flex h-14 w-14 items-center justify-center rounded-full bg-[var(--ag-red)] text-white shadow-[0_8px_24px_rgba(90,0,0,0.35)] ring-2 ring-[var(--ag-gold)]/70 transition hover:scale-105 hover:bg-[var(--ag-maroon)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ag-gold)] md:bottom-7 md:right-7 md:h-16 md:w-16"
+      className="fixed bottom-5 right-5 z-[70] flex h-12 w-12 items-center justify-center rounded-full bg-[var(--ag-red)] text-white shadow-[0_8px_24px_rgba(90,0,0,0.35)] ring-2 ring-[var(--ag-gold)]/70 transition hover:scale-105 hover:bg-[var(--ag-maroon)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--ag-gold)] md:bottom-7 md:right-7 md:h-16 md:w-16"
     >
-      <MapPin className="h-7 w-7 md:h-8 md:w-8" strokeWidth={2.25} aria-hidden />
+      <MapPin className="h-6 w-6 md:h-8 md:w-8" strokeWidth={2.25} aria-hidden />
       <span className="sr-only">Location — open in Google Maps</span>
     </a>
   );
