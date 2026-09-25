@@ -47,17 +47,17 @@ export function SiteHeader({ receptionPhone = "7569494949" }: Props) {
             <span className="sm:hidden">{phone}</span>
             <span className="hidden sm:inline">Reception {phone}</span>
           </a>
-          {/* Tiny Badizo — top-right only; chala chinnaga, white border, no brand dominate */}
+          {/* Tiny Badizo — top-right; white logo background, small, no brand dominate */}
           <Link
             href="/"
             aria-label="Badizo"
-            className="shrink-0 rounded-[1px] border border-white/95 bg-transparent p-px leading-none"
+            className="shrink-0 rounded-[1px] border border-white bg-white p-0.5 leading-none"
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src="/logos/badizo.png"
               alt="Badizo"
-              className="h-3 w-auto max-w-[40px] object-contain sm:h-3.5 sm:max-w-[48px]"
+              className="h-3 w-auto max-w-[40px] bg-white object-contain sm:h-3.5 sm:max-w-[48px]"
             />
           </Link>
         </div>
