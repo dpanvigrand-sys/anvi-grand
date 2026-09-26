@@ -24,6 +24,15 @@ App: [http://127.0.0.1:3947](http://127.0.0.1:3947)
 npm run build && npm start
 ```
 
+### Photos (add / edit images) — localhost first
+
+1. Open [http://127.0.0.1:3947/ops/admin/photos?unlock=anviops2026](http://127.0.0.1:3947/ops/admin/photos?unlock=anviops2026) (password `anviops2026`)
+2. **Choose from computer** → pick website place (Home hero / room / gallery) → upload  
+   Local disk is writable — **no GitHub PAT needed** for localhost.
+3. Confirm on guest `/`, `/gallery`, `/rooms`.
+
+Optional env template: `.env.example` (copy to `.env.local` only if you need tokens later).  
+When ready for **www**, set `ANVI_GITHUB_TOKEN` and run `bash scripts/push-github-main.sh` (then revoke the PAT).
 ## Standing rule — auto-open after every update
 
 **HARD RULE:** After any update, agent MUST run `npm run live:refresh` before finishing. Failure = incomplete. User presses nothing.
