@@ -1,11 +1,23 @@
 import Link from "next/link";
 import { PhotoManager } from "@/components/ops/photo-manager";
 import { getMedia } from "@/lib/media";
+import type { MediaItem } from "@/lib/media-types";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminPhotosPage() {
-  const items = await getMedia({ sync: true });
+  let items: MediaItem[] = [];
+  try {
+    items = await getMedia({ sync: true });
+  } catch (err) {
+    console.error("[photos] getMedia sync failed:", err);
+    try {
+      items = await getMedia({ sync: false });
+    } catch (err2) {
+      console.error("[photos] getMedia fallback failed:", err2);
+      items = [];
+    }
+  }
 
   return (
     <div>

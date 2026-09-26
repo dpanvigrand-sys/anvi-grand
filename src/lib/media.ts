@@ -258,8 +258,13 @@ export async function getMedia(opts?: {
   const { unstable_noStore: noStore } = await import("next/cache");
   noStore();
   if (opts?.sync) {
-    const { items } = await syncSiteMedia();
-    return items;
+    try {
+      const { items } = await syncSiteMedia();
+      return items;
+    } catch (err) {
+      console.warn("[media] syncSiteMedia failed; falling back to store:", err);
+      return (await readStore()).items;
+    }
   }
   return (await readStore()).items;
 }
