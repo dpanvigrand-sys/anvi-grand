@@ -39,12 +39,17 @@ async function readStore(): Promise<MediaStore> {
 }
 
 async function writeStore(store: MediaStore): Promise<void> {
-  await fs.mkdir(dataDir, { recursive: true });
-  await fs.writeFile(
-    path.join(dataDir, mediaFile),
-    JSON.stringify(store, null, 2),
-    "utf8",
-  );
+  try {
+    await fs.mkdir(dataDir, { recursive: true });
+    await fs.writeFile(
+      path.join(dataDir, mediaFile),
+      JSON.stringify(store, null, 2),
+      "utf8",
+    );
+  } catch (err) {
+    // Vercel / read-only hosts: still serve the in-memory library
+    console.warn("[media] writeStore skipped:", err);
+  }
 }
 
 /**
