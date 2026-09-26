@@ -1,12 +1,36 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { MediaItem } from "@/lib/media-types";
 import { websitePlace } from "@/lib/media-place";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
+const DATA_TOKEN_KEY = "anvi-data-token";
+
+function readDataToken(): string {
+  try {
+    return sessionStorage.getItem(DATA_TOKEN_KEY) || "";
+  } catch {
+    return "";
+  }
+}
+
+function writeDataToken(token: string) {
+  try {
+    if (token.trim()) sessionStorage.setItem(DATA_TOKEN_KEY, token.trim());
+    else sessionStorage.removeItem(DATA_TOKEN_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function mediaHeaders(): HeadersInit {
+  const token = readDataToken();
+  return token ? { "x-anvi-data-token": token } : {};
+}
 
 const GROUPS: MediaItem["group"][] = [
   "Gallery",
@@ -78,6 +102,11 @@ export function PhotoManager({ initialItems }: Props) {
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
+  const [dataToken, setDataToken] = useState("");
+
+  useEffect(() => {
+    setDataToken(readDataToken());
+  }, []);
   const [error, setError] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editLabel, setEditLabel] = useState("");
@@ -188,6 +217,7 @@ export function PhotoManager({ initialItems }: Props) {
     setError("");
     setMessage("");
     try {
+      writeDataToken(dataToken);
       const fd = new FormData();
       if (file) fd.set("file", file);
       if (url.trim()) fd.set("src", url.trim());
@@ -195,7 +225,12 @@ export function PhotoManager({ initialItems }: Props) {
       fd.set("group", group);
       if (slot) fd.set("slot", slot);
       if (catalogKey) fd.set("catalogKey", catalogKey);
-      const res = await fetch("/api/ops/media", { method: "POST", body: fd });
+      if (dataToken.trim()) fd.set("dataToken", dataToken.trim());
+      const res = await fetch("/api/ops/media", {
+        method: "POST",
+        body: fd,
+        headers: mediaHeaders(),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Upload failed");
       const saved = data.item as MediaItem;
@@ -212,8 +247,8 @@ export function PhotoManager({ initialItems }: Props) {
       clearSelectedFile();
       setMessage(
         saved.catalogKey
-          ? `Uploaded — live on ${websitePlace(saved)}. Hard-refresh guest pages to confirm.`
-          : "Photo uploaded to the gallery library (/gallery).",
+          ? `Uploaded — live on ${websitePlace(saved)}. Vercel may take ~1–2 min to show the new file; then hard-refresh guest pages.`
+          : "Photo uploaded to the gallery library (/gallery). Live deploy may take ~1–2 min.",
       );
       router.refresh();
     } catch (err) {
@@ -231,7 +266,7 @@ export function PhotoManager({ initialItems }: Props) {
     try {
       const res = await fetch("/api/ops/media/sync", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...mediaHeaders() },
         body: JSON.stringify({ force }),
       });
       const data = await res.json();
@@ -264,7 +299,10 @@ export function PhotoManager({ initialItems }: Props) {
     setError("");
     setMessage("");
     try {
-      const res = await fetch(`/api/ops/media/${id}`, { method: "DELETE" });
+      const res = await fetch(`/api/ops/media/${id}`, {
+        method: "DELETE",
+        headers: mediaHeaders(),
+      });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Delete failed");
       setItems((prev) => prev.filter((i) => i.id !== id));
@@ -310,11 +348,18 @@ export function PhotoManager({ initialItems }: Props) {
         const slotVal = slotForPlace(editCatalogKey);
         if (slotVal) fd.set("slot", slotVal);
         if (editSrc.trim()) fd.set("src", editSrc.trim());
-        res = await fetch(`/api/ops/media/${id}`, { method: "PATCH", body: fd });
-      } else {
+        writeDataToken(dataToken);
+        if (dataToken.trim()) fd.set("dataToken", dataToken.trim());
         res = await fetch(`/api/ops/media/${id}`, {
           method: "PATCH",
-          headers: { "Content-Type": "application/json" },
+          body: fd,
+          headers: mediaHeaders(),
+        });
+      } else {
+        writeDataToken(dataToken);
+        res = await fetch(`/api/ops/media/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...mediaHeaders() },
           body: JSON.stringify({
             label: editLabel,
             group: editGroup,
@@ -369,6 +414,47 @@ export function PhotoManager({ initialItems }: Props) {
         >
           {busy && !uploading ? "Working…" : "Sync from website"}
         </Button>
+      </div>
+
+      <div className="border border-[var(--ag-gold)]/50 bg-[#fffaf0] p-4">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[var(--ag-red)]">
+          Live save token (www only)
+        </p>
+        <p className="mt-1 text-sm text-[var(--ag-muted)]">
+          On stayanvigrand.com the disk is read-only. Paste a classic GitHub PAT
+          with <strong>repo</strong> once so uploads commit to the repo (then
+          Vercel redeploys). Token stays in this browser tab only — delete the
+          PAT after you finish.
+        </p>
+        <div className="mt-3 flex flex-wrap items-end gap-3">
+          <div className="grid min-w-[220px] flex-1 gap-1">
+            <Label htmlFor="data-token">GitHub PAT</Label>
+            <Input
+              id="data-token"
+              type="password"
+              autoComplete="off"
+              className="rounded-none"
+              placeholder="ghp_…"
+              value={dataToken}
+              onChange={(e) => setDataToken(e.target.value)}
+            />
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="h-9 rounded-none"
+            onClick={() => {
+              writeDataToken(dataToken);
+              setMessage(
+                dataToken.trim()
+                  ? "Live save token stored for this tab. Try Upload now."
+                  : "Live save token cleared.",
+              );
+            }}
+          >
+            Save token
+          </Button>
+        </div>
       </div>
 
       <form

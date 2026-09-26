@@ -39,16 +39,19 @@ async function readStore(): Promise<MediaStore> {
 }
 
 async function writeStore(store: MediaStore): Promise<void> {
+  const body = JSON.stringify(store, null, 2);
   try {
     await fs.mkdir(dataDir, { recursive: true });
-    await fs.writeFile(
-      path.join(dataDir, mediaFile),
-      JSON.stringify(store, null, 2),
-      "utf8",
-    );
+    await fs.writeFile(path.join(dataDir, mediaFile), body, "utf8");
+    return;
   } catch (err) {
-    // Vercel / read-only hosts: still serve the in-memory library
-    console.warn("[media] writeStore skipped:", err);
+    const { isReadonlyFsError, upsertGithubFile } = await import("./github-data");
+    if (!isReadonlyFsError(err)) throw err;
+    await upsertGithubFile(
+      `data/${mediaFile}`,
+      body,
+      "chore(cms): update media library",
+    );
   }
 }
 
@@ -277,15 +280,24 @@ export async function getMediaBySlot(
 }
 
 async function persistUploadedFile(fileName: string, bytes: Buffer): Promise<{ id: string; src: string; diskName: string }> {
-  await fs.mkdir(uploadsDir, { recursive: true });
   const safe = fileName
     .toLowerCase()
     .replace(/[^a-z0-9._-]+/g, "-")
     .replace(/-+/g, "-");
   const id = uid("media");
   const diskName = `${id}-${safe}`;
-  await fs.writeFile(path.join(uploadsDir, diskName), bytes);
-  return { id, src: `/uploads/${diskName}`, diskName };
+  const rel = `public/uploads/${diskName}`;
+  const src = `/uploads/${diskName}`;
+  try {
+    await fs.mkdir(uploadsDir, { recursive: true });
+    await fs.writeFile(path.join(uploadsDir, diskName), bytes);
+    return { id, src, diskName };
+  } catch (err) {
+    const { isReadonlyFsError, upsertGithubFile } = await import("./github-data");
+    if (!isReadonlyFsError(err)) throw err;
+    await upsertGithubFile(rel, bytes, `chore(cms): upload ${diskName}`);
+    return { id, src, diskName };
+  }
 }
 
 export async function addMedia(input: {

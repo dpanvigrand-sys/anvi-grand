@@ -61,8 +61,15 @@ async function readJson<T>(file: string, fallback: T): Promise<T> {
 }
 
 async function writeJson<T>(file: string, data: T): Promise<void> {
-  await fs.mkdir(dataDir, { recursive: true });
-  await fs.writeFile(path.join(dataDir, file), JSON.stringify(data, null, 2), "utf8");
+  const body = JSON.stringify(data, null, 2);
+  try {
+    await fs.mkdir(dataDir, { recursive: true });
+    await fs.writeFile(path.join(dataDir, file), body, "utf8");
+  } catch (err) {
+    const { isReadonlyFsError, upsertGithubFile } = await import("./github-data");
+    if (!isReadonlyFsError(err)) throw err;
+    await upsertGithubFile(`data/${file}`, body, `chore(cms): update ${file}`);
+  }
 }
 
 async function getOpsStore(): Promise<OpsStore> {

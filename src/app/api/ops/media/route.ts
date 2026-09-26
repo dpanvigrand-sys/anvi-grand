@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { runWithDataToken } from "@/lib/github-data";
 import { addMedia, getMedia, type MediaItem } from "@/lib/media";
 
 export const runtime = "nodejs";
@@ -19,6 +20,15 @@ const SLOTS: Array<NonNullable<MediaItem["slot"]>> = [
   "gallery",
 ];
 
+function tokenFrom(req: Request, form?: FormData): string | undefined {
+  return (
+    form?.get("dataToken")?.toString().trim() ||
+    req.headers.get("x-anvi-data-token")?.trim() ||
+    req.headers.get("x-github-token")?.trim() ||
+    undefined
+  );
+}
+
 export async function GET() {
   const items = await getMedia();
   return NextResponse.json({ items });
@@ -27,76 +37,78 @@ export async function GET() {
 export async function POST(req: Request) {
   try {
     const form = await req.formData();
-    const file = form.get("file");
-    const label = String(form.get("label") || "");
-    const groupRaw = String(form.get("group") || "Gallery");
-    const slotRaw = String(form.get("slot") || "");
-    const srcRaw = String(form.get("src") || "").trim();
-    const catalogKeyRaw = String(form.get("catalogKey") || "").trim();
+    return await runWithDataToken(tokenFrom(req, form), async () => {
+      const file = form.get("file");
+      const label = String(form.get("label") || "");
+      const groupRaw = String(form.get("group") || "Gallery");
+      const slotRaw = String(form.get("slot") || "");
+      const srcRaw = String(form.get("src") || "").trim();
+      const catalogKeyRaw = String(form.get("catalogKey") || "").trim();
 
-    const hasFile = file instanceof File && file.size > 0;
-    if (!hasFile && !srcRaw) {
-      return NextResponse.json(
-        { error: "Provide an image file or image URL" },
-        { status: 400 },
-      );
-    }
-
-    if (hasFile) {
-      if (file.size <= 0) {
+      const hasFile = file instanceof File && file.size > 0;
+      if (!hasFile && !srcRaw) {
         return NextResponse.json(
-          { error: "Selected file is empty" },
+          { error: "Provide an image file or image URL" },
           { status: 400 },
         );
       }
-      if (file.size > 6 * 1024 * 1024) {
-        return NextResponse.json(
-          { error: "Image must be 6MB or smaller" },
-          { status: 400 },
-        );
-      }
-      const type = file.type || "";
-      const allowedMime = new Set([
-        "image/jpeg",
-        "image/jpg",
-        "image/png",
-        "image/webp",
-        "image/gif",
-      ]);
-      const extOk = /\.(jpe?g|png|webp|gif)$/i.test(file.name || "");
-      const mimeOk = !type || allowedMime.has(type);
-      if (!mimeOk && !extOk) {
-        return NextResponse.json(
-          { error: "Only JPG, PNG, WebP, or GIF images are allowed" },
-          { status: 400 },
-        );
-      }
-      if (type && !type.startsWith("image/")) {
-        return NextResponse.json(
-          { error: "Only image uploads are allowed" },
-          { status: 400 },
-        );
-      }
-    }
 
-    const group = GROUPS.includes(groupRaw as MediaItem["group"])
-      ? (groupRaw as MediaItem["group"])
-      : "Gallery";
-    const slot = SLOTS.includes(slotRaw as NonNullable<MediaItem["slot"]>)
-      ? (slotRaw as NonNullable<MediaItem["slot"]>)
-      : undefined;
+      if (hasFile) {
+        if (file.size <= 0) {
+          return NextResponse.json(
+            { error: "Selected file is empty" },
+            { status: 400 },
+          );
+        }
+        if (file.size > 6 * 1024 * 1024) {
+          return NextResponse.json(
+            { error: "Image must be 6MB or smaller" },
+            { status: 400 },
+          );
+        }
+        const type = file.type || "";
+        const allowedMime = new Set([
+          "image/jpeg",
+          "image/jpg",
+          "image/png",
+          "image/webp",
+          "image/gif",
+        ]);
+        const extOk = /\.(jpe?g|png|webp|gif)$/i.test(file.name || "");
+        const mimeOk = !type || allowedMime.has(type);
+        if (!mimeOk && !extOk) {
+          return NextResponse.json(
+            { error: "Only JPG, PNG, WebP, or GIF images are allowed" },
+            { status: 400 },
+          );
+        }
+        if (type && !type.startsWith("image/")) {
+          return NextResponse.json(
+            { error: "Only image uploads are allowed" },
+            { status: 400 },
+          );
+        }
+      }
 
-    const item = await addMedia({
-      label: label || (hasFile ? file.name : "Photo"),
-      group,
-      slot,
-      catalogKey: catalogKeyRaw || undefined,
-      src: srcRaw || undefined,
-      fileName: hasFile ? file.name || "photo.jpg" : undefined,
-      bytes: hasFile ? Buffer.from(await file.arrayBuffer()) : undefined,
+      const group = GROUPS.includes(groupRaw as MediaItem["group"])
+        ? (groupRaw as MediaItem["group"])
+        : "Gallery";
+      const slot = SLOTS.includes(slotRaw as NonNullable<MediaItem["slot"]>)
+        ? (slotRaw as NonNullable<MediaItem["slot"]>)
+        : undefined;
+
+      const item = await addMedia({
+        label: label || (hasFile ? file.name : "Photo"),
+        group,
+        slot,
+        catalogKey: catalogKeyRaw || undefined,
+        src: srcRaw || undefined,
+        fileName: hasFile ? file.name || "photo.jpg" : undefined,
+        bytes: hasFile ? Buffer.from(await file.arrayBuffer()) : undefined,
+      });
+
+      return NextResponse.json({ item }, { status: 201 });
     });
-
-    return NextResponse.json({ item }, { status: 201 });
   } catch (err) {
     console.error("media upload failed", err);
     return NextResponse.json(

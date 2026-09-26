@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { runWithDataToken } from "@/lib/github-data";
 import {
   deleteCatalogItem,
   getCatalog,
@@ -10,6 +11,14 @@ import { uid } from "@/lib/format";
 
 export const runtime = "nodejs";
 
+function tokenFrom(req: Request): string | undefined {
+  return (
+    req.headers.get("x-anvi-data-token")?.trim() ||
+    req.headers.get("x-github-token")?.trim() ||
+    undefined
+  );
+}
+
 const LISTS = ["rooms", "venues", "menu", "buffets", "facilities"] as const;
 type ListKey = (typeof LISTS)[number];
 
@@ -19,6 +28,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+  return runWithDataToken(tokenFrom(req), async () => {
   try {
     const body = await req.json();
     const section = String(body.section || "");
@@ -125,6 +135,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Unhandled" }, { status: 400 });
   } catch (err) {
     console.error("catalog cms failed", err);
-    return NextResponse.json({ error: "Save failed" }, { status: 500 });
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Save failed" },
+      { status: 500 },
+    );
   }
+  });
 }
