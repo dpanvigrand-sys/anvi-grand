@@ -6,7 +6,7 @@
     "phone": "7569494949",
     "email": "dpanvigrand@gmail.com",
     "foodBrand": "IRAA Dine",
-    "heroImage": "/images/anvi-entrance.jpg",
+    "heroImage": "/uploads/media-muhplpawqqsl-buffe.jpg",
     "logo": "/logos/anvi-grand.svg",
     "foodLogo": "/logos/iraa-mark.svg",
     "roomsPhone": "7569494949",
@@ -82,7 +82,7 @@
         "Lounge",
         "Airport pickup"
       ],
-      "image": "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=1600&q=80",
+      "image": "",
       "available": true
     }
   ],
@@ -95,7 +95,7 @@
       "description": "Our flagship banquet at Anvi Grand — weddings, conferences, and grand receptions with stage, LED wall, bridal suite, and valet near Benz Circle.",
       "capacity": 550,
       "priceFrom": 55000,
-      "image": "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=1600&q=80",
+      "image": "/uploads/media-muhpcl9lb1e1-whatsapp-image-2026-09-12-at-5.21.07-pm-3-.jpeg",
       "amenities": [
         "AC",
         "Stage",
@@ -112,7 +112,7 @@
       "description": "A warm party hall for birthdays, engagements, and corporate evenings — stage, AC, and IRAA Dine catering on call.",
       "capacity": 150,
       "priceFrom": 20000,
-      "image": "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=1600&q=80",
+      "image": "/uploads/media-muhoyv60dz2i-whatsapp-image-2026-09-12-at-5.21.07-pm.jpeg",
       "amenities": [
         "AC",
         "Stage"
@@ -207,25 +207,25 @@
       "id": "pool",
       "name": "Rooftop Pool",
       "description": "Evening swims with city views—open 6 AM to 10 PM.",
-      "image": "https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=1200&q=80"
+      "image": ""
     },
     {
       "id": "spa",
       "name": "Wellness Spa",
       "description": "Massage and steam for guests after long road days.",
-      "image": "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=1200&q=80"
+      "image": ""
     },
     {
       "id": "gym",
       "name": "Fitness Centre",
       "description": "Cardio and free weights—24-hour access for in-house guests.",
-      "image": "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80"
+      "image": ""
     },
     {
       "id": "parking",
       "name": "Secure Parking",
       "description": "Valet and self-park near Benz Circle entrance.",
-      "image": "https://images.unsplash.com/photo-1506521781263-d8422e82f27a?auto=format&fit=crop&w=1200&q=80"
+      "image": ""
     }
   ]
 }

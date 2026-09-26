@@ -3,10 +3,11 @@
     {
       "id": "site-room-executive-red-suite",
       "src": "/uploads/media-mtycs4k8xbgg-whatsapp-image-proof-room.jpg",
-      "label": "Proof room photo",
+      "label": "Anvi Executive Red Suite",
       "group": "Rooms",
-      "createdAt": "2026-09-12T12:20:15.515Z",
-      "managedFile": true,
+      "slot": "gallery",
+      "createdAt": "2026-09-26T01:18:15.131Z",
+      "managedFile": false,
       "catalogKey": "room:executive-red-suite"
     },
     {
@@ -14,76 +15,69 @@
       "src": "/uploads/media-mubhdjiutswb-whatsapp-image-2026-09-07-at-4.27.55-am.jpeg",
       "label": "Executive Suite",
       "group": "Rooms",
-      "createdAt": "2026-09-12T10:19:57.951Z",
-      "managedFile": true,
-      "catalogKey": "room:executive-suite",
-      "slot": "room"
+      "slot": "gallery",
+      "createdAt": "2026-09-26T01:18:15.131Z",
+      "managedFile": false,
+      "catalogKey": "room:executive-suite"
     },
     {
       "id": "site-room-family-twin",
       "src": "/uploads/media-mubgsyzjr9pg-whatsapp-image-2026-09-12-at-5.21.07-pm-2-.jpeg",
       "label": "Family Twin",
       "group": "Rooms",
-      "createdAt": "2026-09-12T10:19:57.951Z",
-      "managedFile": true,
+      "slot": "gallery",
+      "createdAt": "2026-09-26T01:18:15.131Z",
+      "managedFile": false,
       "catalogKey": "room:family-twin"
     },
     {
-      "id": "site-room-grand-presidential",
-      "src": "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=1600&q=80",
-      "label": "Grand Presidential",
-      "group": "Rooms",
-      "createdAt": "2026-09-12T10:19:57.951Z",
-      "managedFile": false,
+      "id": "site-venue-royal-grand-ballroom",
+      "src": "/uploads/media-muhpcl9lb1e1-whatsapp-image-2026-09-12-at-5.21.07-pm-3-.jpeg",
+      "label": "Royal Grand Ballroom",
+      "group": "Venues",
       "slot": "gallery",
-      "catalogKey": "room:grand-presidential"
+      "createdAt": "2026-09-26T01:18:15.131Z",
+      "managedFile": true,
+      "catalogKey": "venue:royal-grand-ballroom"
     },
     {
       "id": "site-venue-imperial-ruby-mini",
-      "src": "https://images.unsplash.com/photo-1511795409834-ef04bbd61622?auto=format&fit=crop&w=1600&q=80",
+      "src": "/uploads/media-muhoyv60dz2i-whatsapp-image-2026-09-12-at-5.21.07-pm.jpeg",
       "label": "Imperial Ruby Mini Hall",
       "group": "Venues",
-      "createdAt": "2026-09-12T17:11:58.498Z",
+      "slot": "gallery",
+      "createdAt": "2026-09-26T01:18:15.131Z",
       "managedFile": false,
       "catalogKey": "venue:imperial-ruby-mini"
     },
     {
-      "id": "site-venue-royal-grand-ballroom",
-      "src": "https://images.unsplash.com/photo-1519167758481-83f550bb49b3?auto=format&fit=crop&w=1600&q=80",
-      "label": "Royal Grand Ballroom",
-      "group": "Venues",
-      "createdAt": "2026-09-12T17:11:58.479Z",
-      "managedFile": false,
-      "catalogKey": "venue:royal-grand-ballroom"
-    },
-    {
-      "id": "site-menu-chiguru-handi-biryani",
-      "src": "/uploads/media-mtycs4kqnso7-whatsapp-image-proof-food.jpg",
-      "label": "Proof food photo",
+      "id": "site-hero-entrance",
+      "src": "/uploads/media-muhplpawqqsl-buffe.jpg",
+      "label": "buffe",
       "group": "Food",
-      "slot": "food",
-      "createdAt": "2026-09-12T12:20:15.531Z",
+      "slot": "hero",
+      "createdAt": "2026-09-26T01:26:48.172Z",
       "managedFile": true,
-      "catalogKey": "menu:chiguru-handi-biryani"
+      "catalogKey": "hotel:hero"
     },
     {
-      "id": "site-food-panasa-pottu",
-      "src": "https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=800&q=80",
-      "label": "Panasa Pottu Biryani",
+      "id": "site-food-chiguru-handi-biryani",
+      "src": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=800&q=80",
+      "label": "Handi Biryani",
       "group": "Food",
       "slot": "gallery",
-      "createdAt": "2026-09-12T11:11:35.760Z",
+      "createdAt": "2026-09-26T01:18:15.131Z",
       "managedFile": false,
-      "catalogKey": "menu:panasa-pottu"
+      "catalogKey": "menu:chiguru-handi-biryani"
     },
     {
       "id": "site-food-gongura-mutton",
       "src": "https://images.unsplash.com/photo-1585937421612-70a008356fbe?auto=format&fit=crop&w=800&q=80",
       "label": "Gongura Mutton",
       "group": "Food",
-      "createdAt": "2026-09-12T10:19:57.951Z",
-      "managedFile": false,
       "slot": "gallery",
+      "createdAt": "2026-09-26T01:18:15.131Z",
+      "managedFile": false,
       "catalogKey": "menu:gongura-mutton"
     },
     {
@@ -91,19 +85,29 @@
       "src": "https://images.unsplash.com/photo-1565557623262-b51c2513a641?auto=format&fit=crop&w=800&q=80",
       "label": "Pesarattu & Upma",
       "group": "Food",
-      "createdAt": "2026-09-12T10:19:57.951Z",
-      "managedFile": false,
       "slot": "gallery",
+      "createdAt": "2026-09-26T01:18:15.131Z",
+      "managedFile": false,
       "catalogKey": "menu:pesarattu"
+    },
+    {
+      "id": "site-food-panasa-pottu",
+      "src": "https://images.unsplash.com/photo-1589302168068-964664d93dc0?auto=format&fit=crop&w=800&q=80",
+      "label": "Panasa Pottu Biryani",
+      "group": "Food",
+      "slot": "gallery",
+      "createdAt": "2026-09-26T01:18:15.131Z",
+      "managedFile": false,
+      "catalogKey": "menu:panasa-pottu"
     },
     {
       "id": "site-food-natu-kodi",
       "src": "https://images.unsplash.com/photo-1603894584373-5ac82b2ae958?auto=format&fit=crop&w=800&q=80",
       "label": "Natu Kodi Pulusu",
       "group": "Food",
-      "createdAt": "2026-09-12T10:19:57.951Z",
-      "managedFile": false,
       "slot": "gallery",
+      "createdAt": "2026-09-26T01:18:15.131Z",
+      "managedFile": false,
       "catalogKey": "menu:natu-kodi"
     },
     {
@@ -111,9 +115,9 @@
       "src": "https://images.unsplash.com/photo-1571115177098-24ec42ed204d?auto=format&fit=crop&w=800&q=80",
       "label": "Bobbattu",
       "group": "Food",
-      "createdAt": "2026-09-12T10:19:57.951Z",
-      "managedFile": false,
       "slot": "gallery",
+      "createdAt": "2026-09-26T01:18:15.131Z",
+      "managedFile": false,
       "catalogKey": "menu:bobbatlu"
     },
     {
@@ -121,9 +125,9 @@
       "src": "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?auto=format&fit=crop&w=800&q=80",
       "label": "Filter Coffee",
       "group": "Food",
-      "createdAt": "2026-09-12T10:19:57.951Z",
-      "managedFile": false,
       "slot": "gallery",
+      "createdAt": "2026-09-26T01:18:15.131Z",
+      "managedFile": false,
       "catalogKey": "menu:filter-coffee"
     },
     {
@@ -131,9 +135,9 @@
       "src": "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1400&q=80",
       "label": "Weekend Andhra Buffet",
       "group": "Food",
-      "createdAt": "2026-09-12T10:19:57.951Z",
-      "managedFile": false,
       "slot": "gallery",
+      "createdAt": "2026-09-26T01:18:15.131Z",
+      "managedFile": false,
       "catalogKey": "buffet:weekend-andhra"
     },
     {
@@ -141,97 +145,27 @@
       "src": "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?auto=format&fit=crop&w=1400&q=80",
       "label": "Executive Dinner Buffet",
       "group": "Food",
-      "createdAt": "2026-09-12T10:19:57.951Z",
-      "managedFile": false,
       "slot": "gallery",
+      "createdAt": "2026-09-26T01:18:15.131Z",
+      "managedFile": false,
       "catalogKey": "buffet:executive-dinner"
     },
     {
-      "id": "site-facility-pool",
-      "src": "https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?auto=format&fit=crop&w=1200&q=80",
-      "label": "Rooftop Pool",
-      "group": "Facilities",
-      "createdAt": "2026-09-12T10:19:57.951Z",
-      "managedFile": false,
-      "slot": "gallery",
-      "catalogKey": "facility:pool"
-    },
-    {
-      "id": "site-facility-spa",
-      "src": "https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=1200&q=80",
-      "label": "Wellness Spa",
-      "group": "Facilities",
-      "createdAt": "2026-09-12T10:19:57.951Z",
-      "managedFile": false,
-      "slot": "gallery",
-      "catalogKey": "facility:spa"
-    },
-    {
-      "id": "site-facility-gym",
-      "src": "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?auto=format&fit=crop&w=1200&q=80",
-      "label": "Fitness Centre",
-      "group": "Facilities",
-      "createdAt": "2026-09-12T10:19:57.951Z",
-      "managedFile": false,
-      "slot": "gallery",
-      "catalogKey": "facility:gym"
-    },
-    {
-      "id": "site-facility-parking",
-      "src": "https://images.unsplash.com/photo-1506521781263-d8422e82f27a?auto=format&fit=crop&w=1200&q=80",
-      "label": "Secure Parking",
-      "group": "Facilities",
-      "createdAt": "2026-09-12T10:19:57.951Z",
-      "managedFile": false,
-      "slot": "gallery",
-      "catalogKey": "facility:parking"
-    },
-    {
-      "id": "media-mu3yrrhekepi",
-      "src": "/uploads/media-mu3yrrhekepi-tiny-upload.png",
-      "label": "Public live proof",
+      "id": "media-muhpmlcaigcz",
+      "src": "/uploads/media-muhpmlcaigcz-buffe.jpg",
+      "label": "buffe",
       "group": "Gallery",
-      "createdAt": "2026-09-16T10:34:40.995Z",
+      "createdAt": "2026-09-26T01:27:29.694Z",
       "managedFile": true
     },
     {
-      "id": "media-mu3yrbibbx10",
-      "src": "/uploads/media-mu3yrbibbx10-tiny-upload.png",
-      "label": "Live deploy proof",
+      "id": "media-muhparmugtzx",
+      "src": "/uploads/media-muhparmugtzx-whatsapp-image-2026-09-12-at-5.21.07-pm-1-.jpeg",
+      "label": "WhatsApp Image 2026 09 12 at 5.21.07 PM (1)",
       "group": "Gallery",
-      "createdAt": "2026-09-16T10:34:20.292Z",
+      "createdAt": "2026-09-26T01:18:17.959Z",
       "managedFile": true
-    },
-    {
-      "id": "media-mu3yjlivwfnx",
-      "src": "/uploads/media-mu3yjsw8vh0h-local-upload-proof.png",
-      "label": "Posted from computer (replaced)",
-      "group": "Gallery",
-      "slot": "gallery",
-      "createdAt": "2026-09-16T10:28:20.024Z",
-      "managedFile": true
-    },
-    {
-      "id": "media-mu3yjlhlb2tf",
-      "src": "/uploads/media-mu3yjlhlb2tf-local-upload-proof.png",
-      "label": "Local system upload proof",
-      "group": "Gallery",
-      "slot": "gallery",
-      "createdAt": "2026-09-16T10:28:19.977Z",
-      "managedFile": true
-    },
-    {
-      "id": "site-hero-entrance",
-      "src": "/images/anvi-entrance.jpg",
-      "label": "ANVI GRAND night entrance",
-      "group": "Hotel",
-      "slot": "hero",
-      "createdAt": "2026-09-12T17:12:33.434Z",
-      "managedFile": true,
-      "catalogKey": "hotel:hero"
     }
   ],
-  "removedIds": [
-    "site-food-chiguru-handi-biryani"
-  ]
+  "removedIds": []
 }
