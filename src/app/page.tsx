@@ -30,7 +30,7 @@ export default async function HomePage() {
         receptionPhone={phones.reception}
         foodBrand={hotel.foodBrand}
         foodLogo={
-          hotel.foodLogo?.includes("airaa")
+          hotel.foodLogo?.includes("airaa") || hotel.foodLogo?.includes("iraa")
             ? "/logos/airaa-mark.svg"
             : hotel.foodLogo || "/logos/airaa-mark.svg"
         }
