@@ -21,6 +21,11 @@ export type HotelInfo = {
   openingPopupTitle?: string;
   /** Popup body copy */
   openingPopupMessage?: string;
+  /** Guest footer social profile URLs */
+  socialInstagram?: string;
+  socialFacebook?: string;
+  socialYoutube?: string;
+  socialX?: string;
 };
 
 export type Room = {

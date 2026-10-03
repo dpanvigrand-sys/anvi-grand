@@ -55,6 +55,10 @@ export default async function RootLayout({
           email={hotel.email || "dpanvigrand@gmail.com"}
           address={hotel.address}
           website="https://www.stayanvigrand.com"
+          socialInstagram={hotel.socialInstagram}
+          socialFacebook={hotel.socialFacebook}
+          socialYoutube={hotel.socialYoutube}
+          socialX={hotel.socialX}
         />
         <StickyLocationMark address={hotel.address} />
         <OpeningShortlyPopup

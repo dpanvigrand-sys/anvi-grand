@@ -14,7 +14,11 @@
     "receptionPhone": "7569494949",
     "openingPopupEnabled": true,
     "openingPopupTitle": "Opening Shortly",
-    "openingPopupMessage": "Rooms, banquet & AIRAA Dine near Benz Circle \u2014 call to reserve."
+    "openingPopupMessage": "Rooms, banquet & AIRAA Dine near Benz Circle \u2014 call to reserve.",
+    "socialInstagram": "https://www.instagram.com/stayanvigrand",
+    "socialFacebook": "https://www.facebook.com/stayanvigrand",
+    "socialYoutube": "https://www.youtube.com/@stayanvigrand",
+    "socialX": "https://x.com/stayanvigrand"
   },
   "rooms": [
     {
