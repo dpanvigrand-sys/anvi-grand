@@ -114,7 +114,8 @@ export async function getCatalog(): Promise<Catalog> {
     hotel: {
       name: "ANVI GRAND",
       tagline: "Grand stays on Eluru Road",
-      address: "Anvi Grand, near Benz Circle, Eluru Road, Vijayawada",
+      address:
+        "Anvi Grand, near Benz Circle, 54-15-1A, Beside Yalamanchili complex, Dr. Ramesh Hospital Road, Ring Rd, Vijayawada, Andhra Pradesh 520008",
       phone: "7569494949",
       email: "dpanvigrand@gmail.com",
       foodBrand: "IRAA Dine",

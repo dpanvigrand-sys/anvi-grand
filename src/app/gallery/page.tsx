@@ -64,7 +64,7 @@ export default async function GalleryPage() {
       </h1>
       <p className="mt-3 max-w-2xl text-[var(--ag-muted)]">
         Rooms, banquet halls, IRAA Dine spaces, and hotel facilities near
-        Benz Circle, Eluru Road, Vijayawada.
+        near Benz Circle, Ring Rd, Vijayawada.
       </p>
       {shots.length === 0 ? (
         <p className="mt-10 rounded-lg border border-[var(--ag-line)] bg-white px-6 py-16 text-center text-[var(--ag-muted)]">

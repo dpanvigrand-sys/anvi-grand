@@ -22,7 +22,7 @@ export default async function ContactPage() {
         </h1>
         <p className="mt-4 text-[var(--ag-muted)]">
           Questions on rooms, banquet, party hall, or IRAA Dine catering—call the
-          right desk or write to us near Benz Circle, Eluru Road.
+          right desk or write to us near Benz Circle, Ring Road.
         </p>
         <div className="mt-8 space-y-4 text-sm text-[var(--ag-ink)]">
           <p>
@@ -89,7 +89,7 @@ export default async function ContactPage() {
             <MapEmbed className="h-full min-h-[220px] sm:min-h-[280px]" />
           </div>
           <a
-            href="https://maps.app.goo.gl/F5K19Sff5QfKbEZs5"
+            href="https://www.google.com/maps?q=16.506605130133785,80.66238515786827"
             target="_blank"
             rel="noopener noreferrer"
             className="block bg-[var(--ag-red)] px-4 py-3 text-center text-sm font-semibold text-white hover:bg-[var(--ag-red-deep)]"

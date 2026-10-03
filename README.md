@@ -6,7 +6,8 @@ Full-stack hotel website for **ANVI GRAND** (Vijayawada) with **IRAA Dine** dini
 
 - Hotel: ANVI GRAND  
 - Restaurant: IRAA  
-- Address: Anvi Grand, near Benz Circle, Eluru Road, Vijayawada  
+- Address: Anvi Grand, near Benz Circle, 54-15-1A, Beside Yalamanchili complex, Dr. Ramesh Hospital Road, Ring Rd, Vijayawada, Andhra Pradesh 520008  
+- Map: https://www.google.com/maps?q=16.506605130133785,80.66238515786827
 - Phone: [7569494949](tel:7569494949)  
 - Theme: red / chocolate brown / maroon / white  
 - Logos: `public/logos/anvi-grand.svg`, `public/logos/iraa.svg`

@@ -3,11 +3,12 @@
 import { MapPin } from "lucide-react";
 import { usePathname } from "next/navigation";
 
-const MAPS_URL = "https://maps.app.goo.gl/F5K19Sff5QfKbEZs5";
+const MAPS_URL =
+  "https://www.google.com/maps?q=16.506605130133785,80.66238515786827";
 
 /** Sticky location pin — bottom-right while guest pages scroll. Hidden on /ops. */
 export function StickyLocationMark({
-  address = "Anvi Grand, near Benz Circle, Eluru Road, Vijayawada",
+  address = "Anvi Grand, near Benz Circle, 54-15-1A, Beside Yalamanchili complex, Dr. Ramesh Hospital Road, Ring Rd, Vijayawada, Andhra Pradesh 520008",
 }: {
   address?: string;
 }) {

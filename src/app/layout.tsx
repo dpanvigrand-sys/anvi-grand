@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     template: "%s · ANVI GRAND",
   },
   description:
-    "ANVI GRAND near Benz Circle, Eluru Road, Vijayawada. Rooms, banquet, party hall, and IRAA Dine. Call 7569494949.",
+    "ANVI GRAND near Benz Circle, Ring Rd, Vijayawada. Rooms, banquet, party hall, and IRAA Dine. Call 7569494949.",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: "/icons/icon.svg",

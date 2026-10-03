@@ -20,7 +20,7 @@ export function SiteFooter({
   roomsPhone,
   foodPhone,
   email = "dpanvigrand@gmail.com",
-  address = "Anvi Grand, near Benz Circle, Eluru Road, Vijayawada",
+  address = "Anvi Grand, near Benz Circle, 54-15-1A, Beside Yalamanchili complex, Dr. Ramesh Hospital Road, Ring Rd, Vijayawada, Andhra Pradesh 520008",
   website = SITE_URL,
 }: Props) {
   const pathname = usePathname();
@@ -155,7 +155,7 @@ export function SiteFooter({
         </div>
       </div>
       <div className="border-t border-white/10 bg-black/20 px-5 py-5 text-center text-xs text-white/60 md:px-8">
-        © {new Date().getFullYear()} ANVI GRAND · Benz Circle, Eluru Road, Vijayawada ·{" "}
+        © {new Date().getFullYear()} ANVI GRAND · near Benz Circle, Ring Rd, Vijayawada ·{" "}
         <a href={site} className="text-white/75 hover:text-white">
           {siteLabel}
         </a>
