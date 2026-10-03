@@ -29,7 +29,7 @@ export default async function AdminPhotosPage() {
       </h1>
       <p className="mt-2 max-w-2xl text-[var(--ag-muted)]">
         Add, edit, or delete every public image: home hero, gallery, room cards,
-        IRAA Dine food, banquet/venues, and facilities. Each card shows which guest
+        AIRAA Dine food, banquet/venues, and facilities. Each card shows which guest
         page it maps to. Changes update{" "}
         <Link href="/" className="text-[var(--ag-red)] underline">
           /

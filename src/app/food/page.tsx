@@ -5,7 +5,7 @@ import { getHotel, getMenu, resolveHotelPhones } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
-export const metadata: Metadata = { title: "IRAA Dine Dine" };
+export const metadata: Metadata = { title: "AIRAA Dine" };
 
 export default async function FoodPage() {
   const [hotel, menu] = await Promise.all([getHotel(), getMenu()]);
@@ -14,15 +14,15 @@ export default async function FoodPage() {
   return (
     <div className="mx-auto max-w-6xl px-5 py-12 md:px-8">
       <Image
-        src="/logos/iraa.svg"
-        alt="IRAA Dine"
+        src="/logos/airaa.svg"
+        alt="AIRAA Dine"
         width={180}
         height={48}
         className="h-11 w-auto"
         priority
       />
       <h1 className="mt-5 font-display text-4xl text-[var(--ag-ink)] md:text-5xl">
-        Order from IRAA Dine
+        Order from AIRAA Dine
       </h1>
       <p className="mt-4 max-w-2xl text-[var(--ag-muted)]">
         Room service and takeaway from the {hotel.foodBrand} kitchen at ANVI

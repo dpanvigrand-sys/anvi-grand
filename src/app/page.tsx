@@ -30,9 +30,9 @@ export default async function HomePage() {
         receptionPhone={phones.reception}
         foodBrand={hotel.foodBrand}
         foodLogo={
-          hotel.foodLogo?.includes("iraa")
-            ? "/logos/iraa-mark.svg"
-            : hotel.foodLogo || "/logos/iraa-mark.svg"
+          hotel.foodLogo?.includes("airaa")
+            ? "/logos/airaa-mark.svg"
+            : hotel.foodLogo || "/logos/airaa-mark.svg"
         }
       />
 
@@ -48,7 +48,7 @@ export default async function HomePage() {
             </h2>
           </div>
           <p className="text-[15px] leading-relaxed text-[var(--ag-muted)] md:text-base">
-            Quiet rooms, celebration halls, and IRAA Dine under one roof —
+            Quiet rooms, celebration halls, and AIRAA Dine under one roof —
             crafted for business travellers, families, and festive gatherings in
             Vijayawada.
           </p>
@@ -162,7 +162,7 @@ export default async function HomePage() {
               Dining
             </p>
             <h2 className="mt-2 font-display text-[1.9rem] text-[var(--ag-ink)] sm:text-3xl md:text-4xl">
-              IRAA Dine
+              AIRAA Dine
             </h2>
             <p className="mt-3 text-[var(--ag-muted)]">
               Andhra favourites with clear ₹ pricing. Order to your room or takeaway —
@@ -175,7 +175,7 @@ export default async function HomePage() {
           <p className="mt-6 text-sm text-[var(--ag-muted)]">
             Full menu on{" "}
             <Link href="/food" className="font-medium text-[var(--ag-red)] hover:underline">
-              the IRAA Dine page
+              the AIRAA Dine page
             </Link>
             .
           </p>

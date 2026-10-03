@@ -20,7 +20,7 @@ type Props = {
 export function OpeningShortlyPopup({
   enabled = false,
   title = "Opening Shortly",
-  message = "Rooms, banquet & IRAA Dine near Benz Circle — call to reserve.",
+  message = "Rooms, banquet & AIRAA Dine near Benz Circle — call to reserve.",
   phone = "7569494949",
   hotelName = "ANVI GRAND",
 }: Props) {
@@ -30,7 +30,7 @@ export function OpeningShortlyPopup({
   const headline = title.trim() || "Opening Shortly";
   const body =
     message.trim() ||
-    "Rooms, banquet & IRAA Dine near Benz Circle — call to reserve.";
+    "Rooms, banquet & AIRAA Dine near Benz Circle — call to reserve.";
   const desk = phone.trim() || "7569494949";
   const onGuest = enabled && !pathname.startsWith("/ops");
 

@@ -17,7 +17,7 @@ export function OpeningPopupAdmin({ initialHotel }: Props) {
   );
   const [message, setMessage] = useState(
     initialHotel.openingPopupMessage ||
-      "Rooms, banquet & IRAA Dine near Benz Circle — call to reserve.",
+      "Rooms, banquet & AIRAA Dine near Benz Circle — call to reserve.",
   );
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState("");

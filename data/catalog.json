@@ -5,16 +5,16 @@
     "address": "Anvi Grand, near Benz Circle, 54-15-1A, Beside Yalamanchili complex, Dr. Ramesh Hospital Road, Ring Rd, Vijayawada, Andhra Pradesh 520008",
     "phone": "7569494949",
     "email": "dpanvigrand@gmail.com",
-    "foodBrand": "IRAA Dine",
+    "foodBrand": "AIRAA Dine",
     "heroImage": "/uploads/media-muhq77be0fcti8-anvi-grand-entrance-hero.jpg",
     "logo": "/logos/anvi-grand.svg",
-    "foodLogo": "/logos/iraa-mark.svg",
+    "foodLogo": "/logos/airaa-mark.svg",
     "roomsPhone": "7569494949",
     "foodPhone": "7569494949",
     "receptionPhone": "7569494949",
     "openingPopupEnabled": true,
     "openingPopupTitle": "Opening Shortly",
-    "openingPopupMessage": "Rooms, banquet & IRAA Dine near Benz Circle \u2014 call to reserve."
+    "openingPopupMessage": "Rooms, banquet & AIRAA Dine near Benz Circle \u2014 call to reserve."
   },
   "rooms": [
     {
@@ -109,7 +109,7 @@
       "type": "party-hall",
       "name": "Imperial Ruby Mini Hall",
       "tagline": "Intimate celebrations",
-      "description": "A warm party hall for birthdays, engagements, and corporate evenings \u2014 stage, AC, and IRAA Dine catering on call.",
+      "description": "A warm party hall for birthdays, engagements, and corporate evenings \u2014 stage, AC, and AIRAA Dine catering on call.",
       "capacity": 150,
       "priceFrom": 20000,
       "image": "/uploads/media-muhoyv60dz2i-whatsapp-image-2026-09-12-at-5.21.07-pm.jpeg",
@@ -124,7 +124,7 @@
       "id": "chiguru-handi-biryani",
       "name": "Handi Biryani",
       "category": "biryani",
-      "description": "Slow-cooked dum biryani from the IRAA Dine kitchen \u2014 fragrant basmati, sealed handi, Andhra spice.",
+      "description": "Slow-cooked dum biryani from the AIRAA Dine kitchen \u2014 fragrant basmati, sealed handi, Andhra spice.",
       "price": 389,
       "veg": false,
       "image": "https://images.unsplash.com/photo-1563379091339-03b21ab4a4f8?auto=format&fit=crop&w=800&q=80"
@@ -188,7 +188,7 @@
     {
       "id": "weekend-andhra",
       "name": "Weekend Andhra Buffet",
-      "description": "Gongura, pulusu, and rice stations \u2014 weekend lunch favourites from IRAA.",
+      "description": "Gongura, pulusu, and rice stations \u2014 weekend lunch favourites from AIRAA.",
       "pricePerPerson": 949,
       "meal": "lunch",
       "image": "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1400&q=80"

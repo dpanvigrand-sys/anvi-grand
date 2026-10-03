@@ -4,8 +4,8 @@ import Link from "next/link";
 export function Hero({
   imageSrc,
   receptionPhone = "7569494949",
-  foodBrand = "IRAA Dine",
-  foodLogo = "/logos/iraa-mark.svg",
+  foodBrand = "AIRAA Dine",
+  foodLogo = "/logos/airaa-mark.svg",
 }: {
   imageSrc?: string;
   receptionPhone?: string;
@@ -14,8 +14,8 @@ export function Hero({
 }) {
   const src = imageSrc?.trim() || "/images/anvi-entrance.jpg";
   const phone = receptionPhone.trim() || "7569494949";
-  const brand = foodBrand.trim() || "IRAA Dine";
-  const logo = foodLogo.trim() || "/logos/iraa-mark.svg";
+  const brand = foodBrand.trim() || "AIRAA Dine";
+  const logo = foodLogo.trim() || "/logos/airaa-mark.svg";
 
   return (
     <section className="relative min-h-[calc(100svh-6.25rem)] overflow-hidden md:min-h-[88svh]">
@@ -45,7 +45,7 @@ export function Hero({
               Experience Luxury & Comfort
             </p>
             <p className="mt-3 max-w-md text-[13px] leading-relaxed text-white/80 sm:text-sm md:text-base">
-              Hotel stays, banquet celebrations, and IRAA Dine near Benz Circle.
+              Hotel stays, banquet celebrations, and AIRAA Dine near Benz Circle.
               Call{" "}
               <a
                 href={`tel:${phone}`}
@@ -70,7 +70,7 @@ export function Hero({
             </div>
           </div>
 
-          {/* Mobile: quiet IRAA strip. Desktop: mark opposite Welcome */}
+          {/* Mobile: quiet AIRAA strip. Desktop: mark opposite Welcome */}
           <Link
             href="/food"
             className="animate-drift-delay flex w-full flex-row items-center gap-3 rounded-sm border border-white/10 bg-black/20 px-3 py-3 backdrop-blur-[2px] md:w-auto md:shrink-0 md:flex-col md:items-center md:gap-2 md:border-0 md:bg-transparent md:px-0 md:py-0 md:backdrop-blur-none md:text-center"
@@ -87,7 +87,7 @@ export function Hero({
             />
             <span className="flex flex-col md:items-center">
               <span className="font-display text-lg tracking-[0.16em] text-white md:text-xl">
-                IRAA
+                AIRAA
               </span>
               <span className="mt-0.5 text-[10px] font-semibold uppercase tracking-[0.34em] text-[var(--ag-gold)]">
                 Dine
@@ -97,7 +97,7 @@ export function Hero({
         </div>
 
         <div className="animate-drift mt-6 flex flex-col gap-2.5 border-t border-[var(--ag-gold)]/25 pt-4 text-[10px] uppercase tracking-[0.2em] text-white/65 sm:mt-10 sm:flex-row sm:flex-wrap sm:items-end sm:justify-between sm:gap-4 sm:text-xs sm:tracking-[0.18em] md:mt-0">
-          <p>Rooms · Banquet · Party Hall · IRAA Dine</p>
+          <p>Rooms · Banquet · Party Hall · AIRAA Dine</p>
           <Link href="/gallery" className="text-[var(--ag-gold-soft)] hover:text-white">
             View gallery →
           </Link>

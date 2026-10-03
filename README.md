@@ -1,16 +1,16 @@
 # ANVI GRAND
 
-Full-stack hotel website for **ANVI GRAND** (Vijayawada) with **IRAA Dine** dining and password-gated staff ops.
+Full-stack hotel website for **ANVI GRAND** (Vijayawada) with **AIRAA Dine** dining and password-gated staff ops.
 
 ## Brand
 
 - Hotel: ANVI GRAND  
-- Restaurant: IRAA  
+- Restaurant: AIRAA  
 - Address: Anvi Grand, near Benz Circle, 54-15-1A, Beside Yalamanchili complex, Dr. Ramesh Hospital Road, Ring Rd, Vijayawada, Andhra Pradesh 520008  
 - Map: https://www.google.com/maps?q=16.506605130133785,80.66238515786827
 - Phone: [7569494949](tel:7569494949)  
 - Theme: red / chocolate brown / maroon / white  
-- Logos: `public/logos/anvi-grand.svg`, `public/logos/iraa.svg`
+- Logos: `public/logos/anvi-grand.svg`, `public/logos/airaa.svg`
 
 ## Run locally
 
@@ -83,7 +83,7 @@ Opens `http://127.0.0.1:3947/`. A web app manifest is also at `public/manifest.w
 - `/` brand-first hero + rates teaser + map  
 - `/rooms`, `/rooms/[id]`, `/book`, `/bookings/[id]` — room booking with ₹ rates  
 - `/banquet`, `/party-hall` — venue booking  
-- `/food` — IRAA online order with cart + Pay Now checkout
+- `/food` — AIRAA online order with cart + Pay Now checkout
 - `/gallery` — photo gallery of rooms, halls, and facilities  
 - `/buffet` — buffet booking  
 - `/facilities`, `/contact`
