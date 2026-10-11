@@ -21,7 +21,7 @@ export function OpeningShortlyPopup({
   enabled = false,
   title = "Opening Shortly",
   message = "Rooms, banquet & AIRAA Dine near Benz Circle — call to reserve.",
-  phone = "7569494949",
+  phone = "9753456999",
   hotelName = "ANVI GRAND",
 }: Props) {
   const pathname = usePathname();
@@ -31,7 +31,7 @@ export function OpeningShortlyPopup({
   const body =
     message.trim() ||
     "Rooms, banquet & AIRAA Dine near Benz Circle — call to reserve.";
-  const desk = phone.trim() || "7569494949";
+  const desk = phone.trim() || "9753456999";
   const onGuest = enabled && !pathname.startsWith("/ops");
 
   useEffect(() => {

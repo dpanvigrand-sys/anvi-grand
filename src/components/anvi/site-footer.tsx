@@ -51,7 +51,7 @@ function SocialIcon({
 }
 
 export function SiteFooter({
-  receptionPhone = "7569494949",
+  receptionPhone = "9753456999",
   roomsPhone,
   foodPhone,
   email = "dpanvigrand@gmail.com",
@@ -65,9 +65,8 @@ export function SiteFooter({
   const pathname = usePathname();
   if (pathname.startsWith("/ops")) return null;
 
-  const reception = receptionPhone.trim() || "7569494949";
-  const rooms = (roomsPhone || reception).trim();
-  const food = (foodPhone || reception).trim();
+  const reception = receptionPhone.trim() || "9753456999";
+  const rooms = (roomsPhone || foodPhone || reception).trim();
   const mail = email.trim() || "dpanvigrand@gmail.com";
   const site = (website || SITE_URL).replace(/\/$/, "");
   const siteLabel = site.replace(/^https?:\/\//, "");
@@ -160,7 +159,7 @@ export function SiteFooter({
             {address}
             <br />
             <span className="mt-3 block text-xs uppercase tracking-[0.14em] text-[var(--ag-gold)]">
-              Reception
+              Contact
             </span>
             <a
               href={`tel:${reception}`}
@@ -168,26 +167,17 @@ export function SiteFooter({
             >
               {reception}
             </a>
-            <br />
-            <span className="mt-2 block text-xs uppercase tracking-[0.14em] text-[var(--ag-gold)]">
-              Rooms booking
-            </span>
-            <a
-              href={`tel:${rooms}`}
-              className="inline-block text-base font-semibold text-[#ffb4b4] hover:underline"
-            >
-              {rooms}
-            </a>
-            <br />
-            <span className="mt-2 block text-xs uppercase tracking-[0.14em] text-[var(--ag-gold)]">
-              Food booking
-            </span>
-            <a
-              href={`tel:${food}`}
-              className="inline-block text-base font-semibold text-[#ffb4b4] hover:underline"
-            >
-              {food}
-            </a>
+            {rooms !== reception ? (
+              <>
+                <br />
+                <a
+                  href={`tel:${rooms}`}
+                  className="inline-block text-base font-semibold text-[#ffb4b4] hover:underline"
+                >
+                  {rooms}
+                </a>
+              </>
+            ) : null}
             <br />
             <span className="mt-3 block text-xs uppercase tracking-[0.14em] text-[var(--ag-gold)]">
               Email

@@ -28,6 +28,7 @@ export default async function HomePage() {
       <Hero
         imageSrc={hotel.heroImage}
         receptionPhone={phones.reception}
+        altPhone={phones.rooms}
         foodBrand={hotel.foodBrand}
         foodLogo={
           hotel.foodLogo?.includes("airaa") || hotel.foodLogo?.includes("iraa")

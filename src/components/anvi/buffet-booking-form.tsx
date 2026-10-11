@@ -21,9 +21,9 @@ type Props = {
 
 export function BuffetBookingForm({
   buffets,
-  contactPhone = "7569494949",
+  contactPhone = "9753456999",
 }: Props) {
-  const desk = contactPhone.trim() || "7569494949";
+  const desk = contactPhone.trim() || "9753456999";
   const [buffetId, setBuffetId] = useState(buffets[0]?.id || "");
   const [guestName, setGuestName] = useState("");
   const [phone, setPhone] = useState("");

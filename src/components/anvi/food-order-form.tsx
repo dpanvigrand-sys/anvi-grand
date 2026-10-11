@@ -19,9 +19,9 @@ type Props = {
 export function FoodOrderForm({
   menu,
   variant = "page",
-  contactPhone = "7569494949",
+  contactPhone = "9753456999",
 }: Props) {
-  const desk = contactPhone.trim() || "7569494949";
+  const desk = contactPhone.trim() || "9753456999";
   const [cart, setCart] = useState<Record<string, number>>({});
   const [guestName, setGuestName] = useState("");
   const [phone, setPhone] = useState("");

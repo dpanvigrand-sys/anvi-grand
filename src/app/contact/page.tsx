@@ -27,27 +27,22 @@ export default async function ContactPage() {
         <div className="mt-8 space-y-4 text-sm text-[var(--ag-ink)]">
           <p>
             <span className="block text-xs uppercase tracking-[0.16em] text-[var(--ag-muted)]">
-              Reception
+              Contact numbers
             </span>
-            <a href={`tel:${phones.reception}`} className="text-lg font-semibold text-[var(--ag-red)]">
+            <a
+              href={`tel:${phones.reception}`}
+              className="block text-lg font-semibold text-[var(--ag-red)]"
+            >
               {phones.reception}
             </a>
-          </p>
-          <p>
-            <span className="block text-xs uppercase tracking-[0.16em] text-[var(--ag-muted)]">
-              Rooms booking
-            </span>
-            <a href={`tel:${phones.rooms}`} className="text-lg font-semibold text-[var(--ag-red)]">
-              {phones.rooms}
-            </a>
-          </p>
-          <p>
-            <span className="block text-xs uppercase tracking-[0.16em] text-[var(--ag-muted)]">
-              Food booking
-            </span>
-            <a href={`tel:${phones.food}`} className="text-lg font-semibold text-[var(--ag-red)]">
-              {phones.food}
-            </a>
+            {phones.rooms !== phones.reception ? (
+              <a
+                href={`tel:${phones.rooms}`}
+                className="mt-1 block text-lg font-semibold text-[var(--ag-red)]"
+              >
+                {phones.rooms}
+              </a>
+            ) : null}
           </p>
           <p>
             <span className="block text-xs uppercase tracking-[0.16em] text-[var(--ag-muted)]">

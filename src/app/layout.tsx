@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     template: "%s · ANVI GRAND",
   },
   description:
-    "ANVI GRAND near Benz Circle, Ring Rd, Vijayawada. Rooms, banquet, party hall, and AIRAA Dine. Call 7569494949.",
+    "ANVI GRAND near Benz Circle, Ring Rd, Vijayawada. Rooms, banquet, party hall, and AIRAA Dine. Call 9753456999 / 7093462467.",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: "/icons/icon.svg",
@@ -46,7 +46,10 @@ export default async function RootLayout({
     >
       <body className="flex min-h-full flex-col font-sans">
         <LiveDataRefresh />
-        <SiteHeader receptionPhone={phones.reception} />
+        <SiteHeader
+          receptionPhone={phones.reception}
+          altPhone={phones.rooms}
+        />
         <main className="flex-1">{children}</main>
         <SiteFooter
           receptionPhone={phones.reception}

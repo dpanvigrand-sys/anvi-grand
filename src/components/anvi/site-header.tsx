@@ -24,13 +24,20 @@ const links = [
   { href: "/contact", label: "Contact" },
 ];
 
-type Props = { receptionPhone?: string };
+type Props = { receptionPhone?: string; altPhone?: string };
 
-export function SiteHeader({ receptionPhone = "7569494949" }: Props) {
+export function SiteHeader({
+  receptionPhone = "9753456999",
+  altPhone = "7093462467",
+}: Props) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const isOps = pathname.startsWith("/ops");
-  const phone = receptionPhone.trim() || "7569494949";
+  const phone = receptionPhone.trim() || "9753456999";
+  const phone2 = (altPhone || "").trim();
+  const phones = [phone, phone2].filter(
+    (n, i, arr) => n.length > 0 && arr.indexOf(n) === i,
+  );
 
   if (isOps) return null;
 
@@ -39,17 +46,24 @@ export function SiteHeader({ receptionPhone = "7569494949" }: Props) {
       <div className="h-[2px] bg-[linear-gradient(90deg,#6b0000,#d4af37,#6b0000)]" />
       <div className="border-b border-white/10">
         <div className="mx-auto flex w-full max-w-6xl items-center gap-2 px-5 py-1.5 text-[10px] tracking-[0.12em] text-white/75 sm:gap-3 sm:py-2 sm:text-[11px] sm:tracking-[0.14em] md:px-8">
-          {/* Phone: Call + number left. Desktop: Vijayawada left, Reception center-right */}
-          <a
-            href={`tel:${phone}`}
-            className="shrink-0 font-medium text-[var(--ag-gold-soft)] hover:text-white"
-          >
-            <span className="sm:hidden">Call {phone}</span>
-            <span className="hidden sm:inline">
-              <span className="mr-3 text-white/70">Vijayawada</span>
-              Reception {phone}
-            </span>
-          </a>
+          {/* Phone lines left — both public contact numbers */}
+          <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 font-medium text-[var(--ag-gold-soft)] sm:gap-x-3">
+            <span className="hidden text-white/70 sm:inline">Vijayawada</span>
+            {phones.map((n, i) => (
+              <a
+                key={n}
+                href={`tel:${n}`}
+                className="shrink-0 hover:text-white"
+              >
+                <span className="sm:hidden">
+                  {i === 0 ? `Call ${n}` : n}
+                </span>
+                <span className="hidden sm:inline">
+                  {i === 0 ? `Call ${n}` : n}
+                </span>
+              </a>
+            ))}
+          </div>
           {/* Tiny Badizo — top-right, white background (as provided) */}
           <Link
             href="/"
@@ -133,9 +147,15 @@ export function SiteHeader({ receptionPhone = "7569494949" }: Props) {
                 </SheetTitle>
               </SheetHeader>
               <nav className="flex flex-col gap-1 px-4 pb-6">
-                <a href={`tel:${phone}`} className="py-3 font-medium text-[var(--ag-red)]">
-                  Call {phone}
-                </a>
+                {phones.map((n) => (
+                  <a
+                    key={n}
+                    href={`tel:${n}`}
+                    className="py-3 font-medium text-[var(--ag-red)]"
+                  >
+                    Call {n}
+                  </a>
+                ))}
                 {links.map((l) => (
                   <Link
                     key={l.href}

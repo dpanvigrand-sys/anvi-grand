@@ -116,7 +116,7 @@ export async function getCatalog(): Promise<Catalog> {
       tagline: "Grand stays on Eluru Road",
       address:
         "Anvi Grand, near Benz Circle, 54-15-1A, Beside Yalamanchili complex, Dr. Ramesh Hospital Road, Ring Rd, Vijayawada, Andhra Pradesh 520008",
-      phone: "7569494949",
+      phone: "9753456999",
       email: "dpanvigrand@gmail.com",
       foodBrand: "AIRAA Dine",
     },
@@ -139,7 +139,7 @@ export async function getHotel() {
 
 /** Role phones with fallback to legacy hotel.phone */
 export function resolveHotelPhones(hotel: HotelInfo) {
-  const fallback = hotel.phone?.trim() || "7569494949";
+  const fallback = hotel.phone?.trim() || "9753456999";
   return {
     rooms: hotel.roomsPhone?.trim() || fallback,
     food: hotel.foodPhone?.trim() || fallback,

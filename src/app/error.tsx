@@ -21,7 +21,7 @@ export default function Error({
         ANVI GRAND hit a snag
       </h1>
       <p className="text-[var(--ag-muted)]">
-        Please try again, or call the front desk on 7569494949.
+        Please try again, or call the front desk on 9753456999 / 7093462467.
       </p>
       <Button
         onClick={reset}

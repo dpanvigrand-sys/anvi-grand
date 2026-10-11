@@ -3,17 +3,20 @@ import Link from "next/link";
 
 export function Hero({
   imageSrc,
-  receptionPhone = "7569494949",
+  receptionPhone = "9753456999",
+  altPhone = "7093462467",
   foodBrand = "AIRAA Dine",
   foodLogo = "/logos/airaa-mark.svg",
 }: {
   imageSrc?: string;
   receptionPhone?: string;
+  altPhone?: string;
   foodBrand?: string;
   foodLogo?: string;
 }) {
   const src = imageSrc?.trim() || "/images/anvi-entrance.jpg";
-  const phone = receptionPhone.trim() || "7569494949";
+  const phone = receptionPhone.trim() || "9753456999";
+  const phone2 = (altPhone || "").trim();
   const brand = foodBrand.trim() || "AIRAA Dine";
   const logo = foodLogo.trim() || "/logos/airaa-mark.svg";
 
@@ -53,6 +56,17 @@ export function Hero({
               >
                 {phone}
               </a>
+              {phone2 && phone2 !== phone ? (
+                <>
+                  {" / "}
+                  <a
+                    href={`tel:${phone2}`}
+                    className="font-medium text-white underline decoration-[var(--ag-gold)] underline-offset-4"
+                  >
+                    {phone2}
+                  </a>
+                </>
+              ) : null}
             </p>
             <div className="mt-8 flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap">
               <Link

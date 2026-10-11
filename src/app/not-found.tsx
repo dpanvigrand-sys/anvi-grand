@@ -9,7 +9,7 @@ export default function NotFound() {
         Page not found at ANVI GRAND
       </h1>
       <p className="text-[var(--ag-muted)]">
-        That link may have moved. Head home or call 7569494949.
+        That link may have moved. Head home or call 9753456999 / 7093462467.
       </p>
       <Button
         render={<Link href="/" />}

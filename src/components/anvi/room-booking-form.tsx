@@ -25,9 +25,9 @@ type Props = {
 export function RoomBookingForm({
   rooms,
   defaultRoomId,
-  contactPhone = "7569494949",
+  contactPhone = "9753456999",
 }: Props) {
-  const desk = contactPhone.trim() || "7569494949";
+  const desk = contactPhone.trim() || "9753456999";
   const router = useRouter();
   const available = rooms.filter((r) => r.available);
   const [roomId, setRoomId] = useState(defaultRoomId || available[0]?.id || "");

@@ -110,7 +110,7 @@ export function ContactsAdmin({ initialHotel }: Props) {
     <div className="space-y-6">
       <p className="text-sm text-[var(--ag-muted)]">
         Manage the three public booking lines. Main desk fallback stays{" "}
-        <strong>{hotel.phone || "7569494949"}</strong> unless you change
+        <strong>{hotel.phone || "9753456999"}</strong> unless you change
         Reception.
       </p>
 
@@ -164,7 +164,7 @@ export function ContactsAdmin({ initialHotel }: Props) {
                     id={role.key}
                     className="rounded-none"
                     inputMode="tel"
-                    placeholder="7569494949"
+                    placeholder="9753456999"
                     value={drafts[role.key]}
                     onChange={(e) =>
                       setDrafts((d) => ({ ...d, [role.key]: e.target.value }))
